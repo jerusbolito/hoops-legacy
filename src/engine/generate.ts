@@ -119,6 +119,7 @@ export function makeNpc(
     athleteId: p.athleteId,
     relationship: baseRelationship(p.rel),
     memories: p.memories ?? [],
+    keyMemories: [],
     active: true,
     metSeason: p.season,
   };

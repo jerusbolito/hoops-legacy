@@ -145,7 +145,7 @@ export function createCareer(input: NewCareerInput): GameState {
     gameLog: [],
     leagueStats: {},
     lastBox: null,
-    story: { log: [], seasonSummaries: [], flags: {}, arcs: [] },
+    story: { log: [], seasonSummaries: [], flags: {}, arcs: [], careerSummary: '', defining: [], threads: [] },
     news: [],
     effectLog: [],
   };
@@ -534,6 +534,40 @@ function graduationAge(level: Level): number {
   return level === 'hs' ? 18 : level === 'college' ? 22 : 36;
 }
 
+/**
+ * When a player leaves the roster for good (graduation, early entry, retirement), the story
+ * character built on top of them must leave too, so the narrator stops treating them as a teammate.
+ */
+function retireNpcForAthlete(state: GameState, a: Athlete, level: Level) {
+  for (const n of Object.values(state.npcs)) {
+    if (n.athleteId !== a.id || !n.active) continue;
+    const reason =
+      level === 'hs' ? 'Graduated' : level === 'college' ? (a.age >= graduationAge(level) ? 'Graduated' : 'Left school early') : 'Retired';
+    n.active = false;
+    n.athleteId = undefined;
+    n.title = `Former teammate (${reason.toLowerCase()} after season ${state.career.season})`;
+    n.memories.push(`${reason} after season ${state.career.season}; no longer on your team.`);
+    addNews(state, `${n.name} ${reason === 'Retired' ? 'has retired' : reason === 'Graduated' ? 'has graduated' : 'has left the program'} — no longer on the roster.`);
+  }
+}
+
+/**
+ * Safety net (also covers older saves): any teammate/rival whose athlete no longer exists or has no
+ * team is not part of the current story cast.
+ */
+export function retireStaleNpcs(state: GameState) {
+  for (const n of Object.values(state.npcs)) {
+    if (!n.active || !n.athleteId) continue;
+    if (n.role !== 'teammate' && n.role !== 'friend') continue;
+    const a = state.athletes[n.athleteId];
+    if (!a) {
+      n.active = false;
+      n.athleteId = undefined;
+      n.title = `Former teammate (moved on)`;
+    }
+  }
+}
+
 /** Remove departing NPC athletes and refill rosters with newcomers. */
 function turnoverRosters(state: GameState, rng: RNG) {
   const names = NameBook.fromState(state);
@@ -556,7 +590,10 @@ function turnoverRosters(state: GameState, rng: RNG) {
         (level === 'pro' && a.age >= 32 && ovr < 68 && rng.chance(0.6));
       if (leaves) {
         a.teamId = null;
-        if (!a.persistent) delete state.athletes[id];
+        if (!a.persistent) {
+          retireNpcForAthlete(state, a, level);
+          delete state.athletes[id];
+        }
       } else keep.push(id);
     }
     team.rosterIds = keep;
@@ -626,10 +663,35 @@ function startNextSeason(state: GameState, rng: RNG, messages: string[]): WeekAd
 
   c.year = nextYear;
   turnoverRosters(state, rng);
+  retireStaleNpcs(state);
+  promoteTeammate(state, rng);
   newSeasonCommon(state, rng);
   if (c.level === 'hs' && c.year === 3) introduceScout(state, rng);
   messages.push(`Season ${c.season} begins.`);
   return { seasonEnded: false, messages };
+}
+
+/** If the last teammate character left, the team's best remaining veteran steps into that role. */
+function promoteTeammate(state: GameState, rng: RNG) {
+  const hasTeammate = Object.values(state.npcs).some((n) => n.active && n.role === 'teammate' && n.athleteId && state.athletes[n.athleteId]?.teamId === state.career.teamId);
+  if (hasTeammate) return;
+  const level = state.career.level;
+  const mate = teamRoster(state, state.career.teamId)
+    .filter((a) => a.id !== state.player.athleteId && !a.persistent && !Object.values(state.npcs).some((n) => n.athleteId === a.id))
+    .sort((a, b) => b.age - a.age || overall(b.ratings) - overall(a.ratings))[0];
+  if (!mate) return;
+  const sameSpot = mate.position === userAthlete(state).position;
+  addNpc(
+    state,
+    makeNpc(rng, {
+      name: `${mate.firstName} ${mate.lastName}`,
+      role: 'teammate',
+      title: level === 'pro' ? `Veteran teammate at ${userTeam(state).name}` : `${sameSpot ? 'Upperclassman competing for your minutes' : 'Upperclassman leader'} at ${userTeam(state).name}`,
+      season: state.career.season + 1,
+      athleteId: mate.id,
+      rel: { affinity: 0, respect: 25, trust: 15, rivalry: sameSpot ? 10 : 0 },
+    }),
+  );
 }
 
 function introduceScout(state: GameState, rng: RNG) {

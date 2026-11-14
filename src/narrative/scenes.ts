@@ -62,7 +62,7 @@ export function pickScene(state: GameState, rng: RNG): ScenePlan {
         ? 'Opening scene of the whole story: your first day at high school tryouts/practice. Introduce your best friend, the coach, and the senior who plays your position. Mention the cross-town rival.'
         : c.year === 1
           ? `First day at a new level (${c.level === 'college' ? 'college' : 'the pros'}). Meet the coach and the team leader. Establish the new stakes.`
-          : 'First practice of a new season. Expectations have changed since last year.';
+          : 'First practice of a new season. Expectations have changed since last year. Last year\'s departed teammates (see NO LONGER PART OF YOUR DAILY LIFE) are gone and the roster has new faces; acknowledge the empty spot they left rather than pretending they are still here.';
     return { kind: 'season_opener', brief, castIds: castFor(state, rng, c.season === 1 ? ['coach', 'friend', 'teammate'] : ['coach', 'teammate', 'friend']) };
   }
 

@@ -6,7 +6,9 @@ import { motion } from 'framer-motion';
 import { useRef } from 'react';
 import { Avatar, Button, Meter, TeamBadge, cx } from '../components/ui';
 import { RevealOverlay } from '../components/RevealOverlay';
+import { AnalyticsView } from '../views/AnalyticsView';
 import { HubView } from '../views/HubView';
+import { MemoryView } from '../views/MemoryView';
 import { LeagueView } from '../views/LeagueView';
 import { ProfileView } from '../views/ProfileView';
 import { RelationshipsView } from '../views/RelationshipsView';
@@ -17,7 +19,9 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'profile', label: 'Player', icon: '⛹️' },
   { id: 'relationships', label: 'People', icon: '🤝' },
   { id: 'league', label: 'League', icon: '🏆' },
+  { id: 'analytics', label: 'Analytics', icon: '📊' },
   { id: 'story', label: 'Story', icon: '📖' },
+  { id: 'memory', label: 'Memory', icon: '🧠' },
 ];
 
 function OverallBadge({ value }: { value: number }) {
@@ -113,7 +117,9 @@ export function GameShell() {
         {tab === 'profile' && <ProfileView />}
         {tab === 'relationships' && <RelationshipsView />}
         {tab === 'league' && <LeagueView />}
+        {tab === 'analytics' && <AnalyticsView />}
         {tab === 'story' && <StoryView />}
+        {tab === 'memory' && <MemoryView />}
       </main>
       <RevealOverlay />
     </div>

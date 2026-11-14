@@ -81,6 +81,8 @@ export async function generateScene(client: LLMClient | null, state: GameState, 
 export interface SceneResolution extends NarrationMeta {
   narration: string;
   summary: string;
+  /** Something this scene leaves hanging for a later scene to pay off. */
+  hook?: string;
   effects: Effect[];
   invalidEffects: number;
 }
@@ -97,7 +99,7 @@ export async function resolveScene(
   try {
     const r = await askJson(client, sceneResolvePrompt(fullContext(state, plan.castIds), setup, choice.text), SceneResolveSchema, { signal });
     const { effects, invalid } = parseEffects(r.effects);
-    return { narration: r.narration, summary: r.summary, effects, invalidEffects: invalid, source: 'ai' };
+    return { narration: r.narration, summary: r.summary, hook: r.hook?.trim() || undefined, effects, invalidEffects: invalid, source: 'ai' };
   } catch (e) {
     if ((e as Error).name === 'AbortError') throw e;
     return { ...templateResolution(plan, choice.tone, choice.text), invalidEffects: 0, source: 'template', error: errMsg(e) };
@@ -182,7 +184,14 @@ export async function generateRecap(client: LLMClient | null, state: GameState, 
 
 /* ───────────────────────── Season summary & flavor ───────────────────────── */
 
-export async function generateSeasonSummary(client: LLMClient | null, state: GameState): Promise<string> {
+export interface SeasonMemory {
+  /** This season only (shown in the Seasons list). */
+  summary: string;
+  /** Rolling summary of the whole career; empty when no AI is available. */
+  career: string;
+}
+
+export async function generateSeasonSummary(client: LLMClient | null, state: GameState): Promise<SeasonMemory> {
   const season = state.career.season;
   const avg = seasonAverages(state.gameLog, season);
   const standing = state.league.standings[state.career.teamId];
@@ -195,12 +204,13 @@ export async function generateSeasonSummary(client: LLMClient | null, state: Gam
     ...state.story.log.filter((e) => e.season === season).map((e) => `- ${e.title}: ${e.summary}`),
   ].join('\n');
   const fallback = `${teamLabel(state, state.career.teamId)} went ${standing?.w ?? 0}-${standing?.l ?? 0}; you averaged ${fmt1(avg.ppg)} ppg.${awards.length ? ` Awards: ${awards.join(', ')}.` : ''}`;
-  if (!isLive(client)) return fallback;
+  const prevCareer = state.story.careerSummary;
+  if (!isLive(client)) return { summary: fallback, career: prevCareer };
   try {
-    const r = await askJson(client, seasonSummaryPrompt(fullContext(state, []), facts), SummarySchema, { maxTokens: 4000 });
-    return r.summary;
+    const r = await askJson(client, seasonSummaryPrompt(fullContext(state, []), facts, prevCareer), SummarySchema, { maxTokens: 4000 });
+    return { summary: r.summary, career: r.career?.trim() || prevCareer };
   } catch {
-    return fallback;
+    return { summary: fallback, career: prevCareer };
   }
 }
 

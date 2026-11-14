@@ -110,6 +110,49 @@ describe('career', () => {
     }
   });
 
+  it('lets graduated seniors go: no active teammate points at a player who left the roster', () => {
+    const s = newGame(7);
+    const senior = Object.values(s.npcs).find((n) => n.role === 'teammate')!;
+    const seniorAthleteId = senior.athleteId!;
+    let ticks = 0;
+    while (s.career.year < 2 && ticks < 5000) {
+      tick(s);
+      ticks++;
+    }
+    expect(s.career.year).toBe(2);
+    expect(s.athletes[seniorAthleteId]).toBeUndefined();
+    expect(s.npcs[senior.id].active).toBe(false);
+    expect(s.npcs[senior.id].athleteId).toBeUndefined();
+    expect(s.npcs[senior.id].title).toMatch(/former teammate/i);
+    // every active teammate is actually on the user's roster
+    for (const n of Object.values(s.npcs).filter((x) => x.active && x.role === 'teammate')) {
+      expect(s.teams[s.career.teamId].rosterIds).toContain(n.athleteId);
+    }
+    // someone new has stepped into the veteran role
+    expect(Object.values(s.npcs).some((n) => n.active && n.role === 'teammate')).toBe(true);
+  });
+
+  it('pins important memories and defining moments so small talk cannot push them out', async () => {
+    const { fullContext } = await import('../narrative/context');
+    const s = newGame(11);
+    const coach = Object.values(s.npcs).find((n) => n.role === 'coach')!;
+    const rng = new RNG(1);
+    applyEffects(s, [{ type: 'memory', npc: coach.id, text: 'Benched you for the whole fourth quarter after you ignored the play.', important: true }, { type: 'moment', text: 'Coach benched you in front of the whole gym.' }], 'test', undefined, rng);
+    for (let i = 0; i < 12; i++) applyEffects(s, [{ type: 'memory', npc: coach.id, text: `small talk ${i}` }], 'test', undefined, rng);
+    expect(coach.memories.length).toBeLessThanOrEqual(8);
+    expect(coach.keyMemories).toHaveLength(1);
+    s.story.threads.push('You promised Maya you would come to her recital.');
+    s.story.careerSummary = 'A fiery freshman clashes with his coach.';
+    const ctx = fullContext(s, [coach.id]);
+    expect(ctx).toContain('Benched you for the whole fourth quarter');
+    expect(ctx).toContain('DEFINING MOMENTS');
+    expect(ctx).toContain('THREADS TO PAY OFF');
+    expect(ctx).toContain('CAREER SO FAR');
+    // only one defining moment per scene
+    applyEffects(s, [{ type: 'moment', text: 'a' }, { type: 'moment', text: 'b' }], 'test', undefined, rng);
+    expect(s.story.defining).toHaveLength(2);
+  });
+
   it('the user develops from a HS freshman into a pro-level player', () => {
     const s = newGame(5);
     const start = overall(userAthlete(s).ratings);

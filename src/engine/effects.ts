@@ -68,7 +68,7 @@ export function applyEffects(state: GameState, effects: Effect[], source: string
   const rejected: string[] = [];
   const p = state.player;
   const user = state.athletes[p.athleteId];
-  const used = { rating: 0, npcs: 0, memories: 0, rel: new Map<string, number>(), morale: 0, rep: 0 };
+  const used = { rating: 0, npcs: 0, memories: 0, moments: 0, rel: new Map<string, number>(), morale: 0, rep: 0 };
   const capDelta = (d: number, cap: number) => clamp(Math.round(d * 100) / 100, -cap, cap);
 
   for (const e of effects) {
@@ -162,9 +162,27 @@ export function applyEffects(state: GameState, effects: Effect[], source: string
         const id = resolveNpc(state, e.npc);
         if (!id || used.memories >= caps.memories) break;
         used.memories++;
-        const mem = state.npcs[id].memories;
-        mem.push(e.text.slice(0, 160));
-        if (mem.length > 8) mem.splice(0, mem.length - 8);
+        const npc = state.npcs[id];
+        const text = e.text.slice(0, 160);
+        if (e.important) {
+          // pinned: survives until pushed out by 5 more important ones
+          npc.keyMemories ??= [];
+          npc.keyMemories.push(text);
+          if (npc.keyMemories.length > 5) npc.keyMemories.splice(0, npc.keyMemories.length - 5);
+        }
+        npc.memories.push(text);
+        if (npc.memories.length > 8) npc.memories.splice(0, npc.memories.length - 8);
+        break;
+      }
+      case 'moment': {
+        // at most one defining moment per scene; the list is short on purpose so only true turning points stay
+        if (used.moments >= 1 || !e.text.trim()) break;
+        used.moments++;
+        const text = e.text.trim().slice(0, 200);
+        if (state.story.defining.some((d) => d.text === text)) break;
+        state.story.defining.push({ season: state.career.season, text });
+        if (state.story.defining.length > 10) state.story.defining.splice(0, state.story.defining.length - 10);
+        applied.push(`Defining moment: ${text}`);
         break;
       }
       case 'npc_new': {

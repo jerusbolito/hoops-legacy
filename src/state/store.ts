@@ -38,7 +38,7 @@ import type { Reveal, RevealData } from './reveals';
 import { RATING_KEYS, RATING_LABELS, type GameState, type RatingKey, type Ratings, type ScheduledGame } from './schemas';
 
 export type Screen = 'setup' | 'title' | 'create' | 'game';
-export type Tab = 'hub' | 'profile' | 'relationships' | 'league' | 'story';
+export type Tab = 'hub' | 'profile' | 'relationships' | 'league' | 'analytics' | 'story' | 'memory';
 
 export interface Toast {
   id: number;
@@ -254,6 +254,10 @@ export const useStore = create<Store>((set, get) => {
         const r = applyEffects(d, res.effects, `scene:${sc.plan.kind}`, SCENE_CAPS, rng);
         d.rngState = rng.state;
         d.story.log.push({ season: d.career.season, week: d.career.week, phase: d.career.phase, kind: sc.plan.kind, title: sc.setup!.title, summary: res.summary });
+        if (res.hook) {
+          d.story.threads.push(res.hook.slice(0, 200));
+          if (d.story.threads.length > 3) d.story.threads.splice(0, d.story.threads.length - 3);
+        }
         if (d.story.log.length > 200) d.story.log.splice(0, d.story.log.length - 200);
         return r.applied;
       });
@@ -334,9 +338,11 @@ export const useStore = create<Store>((set, get) => {
             items.push({ kind: 'award', name: a.name, level: a.level, season: prevSeason, colors: team.colors, player: name });
           }
           get().pushReveals(items);
-          const summary = await generateSeasonSummary(get().client, get().game!);
+          const { summary, career } = await generateSeasonSummary(get().client, get().game!);
           mutate((d) => {
             d.story.seasonSummaries.push({ season: prevSeason, text: summary });
+            d.story.careerSummary = career;
+            d.story.threads = d.story.threads.slice(-2); // stale hooks fade across seasons
           });
           get().pushReveals([{ kind: 'season', review: buildSeasonReview(get().game!, prevSeason), summary }]);
         }

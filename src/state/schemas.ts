@@ -99,6 +99,8 @@ export const NpcSchema = z.object({
   athleteId: z.string().optional(),
   relationship: RelationshipSchema,
   memories: z.array(z.string()),
+  /** Defining moments with this character. Pinned: they never get pushed out by newer small talk. */
+  keyMemories: z.array(z.string()).default([]),
   active: z.boolean(),
   metSeason: z.number(),
 });
@@ -284,6 +286,12 @@ export const StorySchema = z.object({
   seasonSummaries: z.array(z.object({ season: z.number(), text: z.string() })),
   flags: z.record(z.union([z.string(), z.number(), z.boolean()])),
   arcs: z.array(ArcSchema),
+  /** Rolling ~150-word summary of the whole career so far, rewritten at every season end. */
+  careerSummary: z.string().default(''),
+  /** Pinned defining moments the narrator must stay consistent with. */
+  defining: z.array(z.object({ season: z.number(), text: z.string() })).default([]),
+  /** Unresolved hooks from the latest scenes, to pay off in the next ones. */
+  threads: z.array(z.string()).default([]),
 });
 export type Story = z.infer<typeof StorySchema>;
 
@@ -299,7 +307,8 @@ export const EffectSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('money'), delta: z.number() }),
   z.object({ type: z.literal('academics'), delta: z.number() }),
   z.object({ type: z.literal('flag'), key: z.string(), value: z.union([z.string(), z.number(), z.boolean()]) }),
-  z.object({ type: z.literal('memory'), npc: z.string(), text: z.string() }),
+  z.object({ type: z.literal('memory'), npc: z.string(), text: z.string(), important: z.boolean().optional() }),
+  z.object({ type: z.literal('moment'), text: z.string() }),
   z.object({
     type: z.literal('npc_new'),
     name: z.string(),

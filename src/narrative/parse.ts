@@ -76,6 +76,7 @@ export function parseEffects(raw: unknown): { effects: Effect[]; invalid: number
 export const SceneResolveSchema = z.object({
   narration: z.string().min(10),
   summary: z.string().min(3).max(400),
+  hook: z.string().max(300).nullish(),
   effects: z.unknown().optional(),
 });
 
@@ -85,7 +86,7 @@ export const RecapSchema = z.object({
   effects: z.unknown().optional(),
 });
 
-export const SummarySchema = z.object({ summary: z.string().min(10) });
+export const SummarySchema = z.object({ summary: z.string().min(10), career: z.string().max(1600).nullish() });
 export const FlavorSchema = z.object({ narration: z.string().min(10) });
 
 /* ── Fact checking ── */

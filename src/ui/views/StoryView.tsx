@@ -42,6 +42,18 @@ export function StoryView() {
         </Panel>
       </div>
       <div className="space-y-5">
+        {game.story.defining.length > 0 && (
+          <Panel title="Defining moments">
+            <ul className="space-y-2 text-sm text-ink-300">
+              {game.story.defining.map((d, i) => (
+                <li key={i}>
+                  <span className="mr-2 font-display font-semibold text-hoop-400">S{d.season}</span>
+                  {d.text}
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        )}
         <Panel title="Storylines">
           {arcs.length === 0 ? (
             <p className="text-sm text-ink-500">No storylines yet.</p>
