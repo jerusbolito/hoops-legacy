@@ -126,6 +126,23 @@ export function MemoryView() {
                   </ul>
                 )}
               </Block>
+              <Block title="Consequences on the way" empty="Nothing waiting. Big choices can come back later.">
+                {st.ripples.some((r) => r.status !== 'resolved') && (
+                  <ul className="space-y-1.5 text-sm text-ink-300">
+                    {st.ripples
+                      .filter((r) => r.status !== 'resolved')
+                      .map((r) => (
+                        <li key={r.id} className="flex gap-2">
+                          <span className={r.status === 'due' ? 'text-loss' : 'text-ink-500'}>{r.status === 'due' ? '⏰' : '⏳'}</span>
+                          <span>
+                            {r.status === 'due' ? r.text : `Something from season ${r.openedSeason} will come back around season ${r.dueSeason}.`}
+                            {r.status === 'due' && <span className="ml-2 text-[10px] font-semibold tracking-wider text-loss uppercase">due now</span>}
+                          </span>
+                        </li>
+                      ))}
+                  </ul>
+                )}
+              </Block>
               <Block title="Open storylines" empty="No open storylines.">
                 {st.arcs.some((a) => a.status === 'open') && (
                   <ul className="space-y-2 text-sm">

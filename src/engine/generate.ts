@@ -120,6 +120,7 @@ export function makeNpc(
     relationship: baseRelationship(p.rel),
     memories: p.memories ?? [],
     keyMemories: [],
+    estranged: false,
     active: true,
     metSeason: p.season,
   };

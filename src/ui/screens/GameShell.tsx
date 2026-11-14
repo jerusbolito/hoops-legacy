@@ -9,7 +9,9 @@ import { Avatar, Button, Meter, TeamBadge, cx } from '../components/ui';
 import { RevealOverlay } from '../components/RevealOverlay';
 import { AnalyticsView } from '../views/AnalyticsView';
 import { HubView } from '../views/HubView';
+import { MediaView } from '../views/MediaView';
 import { MemoryView } from '../views/MemoryView';
+import { EventModal } from '../components/EventModal';
 import { LeagueView } from '../views/LeagueView';
 import { ProfileView } from '../views/ProfileView';
 import { RelationshipsView } from '../views/RelationshipsView';
@@ -21,6 +23,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'relationships', label: 'People', icon: '🤝' },
   { id: 'league', label: 'League', icon: '🏆' },
   { id: 'analytics', label: 'Analytics', icon: '📊' },
+  { id: 'media', label: 'Media', icon: '📱' },
   { id: 'story', label: 'Story', icon: '📖' },
   { id: 'memory', label: 'Memory', icon: '🧠' },
 ];
@@ -126,9 +129,11 @@ export function GameShell() {
         {tab === 'relationships' && <RelationshipsView />}
         {tab === 'league' && <LeagueView />}
         {tab === 'analytics' && <AnalyticsView />}
+        {tab === 'media' && <MediaView />}
         {tab === 'story' && <StoryView />}
         {tab === 'memory' && <MemoryView />}
       </main>
+      <EventModal />
       <RevealOverlay />
     </div>
   );

@@ -11,7 +11,13 @@ import type {
   ScheduledGame,
   Team,
 } from '../state/schemas';
-import { SAVE_VERSION } from '../state/schemas';
+import { SAVE_VERSION, type PlanId } from '../state/schemas';
+import { checkBadgeUnlocks } from './badges';
+import { coachReacts, coachStanding, practiceEffort, type CoachChange } from './coach';
+import { AGGRAVATE_CHANCE, MIN_GPA, WEEKLY_GPA_DRIFT, activateDueRipples, canPlayHurt, isPlayingHurt, updateEstrangement } from './consequences';
+import { FILM_ENERGY_COST, energySavedBy } from './gameplan';
+import { addNews } from './news';
+import { expireOffers, maybeOffer, maybePress, postGamePosts, settleDeals, systemPost, weeklyDealEnergy } from './media';
 import { GameSim, type MomentResult } from './gameSim';
 import { generateAthlete, generateLeagueTeams, generateTeam, makeNpc } from './generate';
 import { NameBook } from './nameBook';
@@ -44,10 +50,7 @@ export function withRng<T>(state: GameState, fn: (rng: RNG) => T): T {
   return out;
 }
 
-export function addNews(state: GameState, text: string) {
-  state.news.push({ season: state.career.season, week: state.career.week, text });
-  if (state.news.length > 120) state.news.splice(0, state.news.length - 120);
-}
+export { addNews };
 
 /* ───────────────────────── Career creation ───────────────────────── */
 
@@ -127,6 +130,12 @@ export function createCareer(input: NewCareerInput): GameState {
       awards: [],
       draftPick: null,
       collegeId: null,
+      badges: [],
+      deals: [],
+      injuryHistory: 0,
+      clutchWins: 0,
+      draftBoost: 0,
+      eventsDone: [],
     },
     athletes: Object.fromEntries(allAthletes.map((a) => [a.id, a])),
     npcs: {},
@@ -141,13 +150,19 @@ export function createCareer(input: NewCareerInput): GameState {
       step: 'scene',
       teamId: team.id,
       calendarYear: new Date().getFullYear(),
+      plan: null,
+      playHurt: false,
+      press: null,
+      gamesSincePress: 0,
     },
     gameLog: [],
     leagueStats: {},
     lastBox: null,
-    story: { log: [], seasonSummaries: [], flags: {}, arcs: [], careerSummary: '', defining: [], threads: [] },
+    story: { log: [], seasonSummaries: [], flags: {}, arcs: [], careerSummary: '', defining: [], threads: [], ripples: [] },
     news: [],
     effectLog: [],
+    feed: [],
+    offers: [],
   };
 
   seedHighSchoolCast(state, rng, team, teams);
@@ -265,11 +280,10 @@ export function userTeam(state: GameState): Team {
   return state.teams[state.career.teamId];
 }
 
+/** Your spot on the depth chart, counting how much your coach trusts you (same ranking the game simulation uses). */
 export function userRole(state: GameState): { rank: number; label: string } {
-  const roster = teamRoster(state, state.career.teamId).sort((a, b) => overall(b.ratings) - overall(a.ratings));
-  const rank = roster.findIndex((a) => a.id === state.player.athleteId) + 1;
-  const label = rank === 1 ? 'Franchise Star' : rank <= 3 ? 'Starter (go-to option)' : rank <= 5 ? 'Starter' : rank <= 8 ? 'Rotation' : 'Deep Bench';
-  return { rank, label };
+  const c = coachStanding(state);
+  return { rank: c.rank, label: c.label };
 }
 
 /* ───────────────────────── Weekly flow ───────────────────────── */
@@ -278,6 +292,8 @@ export function doTraining(state: GameState, focus: TrainingFocus): TrainingResu
   return withRng(state, (rng) => {
     const intensity = state.player.traits.includes('gym_rat') ? 1.15 : 1;
     const r = train(state, rng, focus, state.player.traits.includes('scholar') && focus === 'study' ? 1.3 : intensity);
+    practiceEffort(state, focus);
+    checkBadgeUnlocks(state);
     state.career.step = 'scene';
     return r;
   });
@@ -286,6 +302,7 @@ export function doTraining(state: GameState, focus: TrainingFocus): TrainingResu
 export function doSummerTraining(state: GameState, focuses: RatingKey[]) {
   return withRng(state, (rng) => {
     const gains = offseasonDevelopment(state, rng, focuses);
+    checkBadgeUnlocks(state);
     state.career.step = 'scene';
     return gains;
   });
@@ -317,6 +334,15 @@ export interface GameReport {
   playoffRound?: number;
   roundName?: string;
   gameScore: number;
+  /** How the coach reacted to your night. */
+  coach: CoachChange;
+  /** Ids of badges earned from this game. */
+  newBadges: string[];
+  /** You played hurt and made it worse. */
+  aggravated: boolean;
+  playedHurt: boolean;
+  /** The game plan you went in with. */
+  plan: { id: PlanId; film: boolean } | null;
 }
 
 /**
@@ -355,17 +381,33 @@ export function finishUserGame(state: GameState, sim: GameSim, game: ScheduledGa
   }
   state.lastBox = { gameId: g.id, box };
 
-  const report = withRng(state, (rng) => {
+  const plan = state.career.plan;
+  const playedHurt = !!line && line.sec > 0 && isPlayingHurt(state);
+  const wear = withRng(state, (rng) => {
     const totalSec = LEVEL_CONFIG[state.career.level].quarterMinutes * 60 * 4;
-    const injury = line ? postGameWear(state, rng, line.sec, totalSec) : null;
+    // pacing yourself ("Save your legs") means the game takes less out of you
+    const effSec = line ? line.sec * (1 - energySavedBy(plan)) : 0;
+    const injury = line ? postGameWear(state, rng, effSec, totalSec) : null;
+    // playing on an injury can make it worse
+    let aggravated = false;
+    if (playedHurt && !injury && state.player.injury && rng.chance(AGGRAVATE_CHANCE)) {
+      state.player.injury.weeks += 2;
+      state.player.injuryHistory++;
+      aggravated = true;
+    }
     // sim the rest of the league this week
     simOtherGames(state, rng, state.career.week, us, !!g.playoffRound);
-    return injury;
+    return { injury, aggravated };
   });
+  const report = wear.injury;
 
   // morale / reputation from the result (engine-side, deterministic)
   const gs = line ? gameScore(line) : 0;
   const p = state.player;
+  if (playedHurt) p.morale = clamp(p.morale + 2, 0, 100);
+  p.clutchWins += sim.momentResults.filter((m) => m.clutch && m.success).length;
+  const coach = coachReacts(state, { line, won, playoff: !!g.playoffRound, playedHurt });
+  if (wear.aggravated) addNews(state, `${userAthlete(state).lastName} aggravated the ${p.injury?.desc ?? 'injury'} playing through it.`);
   p.morale = clamp(p.morale + (won ? 4 : -4) + (gs > 18 ? 3 : gs < 4 && line && line.sec > 600 ? -3 : 0), 0, 100);
   p.reputation = clamp(p.reputation + (gs > 22 ? 2 : gs > 15 ? 1 : 0) + (won && g.playoffRound ? 1 : 0), 0, 100);
   const followerGain = Math.round((gs > 0 ? gs : 0) * (p.traits.includes('showman') ? 12 : 6) * (1 + p.reputation / 25));
@@ -394,6 +436,22 @@ export function finishUserGame(state: GameState, sim: GameSim, game: ScheduledGa
     withRng(state, (rng) => advancePlayoffs(state.league, rng));
   }
 
+  // badges earned from this game's numbers
+  const earned = checkBadgeUnlocks(state);
+  for (const b of earned) addNews(state, `${userAthlete(state).lastName} earns the ${b.name} badge.`);
+
+  // the world reacts: social posts, and sometimes a reporter wants a word
+  withRng(state, (rng) => {
+    const facts = { won, teamScore: ourBox.score, oppScore: theirBox.score, oppId: theirBox.teamId, playoff: !!g.playoffRound, line, gameScore: gs };
+    postGamePosts(state, rng, { ...facts, clutchHeroics: sim.momentResults.some((m) => m.clutch && m.success) });
+    state.career.gamesSincePress++;
+    const press = maybePress(state, rng, { ...facts, roundName });
+    if (press) state.career.press = press;
+    for (const b of earned) systemPost(state, rng, 'media', `${userAthlete(state).lastName} has earned the ${b.name} badge.`);
+  });
+
+  state.career.plan = null;
+  state.career.playHurt = false;
   state.career.step = 'done';
   return {
     gameId: g.id,
@@ -407,7 +465,36 @@ export function finishUserGame(state: GameState, sim: GameSim, game: ScheduledGa
     playoffRound: g.playoffRound,
     roundName,
     gameScore: gs,
+    coach,
+    newBadges: earned.map((b) => b.id),
+    aggravated: wear.aggravated,
+    playedHurt,
+    plan,
   };
+}
+
+/* ───────────────────────── Game prep ───────────────────────── */
+
+/**
+ * Choose the game plan for the next game. Film study costs energy, which is refunded if you change your mind
+ * before tip-off. Returns false if the choice is not allowed right now.
+ */
+export function setGamePlan(state: GameState, id: PlanId, film: boolean): boolean {
+  if (state.career.step !== 'game') return false;
+  const prev = state.career.plan;
+  const wasFilm = !!prev?.film;
+  if (film && !wasFilm && state.player.energy < FILM_ENERGY_COST + 5) return false;
+  if (film !== wasFilm) state.player.energy = clamp(state.player.energy + (film ? -FILM_ENERGY_COST : FILM_ENERGY_COST), 0, 100);
+  state.career.plan = { id, film };
+  return true;
+}
+
+/** Decide whether to play through a minor injury in the next game. */
+export function setPlayHurt(state: GameState, on: boolean): boolean {
+  if (state.career.step !== 'game') return false;
+  if (on && !canPlayHurt(state)) return false;
+  state.career.playHurt = on;
+  return true;
 }
 
 export interface WeekAdvance {
@@ -420,6 +507,20 @@ export function advanceWeek(state: GameState): WeekAdvance {
   const c = state.career;
   const messages: string[] = [];
   weeklyRecovery(state);
+  // grades slip when you do not keep up with school
+  if (state.career.level !== 'pro') {
+    const before = state.player.academics;
+    state.player.academics = clamp(Math.round((before - WEEKLY_GPA_DRIFT) * 1000) / 1000, 0, 4);
+    if (before >= MIN_GPA && state.player.academics < MIN_GPA) addNews(state, `${userAthlete(state).lastName} is now academically ineligible.`);
+  }
+  for (const msg of updateEstrangement(state)) addNews(state, msg);
+  // appearances and shoots tire you out; new brands come knocking
+  state.player.energy = clamp(state.player.energy - weeklyDealEnergy(state), 0, 100);
+  expireOffers(state);
+  withRng(state, (rng) => {
+    const offer = maybeOffer(state, rng);
+    if (offer) addNews(state, `${offer.brand} is interested in signing ${userAthlete(state).lastName}.`);
+  });
 
   return withRng(state, (rng) => {
     if (c.phase === 'preseason') {
@@ -618,6 +719,8 @@ function newSeasonCommon(state: GameState, rng: RNG) {
   state.lastBox = null;
   state.league = createLeague(rng, state.career.level, state.league.teamIds);
   state.player.energy = clamp(state.player.energy + 30, 0, 100);
+  // past choices whose time has come
+  activateDueRipples(state);
 }
 
 function ageEveryone(state: GameState) {
@@ -626,6 +729,17 @@ function ageEveryone(state: GameState) {
 
 function startNextSeason(state: GameState, rng: RNG, messages: string[]): WeekAdvance {
   const c = state.career;
+  // a season without a new injury lets the body recover a little
+  state.player.injuryHistory = Math.max(0, state.player.injuryHistory - 1);
+  // endorsement money lands at the turn of the season
+  if (state.player.deals.length) {
+    const pay = settleDeals(state, rng);
+    if (pay.income > 0) {
+      messages.push(`Endorsements paid $${pay.income.toLocaleString()}.`);
+      addNews(state, `${userAthlete(state).lastName} earns $${pay.income.toLocaleString()} from endorsements this season.`);
+    }
+    for (const line of pay.lines.filter((l) => /blew up/.test(l))) messages.push(line);
+  }
   ageEveryone(state);
   developNpcs(state, rng);
   const nextYear = c.year + 1;
@@ -711,6 +825,9 @@ function introduceScout(state: GameState, rng: RNG) {
 
 /** Move the user (and persistent NPC athletes) into a fresh league at a new level. */
 function enterLevel(state: GameState, rng: RNG, level: Level, tpl: TeamTemplate) {
+  // school NIL deals end when you leave, and pending offers lapse
+  state.offers = [];
+  state.player.deals = [];
   // detach old league
   for (const tid of state.league.teamIds) state.teams[tid].rosterIds = [];
   for (const a of Object.values(state.athletes)) {
@@ -860,7 +977,7 @@ export function draftStock(state: GameState): number {
   const ovr = overall(a.ratings);
   const avg = averages(totals(state.gameLog.filter((e) => e.season === state.career.season - 1 || e.season === state.career.season)));
   const youth = Math.max(0, 22 - a.age) * 1.5;
-  return ovr + avg.ppg * 0.25 + youth + (a.potential - ovr) * 0.25 + state.player.reputation * 0.05;
+  return ovr + avg.ppg * 0.25 + youth + (a.potential - ovr) * 0.25 + state.player.reputation * 0.05 + state.player.draftBoost;
 }
 
 export function projectedPick(state: GameState): string {
@@ -891,6 +1008,7 @@ export function runDraft(state: GameState): DraftResult {
     const years = pick && pick <= 12 ? 4 : 2;
     enterLevel(state, rng, 'pro', tpl);
     state.player.draftPick = pick;
+    state.player.draftBoost = 0;
     state.player.contract = { teamId: state.career.teamId, salary, yearsLeft: years };
     state.story.flags.declared_for_draft = false;
     const agentName = NameBook.fromState(state).draw(rng, { gender: 'any' });
@@ -925,7 +1043,8 @@ export interface FaOffer {
 
 export function marketValue(state: GameState): number {
   const ovr = overall(userAthlete(state).ratings);
-  const v = Math.max(1.1, ((ovr - 62) / 26) ** 2.2 * 45) * 1_000_000;
+  // below 62 the base would be negative, and a negative number to a fractional power is NaN
+  const v = Math.max(1.1, (Math.max(0, ovr - 62) / 26) ** 2.2 * 45) * 1_000_000;
   return Math.round(v / 100_000) * 100_000;
 }
 

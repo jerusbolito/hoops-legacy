@@ -30,6 +30,8 @@ export interface SimOptions {
   rivalIds?: string[];
   /** Traits of the user (e.g. "clutch") that shade key-moment odds. */
   userTraits?: string[];
+  /** Game plan, badges and coach standing for the user. */
+  userMods?: UserMods;
 }
 
 export interface PlayEvent {
@@ -45,6 +47,49 @@ export interface PlayEvent {
   shot?: { x: number; y: number; made: boolean; user: boolean };
 }
 
+export type ShotKind = 'rim' | 'mid' | 'three';
+
+/** An extra option the player has earned (a badge), offered on key moments. */
+export interface SignatureMove {
+  id: string;
+  label: string;
+  detail: string;
+  kind: 'offense' | 'defense';
+  /** Offense: the kind of shot it is. */
+  shot?: ShotKind;
+  /** Defense: which basic action it upgrades. */
+  base?: 'steal' | 'solid' | 'block';
+  /** Added to the option's odds. */
+  bonus: number;
+  rating: RatingKey;
+  win: string;
+  lose: string;
+}
+
+/**
+ * Everything that tilts the user's game: the game plan, film study, earned badges and the coach's trust.
+ * Built by engine/userMods from the save; the simulator only reads it.
+ */
+export interface UserMods {
+  /** Added to the user's own shot odds, by shot type. */
+  shot: { rim: number; mid: number; three: number };
+  pass: number;
+  steal: number;
+  solid: number;
+  block: number;
+  /** Extra odds on every option in a clutch moment. */
+  clutch: number;
+  /** Added to every one of the user's shots and moment options (film study). */
+  all: number;
+  /** Added to the user's rating when ranking players for the lineup, so a trusted player starts. */
+  rankBoost: number;
+  /** Scales the user's share of minutes, -0.25 to +0.25. */
+  minutesBias: number;
+  signatures: SignatureMove[];
+}
+
+export const NO_MODS: UserMods = { shot: { rim: 0, mid: 0, three: 0 }, pass: 0, steal: 0, solid: 0, block: 0, clutch: 0, all: 0, rankBoost: 0, minutesBias: 0, signatures: [] };
+
 export interface MomentOption {
   id: string;
   label: string;
@@ -53,6 +98,8 @@ export interface MomentOption {
   rating: RatingKey;
   /** The ratings that decide this option: yours against theirs. */
   edge?: Edge;
+  /** An earned badge move, not one of the basic options. */
+  signature?: boolean;
 }
 
 export interface KeyMoment {
@@ -111,7 +158,7 @@ function emptyLine(athleteId: string): PlayerLine {
   };
 }
 
-const MINUTE_SHARE = [0.82, 0.78, 0.75, 0.72, 0.68, 0.45, 0.38, 0.28, 0.14, 0.06, 0.04, 0.03, 0.02];
+export const MINUTE_SHARE = [0.82, 0.78, 0.75, 0.72, 0.68, 0.45, 0.38, 0.28, 0.14, 0.06, 0.04, 0.03, 0.02];
 const SEGMENTS_PER_Q = 4;
 
 interface SideState {
@@ -171,12 +218,15 @@ export class GameSim {
   }
 
   private makeSide(input: SimTeamInput): SideState {
-    const roster = [...input.roster].sort((a, b) => this.ovr(b) - this.ovr(a));
+    // the user's coach can move them up or down the depth chart
+    const rank = (a: Athlete) => this.ovr(a) + (this.isUser(a) ? (this.opts.userMods?.rankBoost ?? 0) : 0);
+    const roster = [...input.roster].sort((a, b) => rank(b) - rank(a));
     const lines = new Map<string, PlayerLine>();
     const share = new Map<string, number>();
     roster.forEach((a, i) => {
       lines.set(a.id, emptyLine(a.id));
-      share.set(a.id, MINUTE_SHARE[i] ?? 0.01);
+      const base = MINUTE_SHARE[i] ?? 0.01;
+      share.set(a.id, this.isUser(a) ? clamp(base * (1 + (this.opts.userMods?.minutesBias ?? 0)), 0.02, 0.92) : base);
     });
     return { input, roster, onCourt: [], lines, quarters: [0], score: 0, share };
   }
@@ -364,6 +414,9 @@ export class GameSim {
     } else {
       p = 0.345 + (this.r(shooter, 'shooting') - m) * 0.0055 - dDef * 0.0018;
     }
+    // game plan, film study and badges only ever tilt the user's own shots
+    const mods = this.opts.userMods;
+    if (mods && this.isUser(shooter)) p += mods.shot[type] + mods.all;
     return clamp(p + bonus, 0.12, 0.82);
   }
 
@@ -606,7 +659,9 @@ export class GameSim {
     const kind: 'offense' | 'defense' = this.possession === us ? 'offense' : 'defense';
     const oppFive = this.sides[them].onCourt;
     const rival = oppFive.find((a) => this.opts.rivalIds?.includes(a.id));
-    const clutchBonus = clutch && this.opts.userTraits?.includes('clutch') ? 0.05 : 0;
+    const mods = this.opts.userMods ?? NO_MODS;
+    // trait and Closer badge both help in clutch time; film study (`mods.all`) is already inside shotOdds for shots
+    const clutchBonus = clutch ? (this.opts.userTraits?.includes('clutch') ? 0.05 : 0) + mods.clutch : 0;
     const id = `m${++this.momentSeq}`;
     const ourScore = this.sides[us].score;
     const theirScore = this.sides[them].score;
@@ -631,11 +686,24 @@ export class GameSim {
           id: 'pass',
           label: `Find ${shortName(bestMate)}`,
           detail: 'Draw two and make the right play.',
-          odds: clamp(this.shotOdds(bestMate, mateDef, mateShot, 0.08 + (this.r(user, 'passing') - this.opts.levelMean) * 0.003) * (1 - 0.04), 0.1, 0.85),
+          odds: clamp(this.shotOdds(bestMate, mateDef, mateShot, 0.08 + (this.r(user, 'passing') - this.opts.levelMean) * 0.003 + mods.pass + mods.all) * (1 - 0.04), 0.1, 0.85),
           rating: 'passing',
           edge: vs(`${shortName(bestMate)} ${mateRim ? 'FIN' : 'SHO'}`, this.r(bestMate, mateRim ? 'finishing' : 'shooting'), `${shortName(mateDef)} DEF`, this.r(mateDef, 'defense')),
         },
       ];
+      // earned signature moves, best two, as extra options
+      for (const s of mods.signatures.filter((x) => x.kind === 'offense' && x.shot).sort((a, b) => b.bonus - a.bonus).slice(0, 2)) {
+        const type = s.shot!;
+        opts.push({
+          id: `sig:${s.id}`,
+          label: s.label,
+          detail: s.detail,
+          odds: this.shotOdds(user, defender, type, clutchBonus + s.bonus - (type === 'three' ? 0.03 : 0)),
+          rating: s.rating,
+          edge: vs(type === 'rim' ? 'Your FIN' : 'Your SHO', this.r(user, type === 'rim' ? 'finishing' : 'shooting'), 'His DEF', dDef),
+          signature: true,
+        });
+      }
       const youIntel = this.intelFor(user, us);
       const matchupIntel = this.intelFor(defender, them);
       const teammates = mates.map((a) => this.intelFor(a, us));
@@ -669,9 +737,10 @@ export class GameSim {
     const shot = this.pickShotDeterministic(attacker);
     const base = this.shotOdds(attacker, user, shot, 0);
     const m = this.opts.levelMean;
-    const stealOdds = clamp(0.22 + (this.r(user, 'defense') + this.r(user, 'athleticism') - this.r(attacker, 'handles') - m) * 0.004 + clutchBonus, 0.08, 0.6);
-    const solidOdds = clamp(1 - base + 0.06 + (this.r(user, 'defense') - m) * 0.003 + clutchBonus, 0.2, 0.88);
-    const blockOdds = clamp(0.2 + (this.r(user, 'athleticism') + this.r(user, 'defense') - 2 * m) * 0.004 + (user.heightIn - 77) * 0.01 + clutchBonus, 0.06, 0.55);
+    const stealOdds = clamp(0.22 + (this.r(user, 'defense') + this.r(user, 'athleticism') - this.r(attacker, 'handles') - m) * 0.004 + clutchBonus + mods.steal + mods.all, 0.08, 0.6);
+    const solidOdds = clamp(1 - base + 0.06 + (this.r(user, 'defense') - m) * 0.003 + clutchBonus + mods.solid + mods.all, 0.2, 0.88);
+    const blockOdds = clamp(0.2 + (this.r(user, 'athleticism') + this.r(user, 'defense') - 2 * m) * 0.004 + (user.heightIn - 77) * 0.01 + clutchBonus + mods.block + mods.all, 0.06, 0.55);
+    const baseOdds = { steal: stealOdds, solid: solidOdds, block: blockOdds };
     const youD = this.intelFor(user, us);
     const attackerIntel = this.intelFor(attacker, them);
     const mates = this.sides[us].onCourt.filter((a) => a.id !== user.id);
@@ -686,6 +755,15 @@ export class GameSim {
       tips: tipsFor({ kind: 'defense', you: youD, matchup: attackerIntel, teammates: teammatesD, mean: m, foulOut: this.opts.foulOut, expectedShot: shot }),
     };
     const aAtt = shot === 'rim' ? 'finishing' : 'shooting';
+    const defOpts: MomentOption[] = [
+      { id: 'steal', label: 'Gamble for the steal', detail: 'High risk — if you miss, it is an easy look.', odds: stealOdds, rating: 'defense', edge: { yours: 'Your DEF', you: this.r(user, 'defense'), theirs: 'His HND', them: this.r(attacker, 'handles') } },
+      { id: 'solid', label: 'Stay solid', detail: 'Stay in front, contest without fouling.', odds: solidOdds, rating: 'defense', edge: { yours: 'Your DEF', you: this.r(user, 'defense'), theirs: `His ${aAtt === 'finishing' ? 'FIN' : 'SHO'}`, them: this.r(attacker, aAtt) } },
+      { id: 'block', label: 'Go for the block', detail: 'Meet them at the summit. Foul risk.', odds: blockOdds, rating: 'athleticism', edge: { yours: 'Your ATH', you: this.r(user, 'athleticism'), theirs: 'His ATH', them: this.r(attacker, 'athleticism') } },
+    ];
+    for (const s of mods.signatures.filter((x) => x.kind === 'defense' && x.base).sort((a, b) => b.bonus - a.bonus).slice(0, 2)) {
+      const basic = defOpts.find((o) => o.id === s.base)!;
+      defOpts.push({ id: `sig:${s.id}`, label: s.label, detail: s.detail, odds: clamp(baseOdds[s.base!] + s.bonus, 0.08, 0.9), rating: s.rating, edge: basic.edge, signature: true });
+    }
     return {
       id,
       kind,
@@ -698,11 +776,7 @@ export class GameSim {
       opponentName: `${attacker.firstName} ${attacker.lastName}`,
       opponentId: attacker.id,
       isRival: !!rival,
-      options: [
-        { id: 'steal', label: 'Gamble for the steal', detail: 'High risk — if you miss, it is an easy look.', odds: stealOdds, rating: 'defense', edge: { yours: 'Your DEF', you: this.r(user, 'defense'), theirs: 'His HND', them: this.r(attacker, 'handles') } },
-        { id: 'solid', label: 'Stay solid', detail: 'Stay in front, contest without fouling.', odds: solidOdds, rating: 'defense', edge: { yours: 'Your DEF', you: this.r(user, 'defense'), theirs: `His ${aAtt === 'finishing' ? 'FIN' : 'SHO'}`, them: this.r(attacker, aAtt) } },
-        { id: 'block', label: 'Go for the block', detail: 'Meet them at the summit. Foul risk.', odds: blockOdds, rating: 'athleticism', edge: { yours: 'Your ATH', you: this.r(user, 'athleticism'), theirs: 'His ATH', them: this.r(attacker, 'athleticism') } },
-      ],
+      options: defOpts,
       intel: intelD,
     };
   }
@@ -728,6 +802,9 @@ export class GameSim {
     let success = false;
     let text = '';
     const opp = this.sides[them].onCourt.find((a) => a.id === m.opponentId);
+    // an earned signature move plays out like the basic action it builds on, with its own odds and flavor
+    const sig = opt.id.startsWith('sig:') ? this.opts.userMods?.signatures.find((s) => `sig:${s.id}` === opt.id) : undefined;
+    const act = sig?.base ?? opt.id;
 
     if (m.kind === 'offense') {
       if (opt.id === 'pass') {
@@ -737,10 +814,12 @@ export class GameSim {
         this.attemptShot(us, mate, this.pickShotDeterministic(mate), 0, { assister: user, forced: success });
         text = success ? `You draw the defense and dish to ${shortName(mate)} — bucket!` : `${shortName(mate)} gets a good look but it rims out.`;
       } else {
-        const type: ShotType = opt.id === 'drive' ? 'rim' : opt.id === 'pullup' ? 'mid' : 'three';
+        const type: ShotType = sig?.shot ?? (opt.id === 'drive' ? 'rim' : opt.id === 'pullup' ? 'mid' : 'three');
         success = roll < opt.odds;
         const r = this.attemptShot(us, user, type, 0, { forced: success, foulBoost: type === 'rim' ? 0.1 : 0, defender: opp });
-        text = success
+        text = sig
+          ? `${success ? sig.win : sig.lose}${success ? ` ${r.pts} points.` : ''}`
+          : success
           ? type === 'three'
             ? `Step back... SPLASH. ${r.pts} points.`
             : type === 'mid'
@@ -754,7 +833,7 @@ export class GameSim {
       const attacker = opp ?? this.sides[them].onCourt[0];
       const shot = this.pickShotDeterministic(attacker);
       success = roll < opt.odds;
-      if (opt.id === 'steal') {
+      if (act === 'steal') {
         if (success) {
           this.line(us, user).stl++;
           this.line(them, attacker).tov++;
@@ -765,7 +844,7 @@ export class GameSim {
           const r = this.attemptShot(them, attacker, 'rim', 0.18, { defender: user });
           text = r.made ? `You bite, and ${shortName(attacker)} walks in for an easy two.` : `You gamble and miss, but ${shortName(attacker)} blows the layup. Lucky.`;
         }
-      } else if (opt.id === 'block') {
+      } else if (act === 'block') {
         if (success) {
           this.line(us, user).blk++;
           this.line(them, attacker).fga++;
@@ -782,6 +861,7 @@ export class GameSim {
         this.attemptShot(them, attacker, shot, 0, { forced: !success, defender: user });
         text = success ? `You stay in front, contest, and force a miss.` : `Great contest, but ${shortName(attacker)} hits a tough one.`;
       }
+      if (sig) text = success ? sig.win : `${sig.lose} ${text}`;
     }
     this.tick(len * 0.2);
 

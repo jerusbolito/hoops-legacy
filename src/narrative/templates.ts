@@ -23,6 +23,10 @@ const OPENERS: Record<string, string[]> = {
   injury: ['The brace on your leg feels heavier than it should. Watching from the bench is its own kind of pain.'],
   playoff_pressure: ['Playoffs. One loss and it is over. The air in the gym feels different.'],
   date: ['You spent way too long picking what to wear. Your heart is doing a full-court press.'],
+  consequence: ['Something you did a while ago has caught up with you. It is not going away on its own.'],
+  reconcile: ['You see them across the room and neither of you moves. It has been a while since you really talked.'],
+  coach_meeting: ['Coach asks you to stay after practice. The gym empties out. This is going to be a straight conversation.'],
+  academics: ['A note in your locker says to stop by the counselor. You already know what it is about.'],
 };
 
 /** Player-facing dilemma lines (the LLM brief is internal and never shown). */
@@ -39,6 +43,10 @@ const DILEMMAS: Record<string, string> = {
   injury: 'The trainer says rest. Your gut says you are falling behind every day you sit.',
   playoff_pressure: 'Coach pulls you aside before practice. "I need more from you this week. What have you got?"',
   date: 'It is quieter than you expected, and suddenly you are not sure what to say.',
+  consequence: 'You can own what happened or try to talk your way around it. Either way, people are watching how you handle it.',
+  reconcile: 'You could say sorry, you could say nothing, or you could finally say what you really think.',
+  coach_meeting: 'Coach lays out where you stand and asks what you are going to do about it.',
+  academics: 'The counselor says it plainly: fix your grades or you will not play. What do you say?',
   summer_workouts: 'An older player offers to train with you at 5 a.m. all summer. That means giving up a lot of everything else.',
   aau_tournament: 'Scouts are in the stands, and your rival is warming up on the other end. Everybody knows it.',
   summer_break: 'For the first time in months there is no practice tomorrow. How you spend it says a lot about you.',

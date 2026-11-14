@@ -1,7 +1,9 @@
 import { LEVEL_CONFIG } from '../data/teams';
 import type { Athlete, BoxScore, GameState, League, Level, ScheduledGame, Team } from '../state/schemas';
+import { HURT_PENALTY, isPlayingHurt, sitOutReason } from './consequences';
 import { GameSim, type SimOptions, type SimTeamInput } from './gameSim';
 import { RNG } from './rng';
+import { buildUserMods } from './userMods';
 
 /** Circle-method single round robin. Returns weeks of [home, away] pairs. */
 export function roundRobin(rng: RNG, teamIds: string[]): [string, string][][] {
@@ -62,15 +64,16 @@ export function teamRoster(state: GameState, teamId: string): Athlete[] {
 
 /** Roster eligible to play: injured user is held out. */
 export function simInput(state: GameState, team: Team): SimTeamInput {
-  const injured = state.player.injury && state.player.injury.weeks > 0 ? state.player.athleteId : null;
-  return { teamId: team.id, abbrev: team.abbrev, roster: teamRoster(state, team.id).filter((a) => a.id !== injured) };
+  // the user sits out when hurt (unless playing through it) or academically ineligible
+  const out = sitOutReason(state) ? state.player.athleteId : null;
+  return { teamId: team.id, abbrev: team.abbrev, roster: teamRoster(state, team.id).filter((a) => a.id !== out) };
 }
 
 export function simOptions(state: GameState, keyMoments: boolean): SimOptions {
   const cfg = LEVEL_CONFIG[state.league.level];
   const p = state.player;
-  // energy & morale shade the user's effective ratings
-  const mod = Math.round((p.energy - 70) / 10 + (p.morale - 50) / 15);
+  // energy & morale shade the user's effective ratings; playing on an injury costs a lot
+  const mod = Math.round((p.energy - 70) / 10 + (p.morale - 50) / 15) - (isPlayingHurt(state) ? HURT_PENALTY : 0);
   const rivalIds = Object.values(state.npcs)
     .filter((n) => n.athleteId && n.relationship.rivalry >= 40)
     .map((n) => n.athleteId!);
@@ -84,6 +87,7 @@ export function simOptions(state: GameState, keyMoments: boolean): SimOptions {
     ratingMods: { [p.athleteId]: mod },
     rivalIds,
     userTraits: p.traits,
+    userMods: buildUserMods(state),
   };
 }
 

@@ -1,6 +1,11 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { nextOpponent, userAthlete, userRole, userTeam } from '../../engine/career';
+import { nextOpponent, userAthlete, userRole, userTeam, type GameReport } from '../../engine/career';
+import { coachStanding } from '../../engine/coach';
+import { sitOutReason } from '../../engine/consequences';
+import { BADGE_BY_ID } from '../../engine/badges';
+import { PLAN_BY_ID } from '../../engine/gameplan';
+import { GamePrep } from '../components/GamePrep';
 import { Jersey } from '../components/Jersey';
 import { EdgeLine, ScoutingReport } from '../components/Scouting';
 import { lookFor } from '../components/Portrait';
@@ -26,7 +31,8 @@ export function PreGamePanel() {
   if (!next) return null;
   const home = next.home ? team : next.opp;
   const away = next.home ? next.opp : team;
-  const injured = !!game.player.injury;
+  const sitting = !!sitOutReason(game);
+  const coach = coachStanding(game);
   return (
     <Panel title={game.career.phase === 'playoffs' ? 'Playoff game' : 'Game day'}>
       <SceneBanner kind="game" colors={team.colors} className="-mx-4 -mt-4 mb-2" height={130} />
@@ -43,11 +49,14 @@ export function PreGamePanel() {
         ))}
       </div>
       <div className="mb-4 text-center text-sm text-ink-400">
-        {injured ? 'You are out injured. You will watch from the bench.' : `Your role: ${userRole(game).label}. Energy ${game.player.energy}, morale ${game.player.morale}.`}
+        {sitting ? 'You will watch this one from the bench.' : `Your role: ${userRole(game).label}, about ${coach.minutes} minutes. Energy ${game.player.energy}, morale ${game.player.morale}.`}
+      </div>
+      <div className="mb-4">
+        <GamePrep />
       </div>
       <div className="flex justify-center">
         <Button className="pulse-ring px-8 py-3 text-base" onClick={startGame}>
-          🏀 Tip off
+          {sitting ? '📺 Watch from the bench' : '🏀 Tip off'}
         </Button>
       </div>
     </Panel>
@@ -455,6 +464,34 @@ function ResultCard({ result, onContinue }: { result: MomentResult; onContinue: 
   );
 }
 
+/** What happened behind the scoreboard: the coach's reaction, your game plan, injuries and new badges. */
+function AfterGame({ report }: { report: GameReport }) {
+  const coach = report.coach;
+  const items: { icon: string; text: string; tone: 'good' | 'bad' | 'info' }[] = [];
+  if (report.plan && report.plan.id !== 'balanced') items.push({ icon: PLAN_BY_ID[report.plan.id].icon, text: `Game plan: ${PLAN_BY_ID[report.plan.id].name}${report.plan.film ? ', with film study' : ''}.`, tone: 'info' });
+  else if (report.plan?.film) items.push({ icon: '🎬', text: 'You studied film before the game.', tone: 'info' });
+  if (report.line && report.line.sec >= 120) {
+    const t = Math.round(coach.trust * 10) / 10;
+    const r = Math.round(coach.respect * 10) / 10;
+    if (t || r) items.push({ icon: '🧢', text: `Coach: trust ${t > 0 ? '+' : ''}${t}, respect ${r > 0 ? '+' : ''}${r}${coach.notes.length ? ` (${coach.notes.join(', ').toLowerCase()})` : ''}.`, tone: t + r >= 0 ? 'good' : 'bad' });
+  } else if (!report.line) items.push({ icon: '🪑', text: 'You did not play, so the coach had nothing new to judge.', tone: 'info' });
+  if (report.playedHurt) items.push({ icon: '🩹', text: report.aggravated ? 'You played hurt and made the injury worse. Two more weeks out.' : 'You played through the injury and came out of it okay.', tone: report.aggravated ? 'bad' : 'good' });
+  for (const id of report.newBadges) items.push({ icon: BADGE_BY_ID[id]?.icon ?? '🏅', text: `New badge: ${BADGE_BY_ID[id]?.name ?? id}. ${BADGE_BY_ID[id]?.effect ?? ''}`, tone: 'good' });
+  if (!items.length) return null;
+  return (
+    <Panel title="Behind the scenes">
+      <ul className="space-y-2 text-sm">
+        {items.map((it, i) => (
+          <li key={i} className={cx('flex gap-2', it.tone === 'good' ? 'text-ink-100' : it.tone === 'bad' ? 'text-loss' : 'text-ink-300')}>
+            <span>{it.icon}</span>
+            <span>{it.text}</span>
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  );
+}
+
 function PostGame() {
   const post = useStore((s) => s.post)!;
   const game = useStore((s) => s.game)!;
@@ -498,6 +535,7 @@ function PostGame() {
           <Spinner label="The reporters are writing it up…" />
         )}
       </Panel>
+      <AfterGame report={report} />
       {post.highlight && (
         <Panel title="Play of the game" right={<Pill color="#fbbf24">{post.highlight.tag}</Pill>}>
           <div className="grid items-center gap-4 sm:grid-cols-[1fr_230px]">

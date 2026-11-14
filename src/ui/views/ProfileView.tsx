@@ -4,6 +4,7 @@ import { ARCHETYPE_INFO, formatHeight, overall } from '../../engine/ratings';
 import { averages, fmt1, fmtPct, lineSummary, seasonRows, totals } from '../../engine/stats';
 import { RATING_KEYS, RATING_LABELS } from '../../state/schemas';
 import { useStore } from '../../state/store';
+import { BadgesPanel } from '../components/BadgesPanel';
 import { CareerTimeline } from '../components/CareerTimeline';
 import { PlayerCardPanel } from '../components/PlayerCard';
 import { RatingsRadar } from '../components/RatingsRadar';
@@ -186,6 +187,10 @@ export function ProfileView() {
             ))}
             {recent.length === 0 && <li className="py-2 text-ink-500">No games yet.</li>}
           </ul>
+        </Panel>
+
+        <Panel title="Badges and signature moves">
+          <BadgesPanel />
         </Panel>
 
         <Panel title="Trophy case">

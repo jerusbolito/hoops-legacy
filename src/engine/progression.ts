@@ -156,7 +156,9 @@ export function postGameWear(state: GameState, rng: RNG, secPlayed: number, tota
   const share = secPlayed / Math.max(1, totalSec);
   const stamF = 1.25 - ath.ratings.stamina / 120;
   p.energy = clamp(p.energy - Math.round(share * 26 * stamF), 0, 100);
-  const injuryP = 0.008 + share * 0.012 + (p.energy < 25 ? 0.05 : p.energy < 40 ? 0.02 : 0);
+  // a body that has been through a lot breaks down more easily
+  const proneF = p.injuryHistory >= 3 ? 1.4 : 1;
+  const injuryP = (0.008 + share * 0.012 + (p.energy < 25 ? 0.05 : p.energy < 40 ? 0.02 : 0)) * proneF;
   if (secPlayed > 0 && rng.chance(injuryP)) {
     const inj = rng.weighted(
       [
@@ -169,6 +171,7 @@ export function postGameWear(state: GameState, rng: RNG, secPlayed: number, tota
       (i) => 6 - i.weeks,
     );
     p.injury = { ...inj };
+    p.injuryHistory++;
     return inj.desc;
   }
   return null;

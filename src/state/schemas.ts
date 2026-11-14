@@ -101,6 +101,8 @@ export const NpcSchema = z.object({
   memories: z.array(z.string()),
   /** Defining moments with this character. Pinned: they never get pushed out by newer small talk. */
   keyMemories: z.array(z.string()).default([]),
+  /** Not speaking to the player after a falling out. Cleared by repairing the relationship. */
+  estranged: z.boolean().default(false),
   active: z.boolean(),
   metSeason: z.number(),
 });
@@ -211,6 +213,65 @@ export const ContractSchema = z.object({
 });
 export type Contract = z.infer<typeof ContractSchema>;
 
+/** An endorsement / NIL deal the player has signed. */
+export const DealSchema = z.object({
+  id: z.string(),
+  brand: z.string(),
+  category: z.string(),
+  perSeason: z.number(),
+  yearsLeft: z.number(),
+  /** Energy it costs each week (appearances, shoots). */
+  energy: z.number(),
+  /** Pays more but can blow up on you. */
+  sketchy: z.boolean(),
+  /** Share of the money the agent or family adviser takes. */
+  commission: z.number(),
+  signedSeason: z.number(),
+});
+export type Deal = z.infer<typeof DealSchema>;
+
+export const OfferSchema = z.object({
+  id: z.string(),
+  brand: z.string(),
+  category: z.string(),
+  perSeason: z.number(),
+  years: z.number(),
+  energy: z.number(),
+  sketchy: z.boolean(),
+  commission: z.number(),
+  pitch: z.string(),
+  /** What your adviser says about it (honest or not, depending on who they are). */
+  advice: z.string(),
+  expiresSeason: z.number(),
+  expiresWeek: z.number(),
+});
+export type Offer = z.infer<typeof OfferSchema>;
+
+export const PostSchema = z.object({
+  id: z.number(),
+  season: z.number(),
+  week: z.number(),
+  kind: z.string(),
+  author: z.string(),
+  handle: z.string(),
+  text: z.string(),
+  likes: z.number(),
+});
+export type Post = z.infer<typeof PostSchema>;
+
+export const PlanIdSchema = z.enum(['balanced', 'attack_rim', 'perimeter', 'playmaker', 'lockdown', 'conserve']);
+export type PlanId = z.infer<typeof PlanIdSchema>;
+
+export const PressSchema = z.object({
+  id: z.string(),
+  kind: z.string(),
+  question: z.string(),
+  /** Facts the question was built from, for display. */
+  context: z.string(),
+  rival: z.boolean().default(false),
+});
+export type Press = z.infer<typeof PressSchema>;
+
 export const PlayerSchema = z.object({
   athleteId: z.string(),
   hometown: z.string(),
@@ -228,6 +289,17 @@ export const PlayerSchema = z.object({
   awards: z.array(AwardSchema),
   draftPick: z.number().nullable(),
   collegeId: z.string().nullable(),
+  /** Unlocked signature moves and badges (ids from engine/badges). */
+  badges: z.array(z.string()).default([]),
+  deals: z.array(DealSchema).default([]),
+  /** How many times injuries have hit; a long history makes you injury-prone. */
+  injuryHistory: z.number().default(0),
+  /** Clutch moments won, for the Closer badge. */
+  clutchWins: z.number().default(0),
+  /** Draft-stock bonus from the combine; spent when the draft runs. */
+  draftBoost: z.number().default(0),
+  /** Events already played, as "season:eventId". */
+  eventsDone: z.array(z.string()).default([]),
 });
 export type Player = z.infer<typeof PlayerSchema>;
 
@@ -257,6 +329,14 @@ export const CareerSchema = z.object({
   step: WeekStepSchema,
   teamId: z.string(),
   calendarYear: z.number(),
+  /** Game plan chosen for the next game, and whether you spent the day on film. Cleared after the game. */
+  plan: z.object({ id: PlanIdSchema, film: z.boolean() }).nullable().default(null),
+  /** Playing through a minor injury in the next game. Cleared after the game. */
+  playHurt: z.boolean().default(false),
+  /** A press question waiting for an answer. */
+  press: PressSchema.nullable().default(null),
+  /** Games since the last press question, so they stay rare. */
+  gamesSincePress: z.number().default(0),
 });
 export type Career = z.infer<typeof CareerSchema>;
 
@@ -294,6 +374,19 @@ export const StorySchema = z.object({
   defining: z.array(z.object({ season: z.number(), text: z.string() })).default([]),
   /** Unresolved hooks from the latest scenes, to pay off in the next ones. */
   threads: z.array(z.string()).default([]),
+  /** Past choices that will come back to matter. Pending until their season, then due until played out. */
+  ripples: z
+    .array(
+      z.object({
+        id: z.string(),
+        text: z.string(),
+        npcId: z.string().optional(),
+        openedSeason: z.number(),
+        dueSeason: z.number(),
+        status: z.enum(['pending', 'due', 'resolved']),
+      }),
+    )
+    .default([]),
 });
 export type Story = z.infer<typeof StorySchema>;
 
@@ -311,6 +404,7 @@ export const EffectSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('flag'), key: z.string(), value: z.union([z.string(), z.number(), z.boolean()]) }),
   z.object({ type: z.literal('memory'), npc: z.string(), text: z.string(), important: z.boolean().optional() }),
   z.object({ type: z.literal('moment'), text: z.string() }),
+  z.object({ type: z.literal('ripple'), text: z.string(), seasons: z.number().optional(), npc: z.string().optional() }),
   z.object({
     type: z.literal('npc_new'),
     name: z.string(),
@@ -366,5 +460,9 @@ export const GameStateSchema = z.object({
   story: StorySchema,
   news: z.array(z.object({ season: z.number(), week: z.number(), text: z.string() })),
   effectLog: z.array(EffectLogEntrySchema),
+  /** Social media posts about the player, newest last. */
+  feed: z.array(PostSchema).default([]),
+  /** Endorsement offers waiting for an answer. */
+  offers: z.array(OfferSchema).default([]),
 });
 export type GameState = z.infer<typeof GameStateSchema>;

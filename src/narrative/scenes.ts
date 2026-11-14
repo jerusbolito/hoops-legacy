@@ -1,4 +1,6 @@
 import { nextOpponent } from '../engine/career';
+import { coachOf, coachStanding } from '../engine/coach';
+import { MIN_GPA, academicStatus, dueRipples } from '../engine/consequences';
 import { RNG } from '../engine/rng';
 import type { GameState, Level, Npc, NpcRole } from '../state/schemas';
 
@@ -7,6 +9,8 @@ export interface ScenePlan {
   /** Short brief for the LLM about what this scene is. */
   brief: string;
   castIds: string[];
+  /** A delayed consequence this scene pays off; resolved when the scene ends. */
+  rippleId?: string;
 }
 
 interface SceneDef {
@@ -39,7 +43,8 @@ const POOL: SceneDef[] = [
 ];
 
 function npcsWithRole(state: GameState, role: NpcRole): Npc[] {
-  return Object.values(state.npcs).filter((n) => n.active && n.role === role);
+  // people who are not speaking to you do not show up for ordinary scenes
+  return Object.values(state.npcs).filter((n) => n.active && !n.estranged && n.role === role);
 }
 
 function castFor(state: GameState, rng: RNG, roles: NpcRole[]): string[] {
@@ -90,6 +95,37 @@ export function pickScene(state: GameState, rng: RNG): ScenePlan {
       brief: `Rivalry week: you face ${rival.name} and ${next!.opp.name} this week. Trash talk, hype, nerves.`,
       castIds: [rival.id, ...castFor(state, rng, ['friend', 'coach'])],
     };
+  }
+
+  // lasting consequences get first call on the story, once the season is underway
+  if (c.phase === 'regular' && c.week >= 2) {
+    const due = dueRipples(state);
+    if (due.length && !lastKinds.includes('consequence') && rng.chance(0.65)) {
+      const r = due[0];
+      const who = r.npcId && state.npcs[r.npcId]?.active ? [r.npcId] : castFor(state, rng, ['friend', 'coach']);
+      return { kind: 'consequence', brief: `A choice you made earlier has come back: "${r.text}" Show what it costs you or gives you now. This is a payoff, so make the connection to the past clear.`, castIds: who, rippleId: r.id };
+    }
+    const estranged = Object.values(state.npcs).find((n) => n.active && n.estranged);
+    if (estranged && !lastKinds.includes('reconcile') && rng.chance(0.22)) {
+      return { kind: 'reconcile', brief: `${estranged.name} has stopped speaking to you after things fell apart. A chance to repair it, or to make the break final. Do not pretend nothing happened.`, castIds: [estranged.id] };
+    }
+    const ac = academicStatus(state);
+    if (((ac.applies && !ac.eligible) || ac.warning) && !lastKinds.includes('academics') && rng.chance(0.4)) {
+      return {
+        kind: 'academics',
+        brief: ac.eligible ? `Your GPA is ${ac.gpa.toFixed(2)}, close to the ${MIN_GPA.toFixed(1)} you need to stay eligible. Someone is worried. What do you do about it?` : `Your GPA is ${ac.gpa.toFixed(2)}, below the ${MIN_GPA.toFixed(1)} you need, so you cannot play. A hard conversation about how you got here and how to fix it.`,
+        castIds: castFor(state, rng, ['coach', 'family']),
+      };
+    }
+    const cs = coachStanding(state);
+    if (cs.hasCoach && (Math.abs(cs.score) >= 0.45 || cs.rank - cs.talentRank >= 3) && !lastKinds.includes('coach_meeting') && rng.chance(0.28)) {
+      const coach = coachOf(state)!;
+      return {
+        kind: 'coach_meeting',
+        brief: `${coach.name} wants a word about your role. ${cs.reason} Trust ${Math.round(cs.trust)}/100, respect ${Math.round(cs.respect)}/100. You are on the depth chart as: ${cs.label}, about ${cs.minutes} minutes. The talk should match those facts.`,
+        castIds: [coach.id],
+      };
+    }
   }
 
   if (state.player.morale < 30 && !lastKinds.includes('low_point')) {

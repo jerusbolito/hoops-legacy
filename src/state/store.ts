@@ -1,5 +1,11 @@
 import { create } from 'zustand';
+import { LEVEL_CONFIG } from '../data/teams';
+import { BADGE_BY_ID, checkBadgeUnlocks } from '../engine/badges';
+import { applyCombine, applyContestResult, playRound, runCombine, startContest, type CombineResult, type ContestState, type EventId, type Style } from '../engine/events';
+import { acceptOffer, answerPress, declineOffer, type PressOptionId, type PressOutcome } from '../engine/media';
+import { resolveRipple, updateEstrangement } from '../engine/consequences';
 import {
+  addNews,
   advanceWeek,
   commitToCollege,
   createCareer,
@@ -11,6 +17,8 @@ import {
   recruitingOffers,
   recruitingStars,
   runDraft,
+  setGamePlan,
+  setPlayHurt,
   signFreeAgent,
   userAthlete,
   withRng,
@@ -36,10 +44,10 @@ import type { SceneSetup } from '../narrative/parse';
 import { pickScene, type ScenePlan } from '../narrative/scenes';
 import { loadGame, loadLLMConfig, saveGame, storeLLMConfig } from './persistence';
 import type { Reveal, RevealData } from './reveals';
-import { RATING_KEYS, RATING_LABELS, type GameState, type RatingKey, type Ratings, type ScheduledGame } from './schemas';
+import { RATING_KEYS, RATING_LABELS, type GameState, type PlanId, type RatingKey, type Ratings, type ScheduledGame } from './schemas';
 
 export type Screen = 'setup' | 'title' | 'create' | 'game';
-export type Tab = 'hub' | 'profile' | 'relationships' | 'league' | 'analytics' | 'story' | 'memory';
+export type Tab = 'hub' | 'profile' | 'relationships' | 'league' | 'analytics' | 'media' | 'story' | 'memory';
 
 export interface Toast {
   id: number;
@@ -85,6 +93,12 @@ interface Store {
   busy: boolean;
   toasts: Toast[];
   reveals: Reveal[];
+  /** What the last press answer did, shown until dismissed. */
+  pressOutcome: PressOutcome | null;
+  /** The event the player has open, and its live state (not saved). */
+  eventId: EventId | null;
+  contest: ContestState | null;
+  combine: CombineResult | null;
 
   pushReveals(items: RevealData[]): void;
   dismissReveal(): void;
@@ -105,10 +119,24 @@ interface Store {
   startScene(): Promise<void>;
   choose(choiceId: string): Promise<void>;
   finishScene(): void;
+  /** Pre-game: pick the plan and whether to spend energy on film. */
+  setPlan(id: PlanId, film: boolean): void;
+  /** Pre-game: play through a minor injury (or stop). */
+  setHurt(on: boolean): void;
   startGame(): void;
   bumpLive(): void;
   completeGame(): Promise<void>;
   dismissPostGame(): void;
+  answerPress(id: PressOptionId): void;
+  dismissPress(): void;
+  takeOffer(id: string): void;
+  turnDownOffer(id: string): void;
+  openEvent(id: EventId): void;
+  playContest(style: Style): void;
+  finishContest(): void;
+  runCombine(approach: 'push' | 'steady'): void;
+  finishCombine(): void;
+  closeEvent(): void;
   advance(): Promise<void>;
   setFlag(key: string, value: boolean): void;
 
@@ -128,10 +156,14 @@ export const useStore = create<Store>((set, get) => {
     const cur = get().game;
     if (!cur) throw new Error('No game loaded');
     const draft = structuredClone(cur);
+    const badgesBefore = draft.player.badges.length;
     const out = fn(draft);
+    // a badge can be earned by a game, training, or even a story effect on ratings
+    checkBadgeUnlocks(draft);
     draft.updatedAt = Date.now();
     set({ game: draft });
     void saveGame(draft).catch((e) => get().toast(`Autosave failed: ${(e as Error).message}`, 'bad'));
+    for (const id of draft.player.badges.slice(badgesBefore)) get().toast(`Badge earned: ${BADGE_BY_ID[id]?.name ?? id}!`, 'award');
     return out;
   }
 
@@ -170,6 +202,10 @@ export const useStore = create<Store>((set, get) => {
     busy: false,
     toasts: [],
     reveals: [],
+    pressOutcome: null,
+    eventId: null,
+    contest: null,
+    combine: null,
 
     pushReveals(items) {
       if (!items.length) return;
@@ -211,11 +247,11 @@ export const useStore = create<Store>((set, get) => {
     },
 
     async openCareer(state) {
-      set({ game: state, screen: 'game', tab: 'hub', scene: null, live: null, post: null, offers: {}, draft: null, phaseNarration: null, lastTraining: null });
+      set({ game: state, screen: 'game', tab: 'hub', scene: null, live: null, post: null, offers: {}, draft: null, phaseNarration: null, lastTraining: null, pressOutcome: null, eventId: null, contest: null, combine: null });
       await saveGame(state);
     },
 
-    closeCareer: () => set({ game: null, screen: 'title', scene: null, live: null, post: null, reveals: [] }),
+    closeCareer: () => set({ game: null, screen: 'title', scene: null, live: null, post: null, reveals: [], pressOutcome: null, eventId: null, contest: null, combine: null }),
 
     /* ── weekly steps ── */
 
@@ -254,6 +290,11 @@ export const useStore = create<Store>((set, get) => {
         const rng = new RNG(d.rngState);
         const r = applyEffects(d, res.effects, `scene:${sc.plan.kind}`, SCENE_CAPS, rng);
         d.rngState = rng.state;
+        if (sc.plan.rippleId) resolveRipple(d, sc.plan.rippleId);
+        for (const msg of updateEstrangement(d)) {
+          addNews(d, msg);
+          r.applied.push(msg);
+        }
         d.story.log.push({ season: d.career.season, week: d.career.week, phase: d.career.phase, kind: sc.plan.kind, title: sc.setup!.title, summary: res.summary });
         if (res.hook) {
           d.story.threads.push(res.hook.slice(0, 200));
@@ -269,6 +310,15 @@ export const useStore = create<Store>((set, get) => {
     finishScene() {
       mutate((d) => completeScene(d));
       set({ scene: null });
+    },
+
+    setPlan(id, film) {
+      const ok = mutate((d) => setGamePlan(d, id, film));
+      if (!ok) get().toast('You are too worn out to spend the day on film.', 'bad');
+    },
+
+    setHurt(on) {
+      mutate((d) => setPlayHurt(d, on));
     },
 
     startGame() {
@@ -315,12 +365,63 @@ export const useStore = create<Store>((set, get) => {
 
     dismissPostGame: () => set({ post: null }),
 
+    /* ── press, endorsements, events ── */
+
+    answerPress(id) {
+      const out = mutate((d) => withRng(d, (rng) => answerPress(d, rng, id)));
+      if (out) set({ pressOutcome: out });
+    },
+    dismissPress: () => set({ pressOutcome: null }),
+
+    takeOffer(id) {
+      const deal = mutate((d) => withRng(d, (rng) => acceptOffer(d, rng, id)));
+      if (deal) get().toast(`Signed with ${deal.brand}: $${deal.perSeason.toLocaleString()} a season.`, 'good');
+      else get().toast('You already have a deal in that category.', 'bad');
+    },
+    turnDownOffer(id) {
+      mutate((d) => declineOffer(d, id));
+    },
+
+    openEvent(id) {
+      const g = get().game!;
+      if (id === 'combine') set({ eventId: id, contest: null, combine: null });
+      else set({ eventId: id, contest: startContest(g, id), combine: null });
+    },
+    playContest(style) {
+      const c = get().contest;
+      const g = get().game;
+      if (!c || !g || c.finished) return;
+      set({ contest: playRound(c, LEVEL_CONFIG[g.league.level].ratingMean, style) });
+    },
+    finishContest() {
+      const c = get().contest;
+      if (!c?.finished) return;
+      const r = mutate((d) => applyContestResult(d, c));
+      get().toast(r.placement === 1 ? 'You won the contest!' : `You finished #${r.placement} in the contest.`, r.placement <= 3 ? 'award' : 'info');
+      set({ contest: null, eventId: null });
+    },
+    runCombine(approach) {
+      const g = get().game;
+      if (!g) return;
+      set({ combine: runCombine(g, approach) });
+    },
+    finishCombine() {
+      const res = get().combine;
+      if (!res) return;
+      mutate((d) => applyCombine(d, res));
+      get().toast(res.boost >= 0 ? `The combine helped your stock (+${res.boost.toFixed(1)}).` : `The combine hurt your stock (${res.boost.toFixed(1)}).`, res.boost >= 0 ? 'good' : 'bad');
+      set({ combine: null, eventId: null });
+    },
+    closeEvent: () => set({ eventId: null, contest: null, combine: null }),
+
     async advance() {
       if (get().busy) return;
       set({ busy: true, lastTraining: null });
       try {
         const prevSeason = get().game!.career.season;
+        const offersBefore = new Set(get().game!.offers.map((o) => o.id));
         const r = mutate((d) => advanceWeek(d));
+        for (const o of get().game!.offers.filter((x) => !offersBefore.has(x.id))) get().toast(`${o.brand} wants to sign you. Check the Media tab.`, 'good');
         // championships and awards get full-screen reveals instead of toasts
         r.messages.filter((m) => !m.startsWith('Award') && !m.startsWith('CHAMP')).forEach((m) => get().toast(m, 'info'));
         if (r.seasonEnded) {

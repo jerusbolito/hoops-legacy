@@ -1,5 +1,6 @@
 import type { Effect, GameState, RelField } from '../state/schemas';
 import { RATING_LABELS } from '../state/schemas';
+import { addRipple } from './consequences';
 import { makeNpc } from './generate';
 import { RNG, clamp } from './rng';
 
@@ -68,7 +69,7 @@ export function applyEffects(state: GameState, effects: Effect[], source: string
   const rejected: string[] = [];
   const p = state.player;
   const user = state.athletes[p.athleteId];
-  const used = { rating: 0, npcs: 0, memories: 0, moments: 0, rel: new Map<string, number>(), morale: 0, rep: 0 };
+  const used = { rating: 0, npcs: 0, memories: 0, moments: 0, ripples: 0, rel: new Map<string, number>(), morale: 0, rep: 0 };
   const capDelta = (d: number, cap: number) => clamp(Math.round(d * 100) / 100, -cap, cap);
 
   for (const e of effects) {
@@ -172,6 +173,16 @@ export function applyEffects(state: GameState, effects: Effect[], source: string
         }
         npc.memories.push(text);
         if (npc.memories.length > 8) npc.memories.splice(0, npc.memories.length - 8);
+        break;
+      }
+      case 'ripple': {
+        // a choice that will matter later: at most one per scene, and only a few waiting at once
+        if (used.ripples >= 1) break;
+        const npcId = e.npc ? (resolveNpc(state, e.npc) ?? undefined) : undefined;
+        if (addRipple(state, { text: e.text, seasons: e.seasons, npcId })) {
+          used.ripples++;
+          applied.push('⏳ This will come back to matter');
+        }
         break;
       }
       case 'moment': {

@@ -1,4 +1,7 @@
 import { LEVEL_CONFIG, yearLabel } from '../data/teams';
+import { BADGE_BY_ID } from '../engine/badges';
+import { coachStanding } from '../engine/coach';
+import { MIN_GPA, academicStatus, isInjuryProne } from '../engine/consequences';
 import { nextOpponent, standingsRows, userAthlete, userRole, userTeam } from '../engine/career';
 import { ARCHETYPE_INFO, formatHeight, overall } from '../engine/ratings';
 import { fmt1, lineSummary, seasonAverages } from '../engine/stats';
@@ -23,6 +26,15 @@ export function playerBlock(state: GameState): string {
     `Injury: ${p.injury ? `${p.injury.desc} (${p.injury.weeks} wk)` : 'healthy'}. Traits: ${p.traits.join(', ') || 'none'}.`,
   ];
   if (p.awards.length) lines.push(`Awards: ${p.awards.map((x) => `${x.name} (S${x.season})`).join('; ')}.`);
+  const coach = coachStanding(state);
+  if (coach.hasCoach) lines.push(`Coach ${coach.coachName}: trust ${Math.round(coach.trust)}/100, respect ${Math.round(coach.respect)}/100. ${coach.reason} Depth chart: ${coach.label} (#${coach.rank}), about ${coach.minutes} minutes a game.`);
+  if (p.badges.length) lines.push(`Earned badges (skills the player is known for): ${p.badges.map((id) => BADGE_BY_ID[id]?.name ?? id).join(', ')}.`);
+  if (p.deals.length) lines.push(`Endorsements: ${p.deals.map((d) => `${d.brand}${d.sketchy ? ' (a risky, questionable brand)' : ''}`).join(', ')}.`);
+  const ac = academicStatus(state);
+  if (ac.applies && !ac.eligible) lines.push(`ACADEMICALLY INELIGIBLE: GPA ${ac.gpa.toFixed(2)} is below ${MIN_GPA.toFixed(1)}, so the player cannot play until it improves.`);
+  else if (ac.warning) lines.push(`Academic warning: GPA ${ac.gpa.toFixed(2)} is close to the ${MIN_GPA.toFixed(1)} needed to stay eligible.`);
+  if (state.career.playHurt && p.injury) lines.push(`The player is choosing to play through a ${p.injury.desc}.`);
+  if (isInjuryProne(state)) lines.push('Injury history: the body is breaking down; the player is injury-prone.');
   return lines.join('\n');
 }
 
@@ -63,7 +75,7 @@ function ordinal(n: number) {
 
 export function npcLine(state: GameState, n: Npc, detailed: boolean): string {
   const r = n.relationship;
-  let s = `- id=${n.id} | ${n.name} | ${n.role} | ${n.title}`;
+  let s = `- id=${n.id} | ${n.name} | ${n.role} | ${n.title}${n.estranged ? ' | ESTRANGED: not speaking to you after a falling out' : ''}`;
   if (n.athleteId && state.athletes[n.athleteId]) {
     const a = state.athletes[n.athleteId];
     s += ` | plays ${a.position} for ${a.teamId ? teamLabel(state, a.teamId) : 'nobody'} (OVR ${overall(a.ratings)})`;
@@ -125,6 +137,8 @@ export function storySections(state: GameState): ContextSection[] {
   add('seasons', 'Recent seasons', summaries.length ? ['RECENT SEASONS:', ...summaries.map((s) => `- Season ${s.season}: ${s.text}`)] : []);
   add('defining', 'Defining moments', st.defining?.length ? ['DEFINING MOMENTS (permanent history; never contradict, call back when natural):', ...st.defining.map((d) => `- [S${d.season}] ${d.text}`)] : []);
   add('threads', 'Threads to pay off', st.threads?.length ? ['THREADS TO PAY OFF (left hanging by recent scenes; resolve or advance one if it fits):', ...st.threads.map((t) => `- ${t}`)] : []);
+  const due = st.ripples.filter((r) => r.status === 'due');
+  add('ripples', 'Coming due', due.length ? ['COMING DUE (consequences of earlier choices; if this scene fits, show them landing, good or bad):', ...due.map((r) => `- ${r.text}`)] : []);
   const recent = st.log.slice(-MEMORY_WINDOWS.beats);
   add('beats', 'Recent story beats', recent.length ? ['RECENT STORY BEATS (oldest first):', ...recent.map((e) => `- [S${e.season} W${e.week}] ${e.title}: ${e.summary}`)] : []);
   const arcs = st.arcs.filter((a) => a.status === 'open');

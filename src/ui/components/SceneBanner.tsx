@@ -29,6 +29,10 @@ const ENV_BY_KIND: Record<string, Env> = {
   media: 'press',
   agent_meeting: 'press',
   injury: 'rehab',
+  consequence: 'city',
+  reconcile: 'city',
+  coach_meeting: 'gym',
+  academics: 'classroom',
 };
 
 export const envFor = (kind: string): Env => ENV_BY_KIND[kind] ?? 'gym';

@@ -1,5 +1,9 @@
 import { nextOpponent, standingsRows } from '../../engine/career';
 import { useStore } from '../../state/store';
+import { MIN_GPA, academicStatus } from '../../engine/consequences';
+import { CoachPanel } from '../components/CoachPanel';
+import { EventsCard } from '../components/EventModal';
+import { PressCard } from '../components/PressCard';
 import { Panel, TeamBadge, cx } from '../components/ui';
 import { DraftPanel, FreeAgencyPanel, RecruitingPanel, RetiredPanel } from '../panels/CareerPanels';
 import { GamePanel, PreGamePanel } from '../panels/GamePanel';
@@ -15,6 +19,7 @@ export function HubView() {
   const post = useStore((s) => s.post);
   const lastTraining = useStore((s) => s.lastTraining);
   const c = game.career;
+  const academics = academicStatus(game);
 
   let main;
   if (live || post) main = <GamePanel />;
@@ -33,6 +38,13 @@ export function HubView() {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
       <div className="min-w-0 space-y-4">
+        {academics.applies && (!academics.eligible || academics.warning) && ['regular', 'playoffs', 'offseason', 'preseason'].includes(c.phase) && (
+          <div role="alert" className={cx('rounded-lg border px-4 py-2.5 text-sm', academics.eligible ? 'border-gold/40 bg-gold/10 text-gold' : 'border-loss/50 bg-loss/10 text-loss')}>
+            {academics.eligible ? `Grades warning: your GPA is ${academics.gpa.toFixed(2)}. Below ${MIN_GPA.toFixed(1)} you cannot play. Studying raises it; every week without school work lets it slip.` : `You are academically ineligible. Your GPA is ${academics.gpa.toFixed(2)} and you need ${MIN_GPA.toFixed(1)}. You will sit out until it recovers. Choose "Hit the Books" in training.`}
+          </div>
+        )}
+        <PressCard />
+        {!live && <EventsCard />}
         {showSteps && (
           <ol className="flex gap-2 text-[11px] font-semibold uppercase tracking-widest">
             {steps.map((s, i) => {
@@ -76,6 +88,7 @@ function Sidebar() {
           </div>
         </Panel>
       )}
+      <CoachPanel />
       <Panel title={game.league.name}>
         <table className="w-full text-xs">
           <tbody>

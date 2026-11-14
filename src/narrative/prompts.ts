@@ -32,6 +32,7 @@ export const EFFECTS_DOC = `EFFECTS you may propose (array "effects"; each one i
 {"type":"memory","npc":"<npc id>","text":"<what this character will remember about this moment, <= 20 words>","important":<true only if it changes how they see the player for good>}
 {"type":"moment","text":"<a DEFINING moment of the player's whole career, <= 25 words>"}  (very rare, at most one per scene: first start, a betrayal, a breakup, a career-changing injury, a vow. NOT routine scenes)
 {"type":"npc_new","name":"<full name>","role":"coach|family|friend|love_interest|agent|media|scout|mentor|other","title":"<short descriptor>","personality":["<trait>","<trait>"]}
+{"type":"ripple","text":"<a choice that will matter later, <= 25 words>","seasons":<1-3>,"npc":"<npc id, optional>"}  (rare, at most one per scene: a lie, a promise, a betrayal, a favor owed, a risk taken. It WILL come back in a later season, so only plant one if you can imagine the payoff)
 {"type":"arc_open","title":"<storyline name>","stakes":"<one sentence>","npcs":["<npc id>"]}
 {"type":"arc_close","id":"<arc id>","outcome":"<one sentence>"}`;
 
@@ -66,7 +67,7 @@ Write what happens next and close the scene (70-150 words) in plain, direct lang
 
 ${EFFECTS_DOC}
 
-Guidance: usually 2-5 effects. Always add memory effects for featured characters who would remember this moment. Open a storyline only for something with real future stakes. Close an open storyline only if this scene truly resolves it. Mark a memory "important" only when it permanently shapes the relationship. Add a "moment" effect only for a true career turning point, which most scenes are not.
+Guidance: usually 2-5 effects. Always add memory effects for featured characters who would remember this moment. Open a storyline only for something with real future stakes. Close an open storyline only if this scene truly resolves it. Mark a memory "important" only when it permanently shapes the relationship. Add a "moment" effect only for a true career turning point, which most scenes are not. Add a "ripple" effect only when the player's choice plants a seed that should pay off or backfire seasons later (a lie they could be caught in, a promise they might break, a risk). If the context lists a "COMING DUE" consequence and this scene is about it, show it paying off or backfiring now.
 Also give a "hook": one short sentence (<= 25 words) about anything this scene leaves hanging that a LATER scene should pay off (a promise, a secret, a threat, a favor owed, an unanswered text). Use "" if nothing is left hanging. If this scene pays off a THREAD TO PAY OFF from the context, do not repeat it as the hook.
 
 Return JSON:
