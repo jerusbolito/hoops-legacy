@@ -1,0 +1,102 @@
+import { motion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
+import { presetById } from '../../llm/presets';
+import { deleteSave, exportSave, importSave, listSaves, loadGame, type SaveRow } from '../../state/persistence';
+import { useStore } from '../../state/store';
+import { Avatar, Button, Panel } from '../components/ui';
+
+export function TitleScreen() {
+  const [saves, setSaves] = useState<Omit<SaveRow, 'state'>[]>([]);
+  const setScreen = useStore((s) => s.setScreen);
+  const loadCareer = useStore((s) => s.loadCareer);
+  const openCareer = useStore((s) => s.openCareer);
+  const toast = useStore((s) => s.toast);
+  const llm = useStore((s) => s.llm);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const refresh = () => listSaves().then(setSaves);
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  const doExport = async (id: string) => {
+    const st = await loadGame(id);
+    if (!st) return;
+    const blob = new Blob([exportSave(st)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `hoops-legacy-${id}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const doImport = async (f: File) => {
+    try {
+      const st = importSave(await f.text());
+      await openCareer(st);
+      toast('Save imported', 'good');
+    } catch (e) {
+      toast(`Import failed: ${(e as Error).message.slice(0, 120)}`, 'bad');
+    }
+  };
+
+  return (
+    <div className="mx-auto flex min-h-full max-w-2xl flex-col justify-center px-4 py-10">
+      <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="mb-10 text-center">
+        <motion.div className="text-6xl" animate={{ y: [0, -14, 0] }} transition={{ repeat: Infinity, duration: 1.4, ease: 'easeInOut' }}>
+          🏀
+        </motion.div>
+        <h1 className="mt-3 font-display text-6xl font-bold tracking-tight">
+          HOOPS <span className="text-hoop-500">LEGACY</span>
+        </h1>
+        <p className="mt-2 text-ink-400">From the high school gym to the league. Every choice writes the story.</p>
+      </motion.div>
+
+      <div className="mb-6 flex flex-wrap justify-center gap-3">
+        <Button className="px-6 py-3 text-base" onClick={() => setScreen('create')}>
+          New Career
+        </Button>
+        <Button variant="outline" onClick={() => fileRef.current?.click()}>
+          Import save
+        </Button>
+        <Button variant="ghost" onClick={() => setScreen('setup')}>
+          ⚙ {llm ? presetById(llm.presetId).label : 'AI settings'}
+        </Button>
+        <input ref={fileRef} type="file" accept="application/json" hidden onChange={(e) => e.target.files?.[0] && doImport(e.target.files[0])} />
+      </div>
+
+      {saves.length > 0 && (
+        <Panel title="Careers">
+          <ul className="divide-y divide-court-700">
+            {saves.map((s) => (
+              <li key={s.id} className="flex items-center gap-3 py-3">
+                <Avatar name={s.name} />
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold">{s.name}</div>
+                  <div className="truncate text-xs text-ink-400">{s.subtitle}</div>
+                  <div className="text-[11px] text-ink-500">{new Date(s.updatedAt).toLocaleString()}</div>
+                </div>
+                <Button onClick={() => loadCareer(s.id)}>Play</Button>
+                <Button variant="ghost" title="Export" onClick={() => doExport(s.id)}>
+                  ⤓
+                </Button>
+                <Button
+                  variant="ghost"
+                  title="Delete"
+                  onClick={async () => {
+                    if (confirm(`Delete ${s.name}'s career? This cannot be undone.`)) {
+                      await deleteSave(s.id);
+                      refresh();
+                    }
+                  }}
+                >
+                  ✕
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+    </div>
+  );
+}
