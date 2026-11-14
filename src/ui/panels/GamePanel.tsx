@@ -2,6 +2,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { nextOpponent, userAthlete, userRole, userTeam } from '../../engine/career';
 import { Jersey } from '../components/Jersey';
+import { EdgeLine, ScoutingReport } from '../components/Scouting';
 import { lookFor } from '../components/Portrait';
 import { formatClock, type KeyMoment, type MomentResult } from '../../engine/gameSim';
 import { currentRun } from '../../engine/highlights';
@@ -363,30 +364,43 @@ function LiveGame() {
 }
 
 function MomentCard({ moment, onPick }: { moment: KeyMoment; onPick: (id: string) => void }) {
+  // on phones the report starts collapsed so the choices stay in view; on larger screens it sits beside them
+  const wide = typeof window !== 'undefined' && window.matchMedia?.('(min-width: 768px)').matches;
   return (
-    <motion.div initial={{ opacity: 0, y: 20, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }} className="fixed inset-0 z-40 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center">
-      <div className={cx('w-full max-w-xl rounded-2xl border bg-court-850 p-5 shadow-2xl', moment.clutch ? 'border-gold/60 shadow-gold/10' : 'border-hoop-500/50')}>
+    <motion.div initial={{ opacity: 0, y: 20, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }} className="fixed inset-0 z-40 flex items-end justify-center overflow-y-auto bg-black/60 p-3 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className={cx('my-auto w-full rounded-2xl border bg-court-850 p-5 shadow-2xl', moment.intel ? 'max-w-4xl' : 'max-w-xl', moment.clutch ? 'border-gold/60 shadow-gold/10' : 'border-hoop-500/50')}>
         <div className="mb-1 flex items-center gap-2">
           <Pill color={moment.clutch ? '#fbbf24' : '#f97316'}>{moment.clutch ? 'Clutch moment' : 'Key moment'}</Pill>
           {moment.isRival && <Pill color="#ef4444">Rival</Pill>}
           <Pill>{moment.kind}</Pill>
         </div>
         <p className="my-3 text-[15px] leading-relaxed">{moment.situation}</p>
-        <div className="grid gap-2">
-          {moment.options.map((o) => (
-            <button key={o.id} onClick={() => onPick(o.id)} className="group rounded-lg border border-court-600 bg-court-800/60 p-3 text-left transition-all hover:border-hoop-500 hover:bg-court-800">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold">{o.label}</span>
-                <span className="font-mono text-sm text-hoop-400">{Math.round(o.odds * 100)}%</span>
+        <div className={cx('grid gap-5', moment.intel && 'md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]')}>
+          <div className="grid content-start gap-2">
+            {moment.options.map((o) => (
+              <button key={o.id} onClick={() => onPick(o.id)} className="group rounded-lg border border-court-600 bg-court-800/60 p-3 text-left transition-all hover:border-hoop-500 hover:bg-court-800">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold">{o.label}</span>
+                  <span className="font-mono text-sm text-hoop-400">{Math.round(o.odds * 100)}%</span>
+                </div>
+                <div className="mt-0.5 text-xs text-ink-400">
+                  {o.detail} <span className="text-ink-500">· {RATING_LABELS[o.rating]}</span>
+                </div>
+                {o.edge && <EdgeLine edge={o.edge} />}
+                <div className="mt-2 h-1 overflow-hidden rounded-full bg-court-700">
+                  <div className="h-full rounded-full bg-gradient-to-r from-hoop-600 to-hoop-400" style={{ width: `${o.odds * 100}%` }} />
+                </div>
+              </button>
+            ))}
+          </div>
+          {moment.intel && (
+            <details open={wide} className="group rounded-xl border border-court-700 bg-court-900/60 p-3 md:!block md:border-0 md:bg-transparent md:p-0">
+              <summary className="cursor-pointer list-none text-xs font-semibold tracking-widest text-hoop-400 uppercase md:hidden">Scouting report (tap to open)</summary>
+              <div className="mt-3 md:mt-0">
+                <ScoutingReport intel={moment.intel} kind={moment.kind} />
               </div>
-              <div className="mt-0.5 text-xs text-ink-400">
-                {o.detail} <span className="text-ink-500">· {RATING_LABELS[o.rating]}</span>
-              </div>
-              <div className="mt-2 h-1 overflow-hidden rounded-full bg-court-700">
-                <div className="h-full rounded-full bg-gradient-to-r from-hoop-600 to-hoop-400" style={{ width: `${o.odds * 100}%` }} />
-              </div>
-            </button>
-          ))}
+            </details>
+          )}
         </div>
       </div>
     </motion.div>

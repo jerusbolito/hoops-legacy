@@ -1,6 +1,8 @@
 import type { Athlete, BoxScore, PlayerLine, RatingKey, TeamBox } from '../state/schemas';
 import { RNG, clamp } from './rng';
 import { overall, shortName } from './ratings';
+import { RECENT_SHOTS, playerIntel, teamQuick, tipsFor, type Edge, type MomentIntel, type PlayerIntel } from './intel';
+import { RATING_KEYS } from '../state/schemas';
 
 /* ───────────────────────── Types ───────────────────────── */
 
@@ -49,6 +51,8 @@ export interface MomentOption {
   detail: string;
   odds: number;
   rating: RatingKey;
+  /** The ratings that decide this option: yours against theirs. */
+  edge?: Edge;
 }
 
 export interface KeyMoment {
@@ -64,6 +68,8 @@ export interface KeyMoment {
   opponentId?: string;
   isRival: boolean;
   options: MomentOption[];
+  /** Scouting report for the decision. Absent only on moments created by older code. */
+  intel?: MomentIntel;
 }
 
 export interface MomentResult {
@@ -141,6 +147,8 @@ export class GameSim {
   private clutchFired = 0;
   private userSide: Side | null = null;
   private momentSeq = 0;
+  /** Each player's most recent field-goal results, for hot/cold hands. */
+  private recentShots = new Map<string, boolean[]>();
 
   constructor(rng: RNG, home: SimTeamInput, away: SimTeamInput, opts: SimOptions) {
     this.rng = rng;
@@ -441,6 +449,7 @@ export class GameSim {
       const val = type === 'three' ? 3 : 2;
       sl.fga++;
       sl.fgm++;
+      this.noteShot(shooter, true);
       if (type === 'three') {
         sl.tpa++;
         sl.tpm++;
@@ -476,6 +485,7 @@ export class GameSim {
     }
 
     sl.fga++;
+    this.noteShot(shooter, false);
     if (type === 'three') sl.tpa++;
     const blocked = type !== 'three' && this.rng.chance(clamp(0.05 + (this.r(defender, 'athleticism') + this.r(defender, 'defense') - 2 * this.opts.levelMean) * 0.0015 + (type === 'rim' ? 0.04 : 0), 0.01, 0.2));
     if (blocked) {
@@ -489,6 +499,33 @@ export class GameSim {
     }
     this.rebound(off);
     return { made: false, pts: 0 };
+  }
+
+  private noteShot(a: Athlete, made: boolean) {
+    const list = this.recentShots.get(a.id) ?? [];
+    list.push(made);
+    if (list.length > RECENT_SHOTS) list.shift();
+    this.recentShots.set(a.id, list);
+  }
+
+  private intelFor(a: Athlete, s: Side): PlayerIntel {
+    return playerIntel(a, {
+      ownTeam: s === this.userSide,
+      line: this.line(s, a),
+      recent: this.recentShots.get(a.id) ?? [],
+      rating: (x, k) => this.r(x, k),
+      ovr: this.ovr(a),
+      mean: this.opts.levelMean,
+      foulOut: this.opts.foulOut,
+      short: shortName(a),
+      keys: RATING_KEYS,
+    });
+  }
+
+  private quickTeams(us: Side): MomentIntel['teams'] {
+    const them = this.other(us);
+    const q = (s: Side) => teamQuick(this.sides[s].input.abbrev, this.sides[s].score, [...this.sides[s].lines.values()]);
+    return { us: q(us), them: q(them) };
   }
 
   private freeThrows(off: Side, shooter: Athlete, n: number): number {
@@ -583,18 +620,33 @@ export class GameSim {
       const bestMate = [...mates].sort((a, b) => this.usage(b) - this.usage(a))[0];
       const mateDef = this.defenderFor(them, bestMate, us);
       const mateShot = this.pickShotDeterministic(bestMate);
+      const vs = (yours: string, you: number, theirs: string, them: number): Edge => ({ yours, you, theirs, them });
+      const dDef = this.r(defender, 'defense');
+      const mateRim = mateShot === 'rim';
       const opts: MomentOption[] = [
-        { id: 'drive', label: 'Attack the rim', detail: `Put your head down and go at ${shortName(defender)}.`, odds: this.shotOdds(user, defender, 'rim', clutchBonus), rating: 'finishing' },
-        { id: 'pullup', label: 'Pull-up jumper', detail: 'Rise up from the elbow.', odds: this.shotOdds(user, defender, 'mid', clutchBonus), rating: 'shooting' },
-        { id: 'three', label: 'Step-back three', detail: 'Create space and let it fly.', odds: this.shotOdds(user, defender, 'three', clutchBonus - 0.03), rating: 'shooting' },
+        { id: 'drive', label: 'Attack the rim', detail: `Put your head down and go at ${shortName(defender)}.`, odds: this.shotOdds(user, defender, 'rim', clutchBonus), rating: 'finishing', edge: vs('Your FIN', this.r(user, 'finishing'), 'His DEF', dDef) },
+        { id: 'pullup', label: 'Pull-up jumper', detail: 'Rise up from the elbow.', odds: this.shotOdds(user, defender, 'mid', clutchBonus), rating: 'shooting', edge: vs('Your SHO', this.r(user, 'shooting'), 'His DEF', dDef) },
+        { id: 'three', label: 'Step-back three', detail: 'Create space and let it fly.', odds: this.shotOdds(user, defender, 'three', clutchBonus - 0.03), rating: 'shooting', edge: vs('Your SHO', this.r(user, 'shooting'), 'His DEF', dDef) },
         {
           id: 'pass',
           label: `Find ${shortName(bestMate)}`,
           detail: 'Draw two and make the right play.',
           odds: clamp(this.shotOdds(bestMate, mateDef, mateShot, 0.08 + (this.r(user, 'passing') - this.opts.levelMean) * 0.003) * (1 - 0.04), 0.1, 0.85),
           rating: 'passing',
+          edge: vs(`${shortName(bestMate)} ${mateRim ? 'FIN' : 'SHO'}`, this.r(bestMate, mateRim ? 'finishing' : 'shooting'), `${shortName(mateDef)} DEF`, this.r(mateDef, 'defense')),
         },
       ];
+      const youIntel = this.intelFor(user, us);
+      const matchupIntel = this.intelFor(defender, them);
+      const teammates = mates.map((a) => this.intelFor(a, us));
+      const intel: MomentIntel = {
+        you: youIntel,
+        matchup: matchupIntel,
+        teammates,
+        opponents: oppFive.map((a) => this.intelFor(a, them)),
+        teams: this.quickTeams(us),
+        tips: tipsFor({ kind: 'offense', you: youIntel, matchup: matchupIntel, teammates, mean: this.opts.levelMean, foulOut: this.opts.foulOut }),
+      };
       return {
         id,
         kind,
@@ -608,6 +660,7 @@ export class GameSim {
         opponentId: defender.id,
         isRival: !!rival,
         options: opts,
+        intel,
       };
     }
 
@@ -619,6 +672,20 @@ export class GameSim {
     const stealOdds = clamp(0.22 + (this.r(user, 'defense') + this.r(user, 'athleticism') - this.r(attacker, 'handles') - m) * 0.004 + clutchBonus, 0.08, 0.6);
     const solidOdds = clamp(1 - base + 0.06 + (this.r(user, 'defense') - m) * 0.003 + clutchBonus, 0.2, 0.88);
     const blockOdds = clamp(0.2 + (this.r(user, 'athleticism') + this.r(user, 'defense') - 2 * m) * 0.004 + (user.heightIn - 77) * 0.01 + clutchBonus, 0.06, 0.55);
+    const youD = this.intelFor(user, us);
+    const attackerIntel = this.intelFor(attacker, them);
+    const mates = this.sides[us].onCourt.filter((a) => a.id !== user.id);
+    const teammatesD = mates.map((a) => this.intelFor(a, us));
+    const intelD: MomentIntel = {
+      you: youD,
+      matchup: attackerIntel,
+      teammates: teammatesD,
+      opponents: oppFive.map((a) => this.intelFor(a, them)),
+      teams: this.quickTeams(us),
+      expectedShot: shot,
+      tips: tipsFor({ kind: 'defense', you: youD, matchup: attackerIntel, teammates: teammatesD, mean: m, foulOut: this.opts.foulOut, expectedShot: shot }),
+    };
+    const aAtt = shot === 'rim' ? 'finishing' : 'shooting';
     return {
       id,
       kind,
@@ -632,10 +699,11 @@ export class GameSim {
       opponentId: attacker.id,
       isRival: !!rival,
       options: [
-        { id: 'steal', label: 'Gamble for the steal', detail: 'High risk — if you miss, it is an easy look.', odds: stealOdds, rating: 'defense' },
-        { id: 'solid', label: 'Stay solid', detail: 'Stay in front, contest without fouling.', odds: solidOdds, rating: 'defense' },
-        { id: 'block', label: 'Go for the block', detail: 'Meet them at the summit. Foul risk.', odds: blockOdds, rating: 'athleticism' },
+        { id: 'steal', label: 'Gamble for the steal', detail: 'High risk — if you miss, it is an easy look.', odds: stealOdds, rating: 'defense', edge: { yours: 'Your DEF', you: this.r(user, 'defense'), theirs: 'His HND', them: this.r(attacker, 'handles') } },
+        { id: 'solid', label: 'Stay solid', detail: 'Stay in front, contest without fouling.', odds: solidOdds, rating: 'defense', edge: { yours: 'Your DEF', you: this.r(user, 'defense'), theirs: `His ${aAtt === 'finishing' ? 'FIN' : 'SHO'}`, them: this.r(attacker, aAtt) } },
+        { id: 'block', label: 'Go for the block', detail: 'Meet them at the summit. Foul risk.', odds: blockOdds, rating: 'athleticism', edge: { yours: 'Your ATH', you: this.r(user, 'athleticism'), theirs: 'His ATH', them: this.r(attacker, 'athleticism') } },
       ],
+      intel: intelD,
     };
   }
 
