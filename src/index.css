@@ -76,3 +76,56 @@ body {
 .pulse-ring {
   animation: pulse-ring 1.6s ease-out infinite;
 }
+
+/* ── scene / flair animations ── */
+@keyframes beam {
+  0%,
+  100% {
+    opacity: calc(var(--o, 0.1) * 0.5);
+  }
+  50% {
+    opacity: var(--o, 0.1);
+  }
+}
+.beam {
+  opacity: 0.06;
+  animation: beam 5s ease-in-out infinite;
+}
+@keyframes flash {
+  0%,
+  86%,
+  100% {
+    opacity: 0;
+  }
+  90% {
+    opacity: 0.95;
+  }
+}
+.flash {
+  opacity: 0;
+  animation: flash 2.2s linear infinite;
+}
+@keyframes rain {
+  0% {
+    transform: translateY(-6px);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(46px);
+    opacity: 0;
+  }
+}
+.rain {
+  animation: rain 1.4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .beam,
+  .flash,
+  .rain,
+  .pulse-ring {
+    animation: none !important;
+  }
+}

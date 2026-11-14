@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { overall } from '../../engine/ratings';
 import type { Npc } from '../../state/schemas';
 import { useStore } from '../../state/store';
+import { npcLook } from '../components/looks';
 import { Avatar, Meter, Panel, Pill, SignedMeter, cx } from '../components/ui';
 
 const ROLE_COLOR: Record<string, string> = {
@@ -57,7 +58,7 @@ export function RelationshipsView() {
               onClick={() => setSelected(n.id)}
               className={cx('flex items-center gap-3 rounded-lg border p-3 text-left transition-colors', sel?.id === n.id ? 'border-hoop-500 bg-hoop-500/10' : 'border-court-700 hover:border-court-500', !n.active && 'opacity-50')}
             >
-              <Avatar name={n.name} size={42} ring={ROLE_COLOR[n.role]} />
+              <Avatar name={n.name} size={46} ring={ROLE_COLOR[n.role]} {...npcLook(game, n)} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="truncate font-semibold">{n.name}</span>
@@ -75,7 +76,7 @@ export function RelationshipsView() {
       {sel && (
         <Panel title={sel.name}>
           <div className="mb-4 flex items-center gap-3">
-            <Avatar name={sel.name} size={56} ring={ROLE_COLOR[sel.role]} />
+            <Avatar name={sel.name} size={72} ring={ROLE_COLOR[sel.role]} {...npcLook(game, sel)} />
             <div>
               <div className="text-sm text-ink-300">{sel.title}</div>
               <div className="mt-1 flex flex-wrap gap-1">

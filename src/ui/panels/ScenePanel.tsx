@@ -2,6 +2,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { useStore } from '../../state/store';
 import { Typewriter } from '../components/Typewriter';
+import { npcLook } from '../components/looks';
+import { SceneBanner } from '../components/SceneBanner';
 import { Avatar, Button, EffectChips, Panel, Pill, Spinner, cx } from '../components/ui';
 
 const TONE_ICON: Record<string, string> = {
@@ -61,11 +63,12 @@ export function ScenePanel() {
         }
         right={scene.error ? <Pill color="#f59e0b">template</Pill> : null}
       >
+        <SceneBanner kind={scene.plan.kind} colors={game.teams[game.career.teamId].colors} className="-mx-4 -mt-4 mb-4" />
         {cast.length > 0 && (
           <div className="mb-4 flex flex-wrap gap-3">
             {cast.map((n) => (
               <div key={n.id} className="flex items-center gap-2 rounded-full border border-court-700 bg-court-800/60 py-1 pr-3 pl-1">
-                <Avatar name={n.name} size={28} />
+                <Avatar name={n.name} size={36} {...npcLook(game, n)} />
                 <div className="text-xs leading-tight">
                   <div className="font-semibold">{n.name}</div>
                   <div className="text-ink-500 capitalize">{n.role.replace('_', ' ')}</div>

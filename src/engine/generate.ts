@@ -1,25 +1,27 @@
-import { FIRST_NAMES, LAST_NAMES, PERSONALITIES } from '../data/names';
+import { PERSONALITIES } from '../data/names';
 import { LEVEL_CONFIG, TEAMS_BY_LEVEL, type TeamTemplate } from '../data/teams';
 import type { Archetype, Athlete, Level, Npc, NpcRole, Position, Relationship, Team } from '../state/schemas';
+import { NameBook } from './nameBook';
 import { ARCHETYPE_INFO, heightFor, makeRatings } from './ratings';
 import { RNG, clamp } from './rng';
 
 const ARCHETYPES: Archetype[] = ['slasher', 'sharpshooter', 'playmaker', 'big', 'two-way'];
 const ROSTER_POSITIONS: Position[] = ['PG', 'SG', 'SF', 'PF', 'C', 'PG', 'SG', 'SF', 'PF', 'C', 'SF', 'SG', 'PF'];
 
-export function randomName(rng: RNG): { firstName: string; lastName: string } {
-  return { firstName: rng.pick(FIRST_NAMES), lastName: rng.pick(LAST_NAMES) };
-}
-
 function archetypeFor(rng: RNG, pos: Position): Archetype {
   const fits = ARCHETYPES.filter((a) => ARCHETYPE_INFO[a].positions.includes(pos));
   return rng.pick(fits);
 }
 
+function pickName(rng: RNG, opts: { teamId?: string | null; names?: NameBook }) {
+  const d = (opts.names ?? new NameBook()).draw(rng, { team: opts.teamId ?? null });
+  return { firstName: d.firstName, lastName: d.lastName };
+}
+
 export function generateAthlete(
   rng: RNG,
   level: Level,
-  opts: { position?: Position; mean?: number; teamId?: string | null; age?: number } = {},
+  opts: { position?: Position; mean?: number; teamId?: string | null; age?: number; names?: NameBook } = {},
 ): Athlete {
   const cfg = LEVEL_CONFIG[level];
   const position = opts.position ?? rng.pick(['PG', 'SG', 'SF', 'PF', 'C'] as Position[]);
@@ -30,7 +32,7 @@ export function generateAthlete(
   const ovrish = Object.values(ratings).reduce((a, b) => a + b, 0) / 9;
   return {
     id: rng.id('ath'),
-    ...randomName(rng),
+    ...pickName(rng, opts),
     position,
     archetype,
     heightIn: heightFor(rng, position),
@@ -47,7 +49,7 @@ function prestigeShift(prestige: number): number {
   return (prestige - 60) / 8;
 }
 
-export function generateTeam(rng: RNG, level: Level, tpl: TeamTemplate): { team: Team; athletes: Athlete[] } {
+export function generateTeam(rng: RNG, level: Level, tpl: TeamTemplate, names: NameBook = new NameBook()): { team: Team; athletes: Athlete[] } {
   const cfg = LEVEL_CONFIG[level];
   const teamId = rng.id('team');
   const athletes: Athlete[] = [];
@@ -58,10 +60,11 @@ export function generateTeam(rng: RNG, level: Level, tpl: TeamTemplate): { team:
         position: ROSTER_POSITIONS[i],
         mean: cfg.ratingMean + prestigeShift(tpl.prestige) + starterBoost,
         teamId,
+        names,
       }),
     );
   }
-  const coach = randomName(rng);
+  const coach = names.draw(rng, { gender: 'any' });
   return {
     team: {
       id: teamId,
@@ -72,17 +75,17 @@ export function generateTeam(rng: RNG, level: Level, tpl: TeamTemplate): { team:
       colors: tpl.colors,
       prestige: tpl.prestige,
       rosterIds: athletes.map((a) => a.id),
-      coachName: `${coach.firstName} ${coach.lastName}`,
+      coachName: coach.full,
     },
     athletes,
   };
 }
 
-export function generateLeagueTeams(rng: RNG, level: Level): { teams: Team[]; athletes: Athlete[] } {
+export function generateLeagueTeams(rng: RNG, level: Level, names: NameBook = new NameBook()): { teams: Team[]; athletes: Athlete[] } {
   const teams: Team[] = [];
   const athletes: Athlete[] = [];
   for (const tpl of TEAMS_BY_LEVEL[level]) {
-    const r = generateTeam(rng, level, tpl);
+    const r = generateTeam(rng, level, tpl, names);
     teams.push(r.team);
     athletes.push(...r.athletes);
   }

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import type { Team } from '../../state/schemas';
+import { Portrait, type Mood } from './Portrait';
 
 export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(' ');
@@ -90,27 +91,8 @@ export function Pill({ children, color, className }: { children: ReactNode; colo
   );
 }
 
-function hashColor(s: string) {
-  let h = 0;
-  for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0;
-  return `hsl(${Math.abs(h) % 360} 55% 45%)`;
-}
-
-export function Avatar({ name, size = 40, ring }: { name: string; size?: number; ring?: string }) {
-  const initials = name
-    .split(' ')
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-  return (
-    <div
-      className="flex shrink-0 items-center justify-center rounded-full font-display font-semibold text-white"
-      style={{ width: size, height: size, background: `linear-gradient(135deg, ${hashColor(name)}, #0f1420)`, fontSize: size * 0.38, boxShadow: ring ? `0 0 0 2px ${ring}` : undefined }}
-    >
-      {initials}
-    </div>
-  );
+export function Avatar({ name, size = 40, ring, colors, mood }: { name: string; size?: number; ring?: string; colors?: [string, string]; mood?: Mood }) {
+  return <Portrait name={name} size={size} ring={ring} colors={colors} mood={mood} />;
 }
 
 export function TeamBadge({ team, size = 36 }: { team: Pick<Team, 'abbrev' | 'colors'>; size?: number }) {

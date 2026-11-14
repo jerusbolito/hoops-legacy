@@ -1,4 +1,3 @@
-import { FEMALE_FIRST, FIRST_NAMES } from '../data/names';
 import { COLLEGE_TEAMS, LEVEL_CONFIG, PRO_TEAMS, TEAMS_BY_LEVEL, type TeamTemplate } from '../data/teams';
 import type {
   Archetype,
@@ -14,7 +13,8 @@ import type {
 } from '../state/schemas';
 import { SAVE_VERSION } from '../state/schemas';
 import { GameSim, type MomentResult } from './gameSim';
-import { generateAthlete, generateLeagueTeams, generateTeam, makeNpc, randomName } from './generate';
+import { generateAthlete, generateLeagueTeams, generateTeam, makeNpc } from './generate';
+import { NameBook } from './nameBook';
 import {
   accumulateLeagueStats,
   advancePlayoffs,
@@ -76,13 +76,17 @@ export function createCareer(input: NewCareerInput): GameState {
   const seed = input.seed ?? Math.floor(Math.random() * 2 ** 31);
   const rng = new RNG(seed);
   const level: Level = 'hs';
-  const { teams, athletes } = generateLeagueTeams(rng, level);
+  const firstName = input.firstName.trim() || 'Rookie';
+  const lastName = input.lastName.trim() || 'Player';
+  const names = new NameBook();
+  names.reserve(firstName, lastName); // nobody else in the league gets the player's name or surname
+  const { teams, athletes } = generateLeagueTeams(rng, level, names);
   const team = teams[clamp(input.schoolIndex, 0, teams.length - 1)];
 
   const user: Athlete = {
     id: rng.id('ath'),
-    firstName: input.firstName.trim() || 'Rookie',
-    lastName: input.lastName.trim() || 'Player',
+    firstName,
+    lastName,
     position: input.position,
     archetype: input.archetype,
     heightIn: input.heightIn,
@@ -221,7 +225,11 @@ function seedHighSchoolCast(state: GameState, rng: RNG, team: Team, teams: Team[
     }),
   );
 
-  const parentFirst = rng.chance(0.5) ? rng.pick(FEMALE_FIRST) : rng.pick(FIRST_NAMES);
+  const names = NameBook.fromState(state);
+  // a parent shares the player's surname; only the first name is drawn (and kept unique among full names)
+  let parentFirst = names.firstName(rng);
+  while (names.isTaken(parentFirst, user.lastName)) parentFirst = names.firstName(rng);
+  names.reserve(parentFirst, user.lastName);
   addNpc(
     state,
     makeNpc(rng, {
@@ -234,11 +242,11 @@ function seedHighSchoolCast(state: GameState, rng: RNG, team: Team, teams: Team[
     }),
   );
 
-  const crush = randomName(rng);
+  const crush = names.draw(rng, { gender: 'f' });
   addNpc(
     state,
     makeNpc(rng, {
-      name: `${rng.pick(FEMALE_FIRST)} ${crush.lastName}`,
+      name: crush.full,
       role: 'love_interest',
       title: 'Classmate in your English class',
       season,
@@ -528,6 +536,7 @@ function graduationAge(level: Level): number {
 
 /** Remove departing NPC athletes and refill rosters with newcomers. */
 function turnoverRosters(state: GameState, rng: RNG) {
+  const names = NameBook.fromState(state);
   const level = state.career.level;
   const cfg = LEVEL_CONFIG[level];
   for (const teamId of state.league.teamIds) {
@@ -554,7 +563,7 @@ function turnoverRosters(state: GameState, rng: RNG) {
     const youngAge = level === 'hs' ? 14 : level === 'college' ? 18 : rng.int(20, 22);
     const newMean = cfg.ratingMean - (level === 'pro' ? 4 : 7) + (team.prestige - 60) / 8;
     while (team.rosterIds.length < cfg.rosterSize) {
-      const a = generateAthlete(rng, level, { mean: newMean, teamId, age: youngAge });
+      const a = generateAthlete(rng, level, { mean: newMean, teamId, age: youngAge, names });
       state.athletes[a.id] = a;
       team.rosterIds.push(a.id);
     }
@@ -624,11 +633,11 @@ function startNextSeason(state: GameState, rng: RNG, messages: string[]): WeekAd
 }
 
 function introduceScout(state: GameState, rng: RNG) {
-  const n = randomName(rng);
+  const n = NameBook.fromState(state).draw(rng, { gender: 'any' });
   addNpc(
     state,
     makeNpc(rng, {
-      name: `${n.firstName} ${n.lastName}`,
+      name: n.full,
       role: 'scout',
       title: 'College recruiting coordinator who has been at your games',
       season: state.career.season,
@@ -646,7 +655,8 @@ function enterLevel(state: GameState, rng: RNG, level: Level, tpl: TeamTemplate)
     else a.teamId = null;
   }
   const others = TEAMS_BY_LEVEL[level].filter((t) => t.name !== tpl.name);
-  const { teams, athletes } = generateLeagueTeams(rng, level);
+  const names = NameBook.fromState(state); // after clearing old non-persistent athletes
+  const { teams, athletes } = generateLeagueTeams(rng, level, names);
   for (const a of athletes) state.athletes[a.id] = a;
   for (const t of teams) state.teams[t.id] = t;
   const team = teams.find((t) => t.name === tpl.name)!;
@@ -726,8 +736,8 @@ function enterLevel(state: GameState, rng: RNG, level: Level, tpl: TeamTemplate)
     );
   }
   if (level === 'college') {
-    const r = randomName(rng);
-    addNpc(state, makeNpc(rng, { name: `${rng.pick(FEMALE_FIRST)} ${r.lastName}`, role: 'media', title: 'Campus beat reporter', season: state.career.season + 1 }));
+    const r = NameBook.fromState(state).draw(rng, { gender: 'f' });
+    addNpc(state, makeNpc(rng, { name: r.full, role: 'media', title: 'Campus beat reporter', season: state.career.season + 1 }));
   }
 }
 
@@ -820,11 +830,11 @@ export function runDraft(state: GameState): DraftResult {
     state.player.draftPick = pick;
     state.player.contract = { teamId: state.career.teamId, salary, yearsLeft: years };
     state.story.flags.declared_for_draft = false;
-    const agentName = randomName(rng);
+    const agentName = NameBook.fromState(state).draw(rng, { gender: 'any' });
     addNpc(
       state,
       makeNpc(rng, {
-        name: `${agentName.firstName} ${agentName.lastName}`,
+        name: agentName.full,
         role: 'agent',
         title: 'Your agent',
         season: state.career.season + 1,

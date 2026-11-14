@@ -76,6 +76,7 @@ src/
 | `effects.ts` | `applyEffects()`: the only place narrative-driven changes are applied. Caps live in `SCENE_CAPS` / `GAME_CAPS`. |
 | `stats.ts` | Averages and season rows computed from the game log (stats are always derived, never stored as running totals). |
 | `ratings.ts`, `generate.ts` | Overall rating formula, archetypes, player/team/NPC generation. |
+| `nameBook.ts` | Hands out every name in the game and remembers it. Guarantees no repeated full names, no repeated first or last names across a league (so no two players share a surname), and never generates a famous real person. **Anything that needs a name must draw it from a `NameBook`** (build one from existing state with `NameBook.fromState(state)`), never straight from the pools. |
 
 **The weekly loop.** During the season each week has four steps, stored in `career.step`:
 
@@ -119,6 +120,20 @@ All providers implement `LLMClient` (`chat()` and `listModels()`):
 
 `client.ts` adds retry with backoff for rate limits, server errors and network failures.
 
+### Visuals (`src/ui/components/`)
+
+Everything visual is drawn in code (inline SVG, canvas, Framer Motion). There are no image files or external assets, which keeps the page compatible with the strict Content-Security-Policy below.
+
+| What | File | Notes |
+| --- | --- | --- |
+| Portraits | `Portrait.tsx` | A face generated deterministically from a person's name (same name, same face everywhere). Team colors give a jersey; `mood` (`happy`/`neutral`/`angry`/`sad`) changes the expression. `looks.ts` picks the mood from the character's relationship values. `Avatar` in `ui.tsx` wraps it. |
+| Scene banners | `SceneBanner.tsx` | An illustrated backdrop (gym, arena, locker room, classroom, home, city night, press room, treatment room) tinted with the player's team colors. `ENV_BY_KIND` maps each scene `kind` to one. **If you add a scene type in `narrative/scenes.ts`, add it here too**, or it falls back to the gym. |
+| Reveal cards | `RevealOverlay.tsx`, `Confetti.tsx`, `state/reveals.ts` | Full-screen moments: draft night, college commitment, championship, awards, contract signing, and the end-of-season highlight card. Reveals are queued in the store (`pushReveals`) and shown one at a time. To add a new one, add a variant to `RevealData`, a card component, and push it from the store action where it happens. |
+| Game screen | `panels/GamePanel.tsx`, `Court.tsx` | Shot arcs, `+N` score pops, a momentum bar with run detector (`currentRun` in `engine/highlights.ts`), a "CLUTCH TIME" cinematic with screen shake, and a postgame "Play of the game" card (`pickHighlight`). |
+| Progress | `panels/TrainingResultCard.tsx`, `RatingsRadar.tsx` | Training report with animated bars, tier-up toasts when a skill crosses a named band (`ratingTier` in `engine/ratings.ts`: Raw, Developing, Solid, Good, Great, Elite, Legend), and pulses on the radar chart. |
+
+Everything respects `prefers-reduced-motion`: confetti, screen shake, arcs, count-ups and looping animations are skipped, and cards appear with their final values.
+
 ### State and saves (`src/state/`)
 
 - `schemas.ts` defines the whole save format as Zod schemas. `GameState` is the root. Bump `SAVE_VERSION` if you make an incompatible change.
@@ -137,6 +152,9 @@ Use **Offline demo (no AI)** to exercise the whole game loop with template text.
 ### Inspecting game state
 
 - **Saved state:** DevTools → Application → IndexedDB → `hoops-legacy` → `saves`. Each row's `state` field is the full `GameState`.
+- **Live store handle:** in dev (and in a production build made with `VITE_EXPOSE_STORE=1`) the Zustand store is available in the browser console as `window.__hoops`. For example, `__hoops.getState().game` shows the whole game state, and you can preview any reveal card without playing to it:
+  `__hoops.getState().pushReveals([{ kind: 'champion', teamName: 'Westbrook High', mascot: 'Wolves', abbrev: 'WBH', colors: ['#2563eb', '#f8fafc'], record: '9-0', level: 'hs', season: 1 }])`
+  A normal production build does not include this handle.
 - **Export a save** from the title screen and read the JSON. You can also edit it and re-import it to set up a scenario. Import validates against the schema and tells you which field is wrong.
 - **What the story changed:** the **Story** tab's change log lists every effect that was applied (after clamping). Effects that were *rejected* (unknown character, over a cap, invalid type) are returned by `applyEffects()` but not shown in the UI. Log `r.rejected` in `choose()` in `store.ts` if you need to see them.
 
@@ -178,6 +196,7 @@ What the tests guarantee:
 - **Scoring is realistic:** average scores land in sane ranges per level (HS ≈ 60, college ≈ 72, pro ≈ 103).
 - **Sims are deterministic:** the same seed gives the same game.
 - **The career never gets stuck:** a full career auto-plays from HS to retirement.
+- **Names stay unique:** no first, last or full name repeats within a league, through every season, level change, draft and free agency (`src/engine/names.test.ts`).
 - **Effects are clamped:** invalid or oversized LLM effects are capped or rejected.
 - **The narrative layer recovers:** JSON repair, template fallback, and recap fact-checking all work.
 
@@ -197,6 +216,10 @@ What the tests guarantee:
 | Training gains, aging, injuries | `src/engine/progression.ts` |
 | How much one scene can change relationships/ratings | `SCENE_CAPS` in `src/engine/effects.ts` |
 | Which scenes appear and how often | `POOL` in `src/narrative/scenes.ts` |
+| Which backdrop a scene gets | `ENV_BY_KIND` in `src/ui/components/SceneBanner.tsx` |
+| Face styles, skin and hair palettes | `src/ui/components/Portrait.tsx` |
+| Name pools (first, last, female first), and the list of real people to never generate | `src/data/names.ts` |
+| Skill tier names and thresholds | `RATING_TIERS` in `src/engine/ratings.ts` |
 | Narrator voice and rules | `SYSTEM_PROMPT` in `src/narrative/prompts.ts` |
 | Starting ratings and potential of the player and rival | `createCareer()` / `seedHighSchoolCast()` in `src/engine/career.ts` |
 

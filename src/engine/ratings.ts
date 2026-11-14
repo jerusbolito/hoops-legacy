@@ -79,3 +79,22 @@ export function fullName(a: Pick<Athlete, 'firstName' | 'lastName'>): string {
 export function shortName(a: Pick<Athlete, 'firstName' | 'lastName'>): string {
   return `${a.firstName[0]}. ${a.lastName}`;
 }
+
+export const RATING_TIERS = [
+  { min: 0, name: 'Raw' },
+  { min: 40, name: 'Developing' },
+  { min: 55, name: 'Solid' },
+  { min: 65, name: 'Good' },
+  { min: 75, name: 'Great' },
+  { min: 85, name: 'Elite' },
+  { min: 95, name: 'Legend' },
+] as const;
+
+/** Named skill band for a rating; used for level-up moments. */
+export function ratingTier(v: number): { index: number; name: string } {
+  let index = 0;
+  RATING_TIERS.forEach((t, i) => {
+    if (v >= t.min) index = i;
+  });
+  return { index, name: RATING_TIERS[index].name };
+}

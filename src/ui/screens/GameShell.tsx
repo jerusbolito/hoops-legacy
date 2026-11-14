@@ -2,7 +2,10 @@ import { LEVEL_CONFIG, yearLabel } from '../../data/teams';
 import { userAthlete, userRole, userTeam } from '../../engine/career';
 import { overall } from '../../engine/ratings';
 import { useStore, type Tab } from '../../state/store';
+import { motion } from 'framer-motion';
+import { useRef } from 'react';
 import { Avatar, Button, Meter, TeamBadge, cx } from '../components/ui';
+import { RevealOverlay } from '../components/RevealOverlay';
 import { HubView } from '../views/HubView';
 import { LeagueView } from '../views/LeagueView';
 import { ProfileView } from '../views/ProfileView';
@@ -16,6 +19,25 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'league', label: 'League', icon: '🏆' },
   { id: 'story', label: 'Story', icon: '📖' },
 ];
+
+function OverallBadge({ value }: { value: number }) {
+  const prev = useRef(value);
+  const changed = prev.current !== value;
+  const up = value > prev.current;
+  prev.current = value;
+  return (
+    <motion.span
+      key={value}
+      initial={changed ? { scale: 1.7, color: up ? '#22c55e' : '#ef4444' } : false}
+      animate={{ scale: 1, color: '#fb923c' }}
+      transition={{ type: 'spring', stiffness: 220, damping: 14 }}
+      className="inline-block font-mono text-sm"
+      title="Overall rating"
+    >
+      {value}
+    </motion.span>
+  );
+}
 
 export function GameShell() {
   const game = useStore((s) => s.game)!;
@@ -37,10 +59,10 @@ export function GameShell() {
       <header className="hardwood sticky top-0 z-30 border-b border-court-700 bg-court-900/90 backdrop-blur" style={{ boxShadow: `inset 0 -2px 0 ${team.colors[0]}` }}>
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-5 gap-y-2 px-4 py-2.5">
           <div className="flex items-center gap-3">
-            <Avatar name={`${a.firstName} ${a.lastName}`} size={40} ring={team.colors[0]} />
+            <Avatar name={`${a.firstName} ${a.lastName}`} size={44} ring={team.colors[0]} colors={team.colors} mood="happy" />
             <div>
               <div className="font-display text-lg leading-tight font-semibold">
-                {a.firstName} {a.lastName} <span className="font-mono text-sm text-hoop-400">{overall(a.ratings)}</span>
+                {a.firstName} {a.lastName} <OverallBadge value={overall(a.ratings)} />
               </div>
               <div className="text-xs text-ink-400">
                 {a.position} · {userRole(game).label}
@@ -93,6 +115,7 @@ export function GameShell() {
         {tab === 'league' && <LeagueView />}
         {tab === 'story' && <StoryView />}
       </main>
+      <RevealOverlay />
     </div>
   );
 }

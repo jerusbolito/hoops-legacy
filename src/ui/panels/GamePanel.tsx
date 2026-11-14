@@ -1,12 +1,14 @@
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { nextOpponent, userRole, userTeam } from '../../engine/career';
 import { formatClock, type KeyMoment, type MomentResult } from '../../engine/gameSim';
+import { currentRun } from '../../engine/highlights';
 import { RATING_LABELS } from '../../state/schemas';
 import { useStore } from '../../state/store';
 import { BoxScoreTable } from '../components/BoxScoreTable';
 import { Court } from '../components/Court';
 import { Typewriter } from '../components/Typewriter';
+import { SceneBanner } from '../components/SceneBanner';
 import { Button, EffectChips, Panel, Pill, Spinner, TeamBadge, cx } from '../components/ui';
 
 export function PreGamePanel() {
@@ -20,7 +22,8 @@ export function PreGamePanel() {
   const injured = !!game.player.injury;
   return (
     <Panel title={game.career.phase === 'playoffs' ? 'Playoff game' : 'Game day'}>
-      <div className="flex items-center justify-center gap-6 py-6 sm:gap-12">
+      <SceneBanner kind="game" colors={team.colors} className="-mx-4 -mt-4 mb-2" height={130} />
+      <div className="flex items-center justify-center gap-6 py-4 sm:gap-12">
         {[away, home].map((t, i) => (
           <div key={t.id} className="flex flex-col items-center gap-2">
             <TeamBadge team={t} size={72} />
@@ -58,6 +61,51 @@ export function GamePanel() {
   return <LiveGame />;
 }
 
+function ScorePop({ score, side }: { score: number; side: 'left' | 'right' }) {
+  const prev = useRef(score);
+  const [pop, setPop] = useState<{ n: number; key: number } | null>(null);
+  useEffect(() => {
+    if (score > prev.current) setPop({ n: score - prev.current, key: score });
+    prev.current = score;
+  }, [score]);
+  return (
+    <AnimatePresence>
+      {pop && (
+        <motion.span
+          key={pop.key}
+          initial={{ opacity: 1, y: 0, scale: 1.3 }}
+          animate={{ opacity: 0, y: -24, scale: 1 }}
+          transition={{ duration: 0.9, ease: 'easeOut' }}
+          onAnimationComplete={() => setPop(null)}
+          className={cx('pointer-events-none absolute top-0 font-mono text-xl font-bold text-hoop-400', side === 'left' ? 'left-full ml-2' : 'right-full mr-2')}
+        >
+          +{pop.n}
+        </motion.span>
+      )}
+    </AnimatePresence>
+  );
+}
+
+function ClutchBanner() {
+  return (
+    <motion.div
+      className="pointer-events-none fixed inset-x-0 top-1/2 z-40 -translate-y-1/2 overflow-hidden"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        initial={{ x: '-100%' }}
+        animate={{ x: 0 }}
+        transition={{ type: 'spring', stiffness: 140, damping: 18 }}
+        className="bg-gradient-to-r from-transparent via-gold/90 to-transparent py-4 text-center font-display text-6xl font-bold tracking-[0.35em] text-court-950 uppercase"
+      >
+        Clutch time
+      </motion.div>
+    </motion.div>
+  );
+}
+
 function LiveGame() {
   const live = useStore((s) => s.live)!;
   const game = useStore((s) => s.game)!;
@@ -67,8 +115,19 @@ function LiveGame() {
   const [moment, setMoment] = useState<KeyMoment | null>(null);
   const [result, setResult] = useState<MomentResult | null>(null);
   const [final, setFinal] = useState(false);
+  const [intro, setIntro] = useState(false);
+  const reduce = useReducedMotion();
   const feedRef = useRef<HTMLDivElement>(null);
   const sim = live.sim;
+
+  useEffect(() => {
+    if (moment?.clutch && !reduce) {
+      setIntro(true);
+      const t = setTimeout(() => setIntro(false), 1400);
+      return () => clearTimeout(t);
+    }
+    setIntro(false);
+  }, [moment, reduce]);
 
   const tick = useCallback(() => {
     if (moment || result || final) return;
@@ -106,20 +165,26 @@ function LiveGame() {
   const sc = sim.liveScore();
   const userTeamColor = userTeam(game).colors[0];
   const ul = sim.userLine();
+  const run = currentRun(sim.feed);
+  const homeCol = home.colors[0];
+  const awayCol = away.colors[0];
 
   return (
     <div className="space-y-4">
       {/* Scoreboard */}
-      <div className="hardwood overflow-hidden rounded-xl border border-court-700 bg-court-950">
+      <motion.div animate={intro ? { x: [0, -8, 8, -6, 6, -3, 0] } : { x: 0 }} transition={{ duration: 0.5 }} className="hardwood overflow-hidden rounded-xl border border-court-700 bg-court-950">
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 py-4">
           {[away, home].map((t, i) => (
             <div key={t.id} className={cx('flex items-center gap-3', i === 1 && 'order-3 flex-row-reverse text-right')}>
               <TeamBadge team={t} size={48} />
               <div>
                 <div className="font-display text-sm text-ink-400">{t.name}</div>
-                <motion.div key={i === 0 ? sc.away : sc.home} initial={{ scale: 1.25, color: '#fb923c' }} animate={{ scale: 1, color: '#eef2f8' }} className="font-mono text-4xl font-semibold">
-                  {i === 0 ? sc.away : sc.home}
-                </motion.div>
+                <div className="relative w-fit">
+                  <motion.div key={i === 0 ? sc.away : sc.home} initial={{ scale: 1.25, color: '#fb923c' }} animate={{ scale: 1, color: '#eef2f8' }} className="font-mono text-4xl font-semibold">
+                    {i === 0 ? sc.away : sc.home}
+                  </motion.div>
+                  <ScorePop score={i === 0 ? sc.away : sc.home} side={i === 0 ? 'left' : 'right'} />
+                </div>
               </div>
             </div>
           ))}
@@ -144,7 +209,25 @@ function LiveGame() {
             </button>
           </div>
         </div>
-      </div>
+        <div className="px-4 pt-2 pb-3">
+          <div className="mb-1 flex h-4 items-center justify-center text-[10px] font-semibold tracking-[0.25em] text-ink-500 uppercase">
+            <AnimatePresence mode="wait">
+              {run.side && run.pts >= 7 ? (
+                <motion.span key={`${run.side}${run.pts}`} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="rounded-full px-2 py-0.5 text-white" style={{ background: run.side === 'home' ? homeCol : awayCol }}>
+                  🔥 {game.teams[sim.sides[run.side].input.teamId].abbrev} {run.pts}-0 run
+                </motion.span>
+              ) : (
+                <motion.span key="m" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  momentum
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </div>
+          <div className="relative h-1.5 rounded-full" style={{ background: `linear-gradient(90deg, ${awayCol}, #1c2536 50%, ${homeCol})` }}>
+            <motion.div className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-court-950 shadow" initial={false} animate={{ left: `${(0.5 + run.momentum / 2) * 100}%` }} transition={{ type: 'spring', stiffness: 120, damping: 16 }} />
+          </div>
+        </div>
+      </motion.div>
 
       <div className="grid gap-4 md:grid-cols-[1fr_300px]">
         <div ref={feedRef} className="h-[300px] overflow-y-auto rounded-xl border border-court-700 bg-court-850/80 p-3 font-mono text-xs scrollbar-thin">
@@ -162,10 +245,11 @@ function LiveGame() {
             </div>
           ))}
         </div>
-        <Court events={sim.feed} color={userTeamColor} />
+        <Court events={sim.feed} color={userTeamColor} animate={speed < 2} />
       </div>
 
-      <AnimatePresence>{moment && <MomentCard moment={moment} onPick={pick} />}</AnimatePresence>
+      <AnimatePresence>{intro && <ClutchBanner />}</AnimatePresence>
+      <AnimatePresence>{moment && !intro && <MomentCard moment={moment} onPick={pick} />}</AnimatePresence>
       <AnimatePresence>{result && <ResultCard result={result} onContinue={() => setResult(null)} />}</AnimatePresence>
 
       {final && !moment && !result && (
@@ -291,6 +375,19 @@ function PostGame() {
           <Spinner label="The reporters are writing it up…" />
         )}
       </Panel>
+      {post.highlight && (
+        <Panel title="Play of the game" right={<Pill color="#fbbf24">{post.highlight.tag}</Pill>}>
+          <div className="grid items-center gap-4 sm:grid-cols-[1fr_230px]">
+            <div>
+              <div className="font-mono text-xs text-ink-400">
+                {post.highlight.quarter > 4 ? `OT${post.highlight.quarter - 4}` : `Q${post.highlight.quarter}`} {formatClock(post.highlight.clock)} · {post.highlight.away}-{post.highlight.home}
+              </div>
+              <div className="mt-1 font-display text-2xl leading-snug font-semibold text-ink-100">{post.highlight.text}</div>
+            </div>
+            {post.highlight.event.shot && <Court events={[post.highlight.event]} color={userTeam(game).colors[0]} />}
+          </div>
+        </Panel>
+      )}
       {box && (
         <Panel title="Box score">
           <div className="space-y-6">

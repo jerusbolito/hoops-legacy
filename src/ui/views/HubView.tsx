@@ -5,12 +5,15 @@ import { DraftPanel, FreeAgencyPanel, RecruitingPanel, RetiredPanel } from '../p
 import { GamePanel, PreGamePanel } from '../panels/GamePanel';
 import { ScenePanel } from '../panels/ScenePanel';
 import { SummerPanel, TrainingPanel } from '../panels/TrainingPanel';
+import { TrainingResultCard } from '../panels/TrainingResultCard';
+import { userAthlete } from '../../engine/career';
 import { WeekDonePanel } from '../panels/WeekDonePanel';
 
 export function HubView() {
   const game = useStore((s) => s.game)!;
   const live = useStore((s) => s.live);
   const post = useStore((s) => s.post);
+  const lastTraining = useStore((s) => s.lastTraining);
   const c = game.career;
 
   let main;
@@ -42,6 +45,7 @@ export function HubView() {
             })}
           </ol>
         )}
+        {lastTraining && c.step === 'scene' && !live && !post && c.phase !== 'recruiting' && <TrainingResultCard result={lastTraining} ratings={userAthlete(game).ratings} />}
         {main}
       </div>
       <Sidebar />

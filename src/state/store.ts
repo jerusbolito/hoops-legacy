@@ -9,8 +9,10 @@ import {
   finishUserGame,
   freeAgencyOffers,
   recruitingOffers,
+  recruitingStars,
   runDraft,
   signFreeAgent,
+  userAthlete,
   withRng,
   completeScene,
   type CollegeOffer,
@@ -21,6 +23,9 @@ import {
 } from '../engine/career';
 import { applyEffects, GAME_CAPS, SCENE_CAPS } from '../engine/effects';
 import type { GameSim } from '../engine/gameSim';
+import { pickHighlight, type Highlight } from '../engine/highlights';
+import { overall, ratingTier, shortName } from '../engine/ratings';
+import { buildSeasonReview } from '../engine/seasonReview';
 import type { TrainingFocus, TrainingResult } from '../engine/progression';
 import { RNG } from '../engine/rng';
 import { createClient } from '../llm/client';
@@ -29,7 +34,8 @@ import { generateRecap, generateScene, generateSeasonSummary, narrateFlavor, res
 import type { SceneSetup } from '../narrative/parse';
 import { pickScene, type ScenePlan } from '../narrative/scenes';
 import { loadGame, loadLLMConfig, saveGame, storeLLMConfig } from './persistence';
-import type { GameState, RatingKey, ScheduledGame } from './schemas';
+import type { Reveal, RevealData } from './reveals';
+import { RATING_KEYS, RATING_LABELS, type GameState, type RatingKey, type Ratings, type ScheduledGame } from './schemas';
 
 export type Screen = 'setup' | 'title' | 'create' | 'game';
 export type Tab = 'hub' | 'profile' | 'relationships' | 'league' | 'story';
@@ -37,7 +43,7 @@ export type Tab = 'hub' | 'profile' | 'relationships' | 'league' | 'story';
 export interface Toast {
   id: number;
   text: string;
-  kind: 'info' | 'good' | 'bad' | 'award';
+  kind: 'info' | 'good' | 'bad' | 'award' | 'levelup';
 }
 
 export interface SceneState {
@@ -59,6 +65,7 @@ export interface LiveGame {
 export interface PostGame {
   report: GameReport;
   recap: (Recap & { applied: string[] }) | null;
+  highlight: Highlight | null;
 }
 
 interface Store {
@@ -76,7 +83,10 @@ interface Store {
   phaseNarration: string | null;
   busy: boolean;
   toasts: Toast[];
+  reveals: Reveal[];
 
+  pushReveals(items: RevealData[]): void;
+  dismissReveal(): void;
   setScreen(s: Screen): void;
   setTab(t: Tab): void;
   setLLM(config: LLMConfig, remember: boolean): void;
@@ -109,6 +119,7 @@ interface Store {
 }
 
 let toastSeq = 0;
+let revealSeq = 0;
 
 export const useStore = create<Store>((set, get) => {
   /** Clone → mutate → commit → autosave. All game-state changes go through here. */
@@ -122,6 +133,25 @@ export const useStore = create<Store>((set, get) => {
     void saveGame(draft).catch((e) => get().toast(`Autosave failed: ${(e as Error).message}`, 'bad'));
     return out;
   }
+
+  /** Toast whenever a skill (or overall) crosses into a new named tier. */
+  function announceTiers(before: Ratings, overallBefore: number) {
+    const g = get().game;
+    if (!g) return;
+    const a = userAthlete(g);
+    for (const k of RATING_KEYS) {
+      const was = ratingTier(before[k]);
+      const now = ratingTier(a.ratings[k]);
+      if (now.index > was.index) get().toast(`${RATING_LABELS[k]} reached ${a.ratings[k]}: ${now.name}!`, 'levelup');
+    }
+    const o = overall(a.ratings);
+    if (ratingTier(o).index > ratingTier(overallBefore).index) get().toast(`Overall ${o}: you are now ${ratingTier(o).name}!`, 'levelup');
+  }
+
+  const snapshot = () => {
+    const a = userAthlete(get().game!);
+    return { ratings: { ...a.ratings } as Ratings, overall: overall(a.ratings) };
+  };
 
   return {
     screen: 'setup',
@@ -138,6 +168,13 @@ export const useStore = create<Store>((set, get) => {
     phaseNarration: null,
     busy: false,
     toasts: [],
+    reveals: [],
+
+    pushReveals(items) {
+      if (!items.length) return;
+      set({ reveals: [...get().reveals, ...items.map((it) => ({ ...it, id: ++revealSeq }) as Reveal)] });
+    },
+    dismissReveal: () => set({ reveals: get().reveals.slice(1) }),
 
     setScreen: (screen) => set({ screen }),
     setTab: (tab) => set({ tab }),
@@ -177,20 +214,22 @@ export const useStore = create<Store>((set, get) => {
       await saveGame(state);
     },
 
-    closeCareer: () => set({ game: null, screen: 'title', scene: null, live: null, post: null }),
+    closeCareer: () => set({ game: null, screen: 'title', scene: null, live: null, post: null, reveals: [] }),
 
     /* ── weekly steps ── */
 
     train(focus) {
+      const before = snapshot();
       const r = mutate((d) => doTraining(d, focus));
       set({ lastTraining: r });
-      r.gains.forEach((g) => get().toast(`${g.key.toUpperCase()} +${g.delta}`, 'good'));
+      announceTiers(before.ratings, before.overall);
     },
 
     summerTrain(focuses) {
+      const before = snapshot();
       const gains = mutate((d) => doSummerTraining(d, focuses));
       set({ lastTraining: { gains, energyDelta: 0, academicsDelta: 0, text: 'A summer of work changes your game.' } });
-      gains.forEach((g) => get().toast(`${g.key.toUpperCase()} ${g.delta > 0 ? '+' : ''}${g.delta}`, g.delta > 0 ? 'good' : 'bad'));
+      announceTiers(before.ratings, before.overall);
     },
 
     async startScene() {
@@ -207,6 +246,7 @@ export const useStore = create<Store>((set, get) => {
       if (!sc?.setup || sc.chosen) return;
       const choice = sc.setup.choices.find((c) => c.id === choiceId)!;
       set({ scene: { ...sc, chosen: choiceId, loading: true } });
+      const before = snapshot();
       const res = await resolveScene(get().client, get().game!, sc.plan, sc.setup, choice);
       if (res.error) get().toast(`AI narration failed, using a template.`, 'bad');
       const applied = mutate((d) => {
@@ -218,6 +258,7 @@ export const useStore = create<Store>((set, get) => {
         return r.applied;
       });
       set({ scene: { ...get().scene!, loading: false, resolution: { ...res, applied } } });
+      announceTiers(before.ratings, before.overall);
     },
 
     finishScene() {
@@ -245,8 +286,11 @@ export const useStore = create<Store>((set, get) => {
     async completeGame() {
       const live = get().live;
       if (!live) return;
+      const me = userAthlete(get().game!);
+      const userSide = live.sim.sides.home.roster.some((a) => a.id === me.id) ? 'home' : 'away';
+      const highlight = pickHighlight(live.sim.feed, shortName(me), userSide);
       const report = mutate((d) => finishUserGame(d, live.sim, live.game));
-      set({ live: null, post: { report, recap: null } });
+      set({ live: null, post: { report, recap: null, highlight } });
       if (report.injury) get().toast(`Injury: ${report.injury}`, 'bad');
       const recap = await generateRecap(get().client, get().game!, report, get().game!.lastBox!.box);
       const applied = mutate((d) => {
@@ -261,7 +305,7 @@ export const useStore = create<Store>((set, get) => {
         });
         return r.applied;
       });
-      set({ post: { report, recap: { ...recap, applied } } });
+      set({ post: { report, recap: { ...recap, applied }, highlight } });
     },
 
     dismissPostGame: () => set({ post: null }),
@@ -272,12 +316,29 @@ export const useStore = create<Store>((set, get) => {
       try {
         const prevSeason = get().game!.career.season;
         const r = mutate((d) => advanceWeek(d));
-        r.messages.forEach((m) => get().toast(m, m.startsWith('Award') || m.startsWith('CHAMP') ? 'award' : 'info'));
+        // championships and awards get full-screen reveals instead of toasts
+        r.messages.filter((m) => !m.startsWith('Award') && !m.startsWith('CHAMP')).forEach((m) => get().toast(m, 'info'));
         if (r.seasonEnded) {
+          const g = get().game!;
+          const team = g.teams[g.career.teamId];
+          const name = (() => {
+            const a = userAthlete(g);
+            return `${a.firstName} ${a.lastName}`;
+          })();
+          const items: RevealData[] = [];
+          if (g.league.champion === g.career.teamId) {
+            const st = g.league.standings[team.id];
+            items.push({ kind: 'champion', teamName: team.name, mascot: team.mascot, abbrev: team.abbrev, colors: team.colors, record: `${st.w}-${st.l}`, level: g.career.level, season: prevSeason });
+          }
+          for (const a of g.player.awards.filter((x) => x.season === prevSeason && !x.name.endsWith('Champion'))) {
+            items.push({ kind: 'award', name: a.name, level: a.level, season: prevSeason, colors: team.colors, player: name });
+          }
+          get().pushReveals(items);
           const summary = await generateSeasonSummary(get().client, get().game!);
           mutate((d) => {
             d.story.seasonSummaries.push({ season: prevSeason, text: summary });
           });
+          get().pushReveals([{ kind: 'season', review: buildSeasonReview(get().game!, prevSeason), summary }]);
         }
       } finally {
         set({ busy: false });
@@ -309,10 +370,15 @@ export const useStore = create<Store>((set, get) => {
           `Hats on the table. You reach past the others and pull on the ${name} cap. The room erupts.`,
           Object.values(g.npcs).filter((n) => n.active && ['family', 'friend', 'mentor', 'coach'].includes(n.role)).map((n) => n.id),
         );
+        const stars = recruitingStars(g);
         mutate((d) => {
           commitToCollege(d, name);
           d.story.log.push({ season: d.career.season, week: 0, phase: 'recruiting', kind: 'commitment', title: `Committed to ${name}`, summary: `You committed to ${name}.` });
         });
+        const after = get().game!;
+        const college = after.teams[after.career.teamId];
+        const me = userAthlete(after);
+        get().pushReveals([{ kind: 'commit', player: `${me.firstName} ${me.lastName}`, college: college.name, mascot: college.mascot, abbrev: college.abbrev, colors: college.colors, stars }]);
         set({ offers: {}, phaseNarration: text });
       } finally {
         set({ busy: false });
@@ -322,8 +388,14 @@ export const useStore = create<Store>((set, get) => {
     async enterDraft() {
       set({ busy: true });
       try {
+        const collegeName = get().game!.teams[get().game!.player.collegeId ?? '']?.name ?? '';
         const result = mutate((d) => runDraft(d));
         const g = get().game!;
+        {
+          const team = g.teams[g.career.teamId];
+          const me = userAthlete(g);
+          get().pushReveals([{ kind: 'draft', player: `${me.firstName} ${me.lastName}`, college: collegeName, pick: result.pick, teamName: team.name, mascot: team.mascot, abbrev: team.abbrev, colors: team.colors, salary: result.salary, years: result.years, ovr: overall(me.ratings) }]);
+        }
         const text = await narrateFlavor(
           get().client,
           g,
@@ -353,6 +425,10 @@ export const useStore = create<Store>((set, get) => {
         signFreeAgent(d, offer);
         d.story.log.push({ season: d.career.season, week: 0, phase: 'free_agency', kind: 'contract', title: 'New Contract', summary: `Signed ${offer.years} years at $${(offer.salary / 1e6).toFixed(1)}M/yr with ${offer.teamName}.` });
       });
+      const g = get().game!;
+      const team = g.teams[g.career.teamId];
+      const me = userAthlete(g);
+      get().pushReveals([{ kind: 'contract', player: `${me.firstName} ${me.lastName}`, teamName: team.name, mascot: team.mascot, abbrev: team.abbrev, colors: team.colors, salary: offer.salary, years: offer.years }]);
       set({ offers: {}, phaseNarration: null });
     },
   };

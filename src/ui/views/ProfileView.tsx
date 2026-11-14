@@ -14,13 +14,15 @@ export function ProfileView() {
   const rows = seasonRows(game.gameLog);
   const career = averages(totals(game.gameLog));
   const recent = [...game.gameLog].reverse().slice(0, 10);
+  const lastTraining = useStore((s) => s.lastTraining);
+  const deltas = Object.fromEntries((lastTraining?.gains ?? []).map((g) => [g.key, g.delta]));
 
   return (
     <div className="grid gap-5 lg:grid-cols-[340px_1fr]">
       <div className="space-y-5">
         <Panel title="Ratings">
           <div className="flex justify-center">
-            <RatingsRadar ratings={a.ratings} size={280} />
+            <RatingsRadar ratings={a.ratings} size={280} deltas={deltas} />
           </div>
           <div className="mt-3 grid grid-cols-3 gap-3">
             <Stat label="Overall" value={overall(a.ratings)} />
