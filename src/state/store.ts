@@ -25,6 +25,7 @@ import { applyEffects, GAME_CAPS, SCENE_CAPS } from '../engine/effects';
 import type { GameSim } from '../engine/gameSim';
 import { pickHighlight, type Highlight } from '../engine/highlights';
 import { overall, ratingTier, shortName } from '../engine/ratings';
+import { seasonStory } from '../engine/analytics';
 import { buildSeasonReview } from '../engine/seasonReview';
 import type { TrainingFocus, TrainingResult } from '../engine/progression';
 import { RNG } from '../engine/rng';
@@ -345,6 +346,8 @@ export const useStore = create<Store>((set, get) => {
             d.story.threads = d.story.threads.slice(-2); // stale hooks fade across seasons
           });
           get().pushReveals([{ kind: 'season', review: buildSeasonReview(get().game!, prevSeason), summary }]);
+          const story = seasonStory(get().game!, prevSeason);
+          if (story.form.length >= 3) get().pushReveals([{ kind: 'seasonStory', story, colors: team.colors, player: name }]);
         }
       } finally {
         set({ busy: false });

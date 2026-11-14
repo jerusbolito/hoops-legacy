@@ -1,8 +1,13 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { nextOpponent, userRole, userTeam } from '../../engine/career';
+import { nextOpponent, userAthlete, userRole, userTeam } from '../../engine/career';
+import { Jersey } from '../components/Jersey';
+import { lookFor } from '../components/Portrait';
 import { formatClock, type KeyMoment, type MomentResult } from '../../engine/gameSim';
 import { currentRun } from '../../engine/highlights';
+import { calloutFor, lineScore, userStreak, type Callout } from '../../engine/liveStats';
+import { usePrefs } from '../../state/prefs';
+import { buzz, sfx } from '../sfx';
 import { RATING_LABELS } from '../../state/schemas';
 import { useStore } from '../../state/store';
 import { BoxScoreTable } from '../components/BoxScoreTable';
@@ -16,6 +21,7 @@ export function PreGamePanel() {
   const startGame = useStore((s) => s.startGame);
   const next = nextOpponent(game);
   const team = userTeam(game);
+  const me = userAthlete(game);
   if (!next) return null;
   const home = next.home ? team : next.opp;
   const away = next.home ? next.opp : team;
@@ -26,7 +32,7 @@ export function PreGamePanel() {
       <div className="flex items-center justify-center gap-6 py-4 sm:gap-12">
         {[away, home].map((t, i) => (
           <div key={t.id} className="flex flex-col items-center gap-2">
-            <TeamBadge team={t} size={72} />
+            {t.id === team.id ? <Jersey colors={t.colors} number={lookFor(`${me.firstName} ${me.lastName}`).number} name={me.lastName} size={84} /> : <TeamBadge team={t} size={72} />}
             <div className="text-center font-display text-lg font-semibold">{t.name}</div>
             <div className="font-mono text-sm text-ink-400">
               {game.league.standings[t.id].w}-{game.league.standings[t.id].l}
@@ -116,24 +122,57 @@ function LiveGame() {
   const [result, setResult] = useState<MomentResult | null>(null);
   const [final, setFinal] = useState(false);
   const [intro, setIntro] = useState(false);
+  const [callout, setCallout] = useState<(Callout & { key: number }) | null>(null);
   const reduce = useReducedMotion();
+  const flashy = usePrefs((p) => p.flashy);
   const feedRef = useRef<HTMLDivElement>(null);
+  const seenEvents = useRef(0);
   const sim = live.sim;
 
+  // sounds and callouts for whatever just happened. At fast speeds only the last event of a tick is voiced.
   useEffect(() => {
-    if (moment?.clutch && !reduce) {
+    const fresh = sim.feed.slice(seenEvents.current);
+    seenEvents.current = sim.feed.length;
+    if (!fresh.length) return;
+    const lastShot = [...fresh].reverse().find((e) => e.shot);
+    if (lastShot?.shot) {
+      if (lastShot.shot.made) sfx.swish();
+      else sfx.rim();
+      if (lastShot.shot.user && lastShot.shot.made) {
+        sfx.cheer(0.7);
+        buzz(15);
+      }
+    }
+    if (speed < 2 && flashy) {
+      const c = [...fresh].reverse().map(calloutFor).find(Boolean);
+      if (c) {
+        setCallout({ ...c, key: sim.feed.length });
+        sfx.cheer(1.2);
+        buzz([20, 40, 20]);
+        const t = setTimeout(() => setCallout(null), 1300);
+        return () => clearTimeout(t);
+      }
+    }
+  }, [live.tick, sim, speed, flashy]);
+
+  useEffect(() => {
+    if (moment?.clutch && !reduce && flashy) {
       setIntro(true);
       const t = setTimeout(() => setIntro(false), 1400);
       return () => clearTimeout(t);
     }
     setIntro(false);
-  }, [moment, reduce]);
+  }, [moment, reduce, flashy]);
 
   const tick = useCallback(() => {
     if (moment || result || final) return;
     const st = sim.advance(SPEEDS[speed].iters);
     if (st.type === 'moment') setMoment(st.moment);
-    if (st.type === 'final') setFinal(true);
+    if (st.type === 'final') {
+      setFinal(true);
+      sfx.buzzer();
+      buzz([60, 40, 60]);
+    }
     bump();
   }, [sim, speed, moment, result, final, bump]);
 
@@ -149,16 +188,24 @@ function LiveGame() {
   const skip = () => {
     const st = sim.advance();
     if (st.type === 'moment') setMoment(st.moment);
-    if (st.type === 'final') setFinal(true);
+    if (st.type === 'final') {
+      setFinal(true);
+      sfx.buzzer();
+    }
     bump();
   };
 
   const pick = (id: string) => {
     const r = sim.resolveMoment(id);
+    sfx.click();
     setMoment(null);
     setResult(r);
     bump();
   };
+
+  useEffect(() => {
+    if (moment) sfx.whoosh();
+  }, [moment]);
 
   const home = game.teams[sim.sides.home.input.teamId];
   const away = game.teams[sim.sides.away.input.teamId];
@@ -168,6 +215,8 @@ function LiveGame() {
   const run = currentRun(sim.feed);
   const homeCol = home.colors[0];
   const awayCol = away.colors[0];
+  const streak = userStreak(sim.feed);
+  const ls = lineScore(sim.feed);
 
   return (
     <div className="space-y-4">
@@ -197,6 +246,8 @@ function LiveGame() {
           <span className="font-mono text-ink-300">
             {ul ? `YOU: ${ul.pts} PTS · ${ul.orb + ul.drb} REB · ${ul.ast} AST · ${ul.fgm}-${ul.fga} FG · ${Math.round(ul.sec / 60)} MIN` : 'You are not playing.'}
             {sim.userOnCourt() ? <span className="ml-2 text-win">● on court</span> : <span className="ml-2 text-ink-500">● bench</span>}
+            {streak === 'hot' && <span className="ml-2 rounded-full bg-hoop-500/20 px-2 py-0.5 font-sans font-semibold text-hoop-400">🔥 heating up: 3 straight makes</span>}
+            {streak === 'cold' && <span className="ml-2 rounded-full bg-sky-500/20 px-2 py-0.5 font-sans font-semibold text-sky-400">🧊 cold: 4 straight misses</span>}
           </span>
           <div className="flex gap-1">
             {SPEEDS.map((s, i) => (
@@ -226,6 +277,37 @@ function LiveGame() {
           <div className="relative h-1.5 rounded-full" style={{ background: `linear-gradient(90deg, ${awayCol}, #1c2536 50%, ${homeCol})` }}>
             <motion.div className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-court-950 shadow" initial={false} animate={{ left: `${(0.5 + run.momentum / 2) * 100}%` }} transition={{ type: 'spring', stiffness: 120, damping: 16 }} />
           </div>
+          {ls.quarters.length > 0 && (
+            <table className="mx-auto mt-3 font-mono text-[11px] text-ink-300" aria-label="Score by quarter">
+              <thead className="text-ink-500">
+                <tr>
+                  <th className="pr-3 text-left font-normal" />
+                  {ls.quarters.map((q) => (
+                    <th key={q} className="w-8 text-right font-normal">
+                      {q > 4 ? `OT${q - 4}` : `Q${q}`}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  [away.abbrev, ls.away, awayCol],
+                  [home.abbrev, ls.home, homeCol],
+                ].map(([ab, pts, col]) => (
+                  <tr key={ab as string}>
+                    <td className="pr-3 font-sans font-semibold" style={{ color: col as string }}>
+                      {ab as string}
+                    </td>
+                    {(pts as number[]).map((p, i) => (
+                      <td key={i} className="text-right">
+                        {p}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </motion.div>
 
@@ -245,7 +327,24 @@ function LiveGame() {
             </div>
           ))}
         </div>
-        <Court events={sim.feed} color={userTeamColor} animate={speed < 2} />
+        <div className="relative">
+          <Court events={sim.feed} color={userTeamColor} animate={speed < 2} />
+          <AnimatePresence>
+            {callout && (
+              <motion.div
+                key={callout.key}
+                initial={{ opacity: 0, scale: 0.4, rotate: -6 }}
+                animate={{ opacity: 1, scale: 1, rotate: -3 }}
+                exit={{ opacity: 0, scale: 1.3 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 14 }}
+                className={cx('pointer-events-none absolute inset-0 flex items-center justify-center font-display text-4xl font-black tracking-wider drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]', callout.tone === 'gold' ? 'text-gold' : callout.tone === 'good' ? 'text-win' : 'text-loss')}
+                aria-live="polite"
+              >
+                {callout.text}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       <AnimatePresence>{intro && <ClutchBanner />}</AnimatePresence>
@@ -297,9 +396,19 @@ function MomentCard({ moment, onPick }: { moment: KeyMoment; onPick: (id: string
 function ResultCard({ result, onContinue }: { result: MomentResult; onContinue: () => void }) {
   const [revealed, setRevealed] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setRevealed(true), 1100);
+    const t = setTimeout(() => {
+      setRevealed(true);
+      if (result.success) {
+        sfx.chime();
+        sfx.cheer(1);
+        buzz([30, 30, 30]);
+      } else {
+        sfx.thud();
+        buzz(80);
+      }
+    }, 1100);
     return () => clearTimeout(t);
-  }, []);
+  }, [result.success]);
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-2xl border border-court-600 bg-court-850 p-6 text-center shadow-2xl">

@@ -2,13 +2,13 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useId, type ReactNode } from 'react';
 import { alpha, hashStr, safeId, shade } from './color';
 
-export type Env = 'gym' | 'arena' | 'locker' | 'classroom' | 'home' | 'city' | 'press' | 'rehab';
+export type Env = 'gym' | 'arena' | 'locker' | 'classroom' | 'home' | 'city' | 'park' | 'press' | 'rehab';
 
 const ENV_BY_KIND: Record<string, Env> = {
   season_opener: 'gym',
   practice: 'gym',
-  summer_workouts: 'gym',
-  rival_encounter: 'gym',
+  summer_workouts: 'park',
+  rival_encounter: 'park',
   rivalry_week: 'gym',
   mentor: 'gym',
   low_point: 'gym',
@@ -244,6 +244,39 @@ function City({ a, b, id }: P) {
   );
 }
 
+function Park({ a, b, id }: P) {
+  const trees = rnd(id + 'p', 9);
+  return (
+    <g>
+      <rect width={800} height={180} fill={`url(#dusk${id})`} />
+      <circle cx={140} cy={104} r={64} fill={`url(#glow${id})`} />
+      <circle cx={140} cy={108} r={22} fill="#fcd34d" opacity={0.9} />
+      {/* tree line */}
+      {trees.map((r, i) => (
+        <g key={i} opacity={0.9}>
+          <circle cx={30 + i * 92} cy={112 - r * 16} r={30 + r * 16} fill="#0b1a14" />
+          <circle cx={62 + i * 92} cy={118 - r * 10} r={24 + r * 12} fill="#0e2119" />
+        </g>
+      ))}
+      {/* chain-link fence */}
+      <path d={`M0 96 H800 ${Array.from({ length: 27 }, (_, i) => `M${i * 30} 96 V150`).join(' ')}`} stroke="#9aa6b8" strokeOpacity={0.28} strokeWidth={1} fill="none" />
+      <path d="M0 96 L800 150 M0 150 L800 96" stroke="#9aa6b8" strokeOpacity={0.1} strokeWidth={1} />
+      {/* hoop on a pole */}
+      <rect x={618} y={30} width={6} height={130} fill="#2a3040" />
+      <rect x={594} y={34} width={56} height={38} rx={3} fill="#e5e7eb" opacity={0.85} stroke="#0b0f17" strokeOpacity={0.5} />
+      <ellipse cx={622} cy={80} rx={15} ry={4} fill="none" stroke="#e8590c" strokeWidth={2.4} />
+      <path d="M609 81 L614 100 M622 83 V102 M635 81 L630 100 M613 92 H631" stroke="#fff" strokeOpacity={0.4} fill="none" />
+      {/* asphalt */}
+      <polygon points="0,132 800,132 800,180 0,180" fill="#262a33" />
+      <path d="M0 132 H800" stroke="#fff" strokeOpacity={0.1} />
+      <ellipse cx={400} cy={170} rx={170} ry={30} fill="none" stroke="#fff" strokeOpacity={0.3} strokeWidth={2} />
+      <rect x={0} y={174} width={800} height={6} fill={a} opacity={0.5} />
+      <Player x={250} y={136} jersey={a} s={1.3} />
+      <Player x={470} y={140} jersey={b} s={1.1} flip />
+    </g>
+  );
+}
+
 function Press({ a, b, id }: P) {
   const flash = rnd(id + 'f', 12);
   return (
@@ -291,7 +324,7 @@ function Rehab({ a, b, id }: P) {
   );
 }
 
-const ENVS: Record<Env, (p: P) => ReactNode> = { gym: Gym, arena: Arena, locker: Locker, classroom: Classroom, home: Home, city: City, press: Press, rehab: Rehab };
+const ENVS: Record<Env, (p: P) => ReactNode> = { gym: Gym, arena: Arena, locker: Locker, classroom: Classroom, home: Home, city: City, park: Park, press: Press, rehab: Rehab };
 const SKY: Record<Env, [number, number]> = {
   gym: [-0.78, -0.9],
   arena: [-0.84, -0.94],
@@ -299,6 +332,7 @@ const SKY: Record<Env, [number, number]> = {
   classroom: [-0.84, -0.93],
   home: [-0.84, -0.93],
   city: [-0.6, -0.92],
+  park: [-0.6, -0.92],
   press: [-0.84, -0.94],
   rehab: [-0.8, -0.92],
 };

@@ -1,6 +1,7 @@
 import { LEVEL_CONFIG, yearLabel } from '../../data/teams';
 import { userAthlete, userRole, userTeam } from '../../engine/career';
 import { overall } from '../../engine/ratings';
+import { usePrefs } from '../../state/prefs';
 import { useStore, type Tab } from '../../state/store';
 import { motion } from 'framer-motion';
 import { useRef } from 'react';
@@ -50,6 +51,7 @@ export function GameShell() {
   const close = useStore((s) => s.closeCareer);
   const setScreen = useStore((s) => s.setScreen);
   const liveActive = useStore((s) => !!s.live);
+  const prefs = usePrefs();
 
   const a = userAthlete(game);
   const team = userTeam(game);
@@ -91,6 +93,12 @@ export function GameShell() {
           </div>
           {p.injury && <span className="rounded-md bg-loss/15 px-2 py-1 text-xs font-semibold text-loss">🩹 {p.injury.desc} · {p.injury.weeks}w</span>}
           <div className="ml-auto flex gap-1">
+            <Button variant="ghost" title={prefs.sound ? 'Mute sound' : 'Turn sound on'} aria-pressed={prefs.sound} onClick={() => prefs.set({ sound: !prefs.sound })}>
+              {prefs.sound ? '🔊' : '🔇'}
+            </Button>
+            <Button variant="ghost" title={prefs.flashy ? 'Calm mode: turn off big effects' : 'Turn big effects on'} aria-pressed={prefs.flashy} onClick={() => prefs.set({ flashy: !prefs.flashy })}>
+              {prefs.flashy ? '✨' : '◻️'}
+            </Button>
             <Button variant="ghost" title="AI settings" onClick={() => setScreen('setup')} disabled={liveActive}>
               ⚙
             </Button>

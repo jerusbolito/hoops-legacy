@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { advancedLine, bestGames, consistency, formSeries, playerRows, splits, teamAnalytics, userPercentiles, type PlayerRow } from '../../engine/analytics';
+import { advancedLine, bestGames, consistency, formSeries, playerRows, shotZones, splits, teamAnalytics, userPercentiles, type PlayerRow } from '../../engine/analytics';
+import { HeatLegend, ShotChart } from '../components/ShotChart';
 import { fmt1, fmtPct, gameScore, lineSummary } from '../../engine/stats';
 import { useStore } from '../../state/store';
 import { FormChart, PercentileBar } from '../components/charts';
@@ -49,6 +50,7 @@ function MyGame() {
   const cons = consistency(series);
   const best = bestGames(entries);
   const sp = splits(entries);
+  const shotData = shotZones(entries);
   const rows = playerRows(game);
   const pcts = userPercentiles(rows);
   const oppName = (id: string) => game.teams[id]?.name ?? '?';
@@ -110,6 +112,46 @@ function MyGame() {
         <Panel title="Form" right={<span className="text-xs text-ink-500">game score · line = 5-game average</span>}>
           <FormChart series={series} opponentName={oppName} />
           <p className="mt-2 text-xs text-ink-500">Filled bars are wins, outlined bars are losses. Hover a bar for the game.</p>
+        </Panel>
+
+        <Panel title="Shot chart" right={<span className="text-xs text-ink-500">{shotData.total} shots</span>}>
+          <div className="grid items-start gap-4 sm:grid-cols-[1fr_240px]">
+            <div>
+              <ShotChart zones={shotData.zones} total={shotData.total} />
+              {shotData.total > 0 && (
+                <div className="mt-2">
+                  <HeatLegend />
+                </div>
+              )}
+            </div>
+            {shotData.total > 0 && (
+              <table className="w-full text-xs">
+                <thead className="text-[10px] uppercase tracking-wider text-ink-500">
+                  <tr className="border-b border-court-700 text-right">
+                    <th className="py-1 text-left">Zone</th>
+                    <th>FG</th>
+                    <th>%</th>
+                    <th>Share</th>
+                  </tr>
+                </thead>
+                <tbody className="font-mono">
+                  {[...shotData.zones]
+                    .filter((z) => z.att > 0)
+                    .sort((a, b) => b.att - a.att)
+                    .map((z) => (
+                      <tr key={z.zone.id} className="border-b border-court-800 text-right">
+                        <td className="py-1 text-left font-sans text-ink-300">{z.zone.label}</td>
+                        <td>
+                          {z.made}/{z.att}
+                        </td>
+                        <td className={z.delta > 0.04 ? 'text-hoop-400' : z.delta < -0.04 ? 'text-sky-400' : ''}>{Math.round(z.pct * 100)}</td>
+                        <td className="text-ink-500">{Math.round(z.share * 100)}%</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </Panel>
 
         <Panel title="Splits">

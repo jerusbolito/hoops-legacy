@@ -3,10 +3,13 @@ import { useEffect, useId, useState, type ReactNode } from 'react';
 import { LEVEL_CONFIG } from '../../data/teams';
 import type { SeasonReview } from '../../engine/seasonReview';
 import type { Reveal } from '../../state/reveals';
+import { usePrefs } from '../../state/prefs';
 import { useStore } from '../../state/store';
 import { alpha, buttonColors, safeId, shade } from './color';
+import { sfx } from '../sfx';
 import { Confetti } from './Confetti';
 import { Portrait } from './Portrait';
+import { SeasonStoryCard } from './SeasonStoryCard';
 import { Typewriter } from './Typewriter';
 import { Button, TeamBadge, cx } from './ui';
 
@@ -74,6 +77,7 @@ function Trophy({ size = 150, color = '#fbbf24' }: { size?: number; color?: stri
 }
 
 function Frame({ colors, children, confetti, onClose, label }: { colors: [string, string]; children: ReactNode; confetti?: 'top' | 'center' | 'both'; onClose: () => void; label: string }) {
+  const flashy = usePrefs((p) => p.flashy);
   return (
     <motion.div
       role="dialog"
@@ -86,8 +90,8 @@ function Frame({ colors, children, confetti, onClose, label }: { colors: [string
       transition={{ duration: 0.35 }}
       style={{ background: `radial-gradient(ellipse at 50% 30%, ${alpha(colors[0], 0.55)}, rgba(5,7,12,0) 68%), rgba(5,7,12,0.9)` }}
     >
-      {confetti && (confetti === 'top' || confetti === 'both') && <Confetti colors={colors} from="top" />}
-      {confetti && (confetti === 'center' || confetti === 'both') && <Confetti colors={colors} from="center" count={110} duration={3200} />}
+      {confetti && flashy && (confetti === 'top' || confetti === 'both') && <Confetti colors={colors} from="top" />}
+      {confetti && flashy && (confetti === 'center' || confetti === 'both') && <Confetti colors={colors} from="center" count={110} duration={3200} />}
       <motion.div initial={{ y: 30, scale: 0.94, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 160, damping: 20, delay: 0.1 }} className="w-full max-w-xl">
         {children}
         <div className="mt-6 flex justify-center">
@@ -320,6 +324,14 @@ export function RevealOverlay() {
     return `${a.firstName} ${a.lastName}`;
   });
 
+  const revealId = reveal?.id;
+  const celebratory = reveal && confettiFor(reveal) !== undefined;
+  useEffect(() => {
+    if (revealId === undefined) return;
+    if (celebratory) sfx.fanfare();
+    else sfx.whoosh();
+  }, [revealId, celebratory]);
+
   return (
     <AnimatePresence mode="wait">
       {reveal && (
@@ -330,6 +342,7 @@ export function RevealOverlay() {
           {reveal.kind === 'award' && <AwardCard r={reveal} />}
           {reveal.kind === 'contract' && <ContractCard r={reveal} />}
           {reveal.kind === 'season' && <SeasonCard r={reveal} player={playerName} />}
+          {reveal.kind === 'seasonStory' && <SeasonStoryCard story={reveal.story} colors={reveal.colors} player={reveal.player} />}
         </Frame>
       )}
     </AnimatePresence>
@@ -340,7 +353,7 @@ function colorsOf(r: Reveal): [string, string] {
   return r.kind === 'season' ? r.review.colors : r.colors;
 }
 function labelOf(r: Reveal): string {
-  return { draft: 'Draft night', commit: 'College commitment', champion: 'Championship', award: 'Award', contract: 'Contract signing', season: 'Season review' }[r.kind];
+  return { draft: 'Draft night', commit: 'College commitment', champion: 'Championship', award: 'Award', contract: 'Contract signing', season: 'Season review', seasonStory: 'Season story' }[r.kind];
 }
 function confettiFor(r: Reveal): 'top' | 'center' | 'both' | undefined {
   if (r.kind === 'champion') return 'both';

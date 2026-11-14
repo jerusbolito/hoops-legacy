@@ -268,3 +268,160 @@ export function teamAnalytics(state: GameState): TeamAnalyticsRow[] {
   rows.forEach((r, i) => (r.rank = i + 1));
   return rows;
 }
+
+/* ───────────────────────── Shot zones ───────────────────────── */
+
+export type ZoneId = 'rim' | 'midL' | 'midC' | 'midR' | 'cornerL' | 'wingL' | 'top' | 'wingR' | 'cornerR';
+
+export interface ZoneDef {
+  id: ZoneId;
+  label: string;
+  /** Distance range from the basket, in shot-coordinate units. */
+  r: [number, number];
+  /** Angle range in degrees: 0 = straight out from the basket, negative = left. */
+  a: [number, number];
+  /** Rough league-average FG% for this zone, used to color a zone hot or cold. */
+  baseline: number;
+  three: boolean;
+}
+
+export const ZONES: ZoneDef[] = [
+  { id: 'rim', label: 'At the rim', r: [0, 0.17], a: [-90, 90], baseline: 0.58, three: false },
+  { id: 'midL', label: 'Mid-range left', r: [0.17, 0.46], a: [-90, -30], baseline: 0.39, three: false },
+  { id: 'midC', label: 'Mid-range center', r: [0.17, 0.46], a: [-30, 30], baseline: 0.41, three: false },
+  { id: 'midR', label: 'Mid-range right', r: [0.17, 0.46], a: [30, 90], baseline: 0.39, three: false },
+  { id: 'cornerL', label: 'Left corner 3', r: [0.46, 0.65], a: [-90, -60], baseline: 0.36, three: true },
+  { id: 'wingL', label: 'Left wing 3', r: [0.46, 0.65], a: [-60, -20], baseline: 0.34, three: true },
+  { id: 'top', label: 'Top of the key 3', r: [0.46, 0.65], a: [-20, 20], baseline: 0.34, three: true },
+  { id: 'wingR', label: 'Right wing 3', r: [0.46, 0.65], a: [20, 60], baseline: 0.34, three: true },
+  { id: 'cornerR', label: 'Right corner 3', r: [0.46, 0.65], a: [60, 90], baseline: 0.36, three: true },
+];
+
+/** Which zone a shot belongs to, from the simulator's court coordinates. */
+export function zoneOf(x: number, y: number): ZoneId {
+  const dx = (x - 0.5) / 0.95;
+  const d = Math.hypot(dx, y);
+  if (d < 0.17) return 'rim';
+  const ang = (Math.atan2(dx, y) * 180) / Math.PI;
+  if (d < 0.46) return ang < -30 ? 'midL' : ang > 30 ? 'midR' : 'midC';
+  return ang < -60 ? 'cornerL' : ang < -20 ? 'wingL' : ang <= 20 ? 'top' : ang <= 60 ? 'wingR' : 'cornerR';
+}
+
+export interface ZoneStat {
+  zone: ZoneDef;
+  made: number;
+  att: number;
+  pct: number;
+  /** Share of all attempts taken here. */
+  share: number;
+  /** FG% minus this zone's baseline. Positive = hot. */
+  delta: number;
+}
+
+export function shotZones(entries: GameLogEntry[]): { zones: ZoneStat[]; total: number } {
+  const acc = new Map<ZoneId, { made: number; att: number }>(ZONES.map((z) => [z.id, { made: 0, att: 0 }]));
+  let total = 0;
+  for (const e of entries) {
+    for (const s of e.shots ?? []) {
+      const a = acc.get(zoneOf(s.x, s.y))!;
+      a.att++;
+      if (s.m) a.made++;
+      total++;
+    }
+  }
+  const zones = ZONES.map((zone) => {
+    const { made, att } = acc.get(zone.id)!;
+    const pct = att ? made / att : 0;
+    return { zone, made, att, pct, share: total ? att / total : 0, delta: att ? pct - zone.baseline : 0 };
+  });
+  return { zones, total };
+}
+
+/* ───────────────────────── Season story ───────────────────────── */
+
+export interface SeasonStory {
+  season: number;
+  shot: { zones: ZoneStat[]; total: number };
+  form: FormPoint[];
+  moments: string[];
+  longestWinStreak: number;
+  /** Plain-language lines about where the player was hot or cold. */
+  shootingNotes: string[];
+}
+
+export function seasonStory(state: GameState, season: number): SeasonStory {
+  const entries = state.gameLog.filter((e) => e.season === season);
+  const shot = shotZones(entries);
+  let streak = 0;
+  let best = 0;
+  for (const e of entries) {
+    streak = e.teamScore > e.oppScore ? streak + 1 : 0;
+    best = Math.max(best, streak);
+  }
+  const notes: string[] = [];
+  const seen = shot.zones.filter((z) => z.att >= 5);
+  const hot = [...seen].sort((a, b) => b.delta - a.delta)[0];
+  const cold = [...seen].sort((a, b) => a.delta - b.delta)[0];
+  if (hot && hot.delta > 0.05) notes.push(`Hottest spot: ${hot.zone.label.toLowerCase()}, ${hot.made} of ${hot.att} (${Math.round(hot.pct * 100)}%).`);
+  if (cold && cold.delta < -0.05 && cold !== hot) notes.push(`Coldest spot: ${cold.zone.label.toLowerCase()}, ${cold.made} of ${cold.att} (${Math.round(cold.pct * 100)}%).`);
+  const threes = shot.zones.filter((z) => z.zone.three).reduce((a, z) => a + z.att, 0);
+  if (shot.total >= 20) notes.push(`${Math.round((threes / shot.total) * 100)}% of your shots were threes and ${Math.round((shot.zones[0].att / shot.total) * 100)}% came at the rim.`);
+  return {
+    season,
+    shot,
+    form: formSeries(entries),
+    moments: state.story.defining.filter((d) => d.season === season).map((d) => d.text),
+    longestWinStreak: best,
+    shootingNotes: notes,
+  };
+}
+
+/* ───────────────────────── Career timeline ───────────────────────── */
+
+export interface TimelineSeason {
+  season: number;
+  level: Level;
+  year: number;
+  gp: number;
+  ppg: number;
+  rpg: number;
+  apg: number;
+  awards: string[];
+  champion: boolean;
+  /** Defining moments the narrator pinned this season. */
+  moments: string[];
+  /** Characters who left the story this season (graduated, retired, moved on). */
+  departures: string[];
+  isCurrent: boolean;
+}
+
+export function careerTimeline(state: GameState): TimelineSeason[] {
+  const seasons = new Map<number, GameLogEntry[]>();
+  for (const e of state.gameLog) seasons.set(e.season, [...(seasons.get(e.season) ?? []), e]);
+  const current = state.career.season;
+  if (!seasons.has(current)) seasons.set(current, []);
+  return [...seasons.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([season, es]) => {
+      const t = totals(es);
+      const g = Math.max(1, t.gp);
+      const awards = state.player.awards.filter((a) => a.season === season);
+      const first = es[0];
+      return {
+        season,
+        level: first?.level ?? state.career.level,
+        year: first?.year ?? state.career.year,
+        gp: t.gp,
+        ppg: t.pts / g,
+        rpg: t.reb / g,
+        apg: t.ast / g,
+        awards: awards.filter((a) => !a.name.endsWith('Champion')).map((a) => a.name),
+        champion: awards.some((a) => a.name.endsWith('Champion')),
+        moments: state.story.defining.filter((d) => d.season === season).map((d) => d.text),
+        departures: Object.values(state.npcs)
+          .filter((n) => !n.active && n.title.includes(`after season ${season})`))
+          .map((n) => n.name),
+        isCurrent: season === current,
+      };
+    });
+}

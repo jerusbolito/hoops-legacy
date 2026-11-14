@@ -1,10 +1,22 @@
 import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect } from 'react';
 import { useStore } from '../../state/store';
+import { buzz, sfx } from '../sfx';
 import { cx } from './ui';
 
 export function Toasts() {
   const toasts = useStore((s) => s.toasts);
   const dismiss = useStore((s) => s.dismissToast);
+  const newest = toasts[toasts.length - 1];
+  const newestId = newest?.id;
+  const newestKind = newest?.kind;
+  useEffect(() => {
+    if (newestId === undefined) return;
+    if (newestKind === 'levelup' || newestKind === 'award') {
+      sfx.chime();
+      buzz([20, 30, 20]);
+    } else if (newestKind === 'bad') sfx.thud();
+  }, [newestId, newestKind]);
   return (
     <div className="pointer-events-none fixed right-4 bottom-4 z-50 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2">
       <AnimatePresence>

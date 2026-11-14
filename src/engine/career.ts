@@ -350,6 +350,7 @@ export function finishUserGame(state: GameState, sim: GameSim, game: ScheduledGa
       oppScore: theirBox.score,
       playoff: !!g.playoffRound,
       line,
+      shots: sim.feed.filter((e) => e.shot?.user).map((e) => ({ x: Math.round(e.shot!.x * 1000) / 1000, y: Math.round(e.shot!.y * 1000) / 1000, m: e.shot!.made })),
     });
   }
   state.lastBox = { gameId: g.id, box };

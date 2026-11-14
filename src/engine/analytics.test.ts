@@ -16,6 +16,7 @@ const entry = (l: PlayerLine, won = true, playoff = false): GameLogEntry => ({
   oppScore: won ? 50 : 60,
   playoff,
   line: l,
+  shots: [],
 });
 
 describe('advancedLine', () => {

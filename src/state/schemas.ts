@@ -196,6 +196,8 @@ export const GameLogEntrySchema = z.object({
   oppScore: z.number(),
   playoff: z.boolean(),
   line: PlayerLineSchema,
+  /** The user's field-goal attempts: court position (same space as PlayEvent.shot) and whether it went in. */
+  shots: z.array(z.object({ x: z.number(), y: z.number(), m: z.boolean() })).default([]),
 });
 export type GameLogEntry = z.infer<typeof GameLogEntrySchema>;
 

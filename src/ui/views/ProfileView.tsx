@@ -4,6 +4,8 @@ import { ARCHETYPE_INFO, formatHeight, overall } from '../../engine/ratings';
 import { averages, fmt1, fmtPct, lineSummary, seasonRows, totals } from '../../engine/stats';
 import { RATING_KEYS, RATING_LABELS } from '../../state/schemas';
 import { useStore } from '../../state/store';
+import { CareerTimeline } from '../components/CareerTimeline';
+import { PlayerCardPanel } from '../components/PlayerCard';
 import { RatingsRadar } from '../components/RatingsRadar';
 import { Meter, Panel, Pill, Stat, cx } from '../components/ui';
 
@@ -18,6 +20,10 @@ export function ProfileView() {
   const deltas = Object.fromEntries((lastTraining?.gains ?? []).map((g) => [g.key, g.delta]));
 
   return (
+    <div className="space-y-5">
+    <Panel title="Career timeline">
+      <CareerTimeline />
+    </Panel>
     <div className="grid gap-5 lg:grid-cols-[340px_1fr]">
       <div className="space-y-5">
         <Panel title="Ratings">
@@ -39,6 +45,9 @@ export function ProfileView() {
               </div>
             ))}
           </div>
+        </Panel>
+        <Panel title="Player card">
+          <PlayerCardPanel />
         </Panel>
         <Panel title="Bio">
           <dl className="grid grid-cols-2 gap-y-2 text-sm">
@@ -193,6 +202,7 @@ export function ProfileView() {
           )}
         </Panel>
       </div>
+    </div>
     </div>
   );
 }

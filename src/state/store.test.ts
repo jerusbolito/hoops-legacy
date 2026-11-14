@@ -45,9 +45,9 @@ describe('reveal queue', () => {
       expect(season.review.w + season.review.l).toBeGreaterThan(0);
       expect(season.summary.length).toBeGreaterThan(5);
     }
-    // the season card always comes after any champion/award cards
+    // the season card always comes after any champion/award cards; only its "story" page may follow it
     const idx = reveals.findIndex((r) => r.kind === 'season');
-    expect(reveals.slice(idx + 1).every((r) => r.kind === 'season')).toBe(true);
+    expect(reveals.slice(idx + 1).every((r) => r.kind === 'seasonStory')).toBe(true);
     // ids are unique and dismissing moves through the queue in order
     expect(new Set(reveals.map((r) => r.id)).size).toBe(reveals.length);
     const n = reveals.length;
