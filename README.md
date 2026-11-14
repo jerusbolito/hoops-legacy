@@ -35,9 +35,157 @@ Import the repo at vercel.com/new. Vite is auto-detected (build `npm run build`,
 - `script-src 'self'` stops any injected or third-party script from running. This is the main protection for API keys stored in the browser. Vercel's analytics scripts are served from your own domain, so they are allowed.
 - `connect-src` allows any `https:` host plus `http://localhost` / `127.0.0.1`. It has to be this wide because players can enter custom provider URLs and local models (Ollama, LM Studio). That is the one part that can't be tightened.
 - `frame-ancestors 'none'` / `X-Frame-Options: DENY` stop other sites from embedding the game. `nosniff`, `Referrer-Policy`, `Permissions-Policy` (camera, mic, location off) and HSTS cover the basics.
-- `style-src` allows `'unsafe-inline'` because React and Framer Motion set inline `style` attributes, and Google Fonts for the typefaces.
+- `style-src` allows `'unsafe-inline'` because React and Framer Motion set inline `style` attributes. Fonts are bundled with the game (`@fontsource`), so nothing is loaded from Google.
 
 Vercel only applies these after a deploy, so test changes by serving `dist/` with the same headers. Watch for `Refused to ...` messages in DevTools. If you add a new external service (analytics, fonts, a CDN, images from another site), you must allow its domain in the matching directive or the browser will silently block it. Do not add `upgrade-insecure-requests`: it would break local models, which are served over plain `http://localhost`.
+
+## Desktop app (a model that runs on your computer)
+
+The same game, packaged as a Windows/macOS/Linux app that brings its own storyteller: a language model that runs on your own computer, so there is no key, no account and nothing leaves your machine. By default it uses **Gemma 4 12B** (Apache-2.0), run by [llama.cpp](https://github.com/ggml-org/llama.cpp)'s `llama-server`. You do not need Ollama. If you already have it, you can choose it instead under **Advanced**.
+
+```bash
+npm run desktop           # build the game and shell, then open the app (needs the engine and model, see below)
+npm run desktop:engine    # download the pinned engine for this computer into build/engine/
+npm run desktop:model     # download the model (7 GB, checked against its checksum) into build/models/
+npm run desktop:pack      # an unpacked app folder in release/ (fast, to test the packaged app)
+npm run desktop:dist      # the standard installer in release/ (about 200 MB; the model downloads on first launch)
+npm run desktop:dist:full # the model inside the app: release/full/, about 7.5 GB, a zip, works offline at once
+npm run typecheck         # also checks the desktop code
+```
+
+### Two ways to ship it
+
+| | Standard | Full |
+| --- | --- | --- |
+| Size | about 200 MB installer | about 7.5 GB zip |
+| First launch | asks, then downloads the model once (about 7 GB) | works immediately, offline |
+| Windows format | installer (NSIS) | zip. NSIS cannot hold more than 2 GB |
+| Use it for | most players, a website download | USB drives, offline machines, Steam or itch.io depots |
+
+Both ship the same engine. The model file is looked for next to the app first and in the player's data folder second, so a download made by the standard build is found by either. `--model=gemma-4-e4b` on `node scripts/pack.mjs --full` ships a smaller model (5.2 GB) or `gemma-4-e2b` (3.4 GB).
+
+### What happens on launch
+
+The app serves the game from a fixed local address (`http://127.0.0.1:38417`), so saves stay in the same place every time. `DesktopSetup` (`src/ui/screens/DesktopSetup.tsx`) then gets the model ready on every launch, because the engine gets a new private port each time:
+
+1. **Find** the engine program and the model file. If the model is missing it explains and asks before downloading.
+2. **Download** (if needed) with real progress. It resumes if interrupted, and the finished file is checked against a pinned SHA-256 before it is used. A damaged file is deleted, never run.
+3. **Start** the engine and wait for the model to load. It tries the graphics-card build (Vulkan: NVIDIA, AMD and Intel) and falls back to the CPU build if that will not start, and shows what the engine said if nothing does.
+4. **Connect**: the game is pointed at the engine's address, and the model is warmed up in the background.
+
+On a first launch it picks the model that fits the computer's memory (12B for 16 GB or more, E4B for 10 GB or more, otherwise E2B).
+
+### Security and privacy
+
+- The engine listens only on `127.0.0.1`, on a random port, and answers only the game's own page (`--cors-origins`). Its built-in web page is switched off.
+- The game's page has a strict Content-Security-Policy: no scripts or fonts from the web, and only local and HTTPS connections.
+- The shell only does what the page asks through one small bridge (`window.hoopsDesktop`), and only for pages from its own address. Model names are validated, and the model downloads from a pinned commit, so a file can never change underneath the app.
+- The desktop app sends nothing anywhere: no analytics, no web fonts.
+- It only stops an engine that *it* started. On Windows it ends the whole process tree, because the helper that holds the model would otherwise stay in memory.
+
+### Faster replies
+
+Models like Gemma 4 "think" for thousands of tokens before they answer. A game that only needs a scene does not need that. Measured on `gemma4:12b`, a scene took 6.2 s with thinking and 1.9 s without, with equally valid JSON. So the client sends `reasoning_effort: "none"` to local engines (`src/llm/openaiCompatible.ts`); llama-server documents the same parameter. It can be switched off under Advanced, and if a server rejects it the client stops sending it and carries on.
+
+### Layout
+
+| Path | What it is |
+| --- | --- |
+| `desktop/main.ts` | Electron main process: window, security, IPC, shutdown, and the self-check |
+| `desktop/preload.ts` | The only door between the game and the computer |
+| `desktop/llama.ts` | The built-in engine: find, start, fall back, download. Everything outside is injectable |
+| `desktop/engine.ts` | The same for Ollama |
+| `desktop/download.ts` | Resumable, checksum-verified downloader (also used by the build scripts) |
+| `desktop/pins.json` | Exact engine version, model files and SHA-256 checksums. Change deliberately |
+| `desktop/server.ts` | Static server for the built game (path-traversal safe, loopback only) |
+| `desktop/simulate.ts` | Pretend engine states for the self-check and screenshots. Cannot start anything real |
+| `src/desktop/bridge.ts` | Types and the model catalog shared by the game and the shell |
+| `electron-builder.config.cjs` | Packaging, for both flavors |
+| `scripts/` | `pack.mjs`, `fetch-engine.mjs`, `fetch-model.mjs`, `build-desktop.mjs`, `run-electron.mjs`, `make-icon.mjs` |
+
+### Testing
+
+`npm test` covers the engine managers against fake servers over real HTTP (including a fake `llama-server` that loads slowly, crashes, or hangs), and the downloader against a server that resumes, refuses to, and fails. Three checks run the real thing, and are off by default:
+
+```bash
+HOOPS_REAL_OLLAMA=1 npx vitest run desktop/realOllama   # real Ollama on a spare port
+HOOPS_REAL_LLAMA=1  npx vitest run desktop/realLlama    # the real engine with the real model (needs build/engine and build/models)
+node scripts/run-electron.mjs --smoke --smoke-seed=bundled --smoke-chat --smoke-wait=240 --smoke-out=result.json
+```
+
+The last one launches the app, lets it start the engine and reach its title screen, and makes one request exactly as the game would. For a packaged app, run `release/win-unpacked/"Hoops Legacy.exe"` with the same flags. **Page checks** (`scripts/page-checks/`) drive the real game screens inside the desktop app and report whether the page is still alive afterwards. They catch the kind of bug unit tests cannot, such as a pop-up that crashes the whole page while it fades out. `events.js` plays both midseason contests and the combine; `safety-net.js` breaks a pop-up and a screen on purpose to prove the crash screen works. They need a test build that exposes the game's controls:
+
+```bash
+VITE_EXPOSE_STORE=1 npx vite build --outDir dist-test
+HOOPS_DIST=dist-test node scripts/run-electron.mjs --smoke --smoke-engine=bundled-missing --smoke-eval=scripts/page-checks/events.js --smoke-out=result.json
+```
+
+(`--smoke-engine=bundled-missing` keeps the check from starting a real engine.) A good run exits 0 with no console errors.
+
+To photograph a first-run screen without a real engine: `--smoke-engine=bundled-missing|bundled-downloading|bundled-no-engine|no-ollama|missing-model|downloading --smoke-shot=shot.png` (add `--smoke-click=Download` to press a button first).
+
+### Things to know
+
+- **Updating the engine or a model.** Edit `desktop/pins.json` (new tag, file name, size, SHA-256), run `npm run desktop:engine`, and test with `HOOPS_REAL_LLAMA=1`. The engine releases are rolling builds, which is why one is pinned.
+- **Hardware.** A 12B model wants about 12 GB of memory, or a graphics card with 8 GB. The engine fits itself to what is free (`--fit`), but on a computer without a graphics card it will be slow, and the first-run screen warns when memory is short.
+- **Signing.** Builds are unsigned until you give them a certificate, so Windows SmartScreen and macOS Gatekeeper warn on first run. Windows signing is ready to switch on: see "Code signing" below.
+- **Only Windows has been built and tried.** The macOS and Linux configuration is in place (engine builds are pinned) but untested. Intel Macs are not covered.
+- **If it will not open.** Some editors set `ELECTRON_RUN_AS_NODE`, which makes Electron behave like plain Node. `npm run desktop` clears it. If you launch Electron by hand, clear it first.
+
+## Code signing (Windows)
+
+Signing puts the publisher's name on the installer and the app, so Windows shows "Verified publisher" instead of "Unknown publisher", and it proves the files were not changed after they were built. **It needs a certificate from a certificate authority, which only you can obtain.** Everything else is ready: the build signs automatically when a certificate is configured, adds a timestamp (so the signature stays valid after the certificate expires), signs the app and the engine programs inside it, and then reads the signatures back to check.
+
+**What signing will not do.** It does not make the SmartScreen warning vanish on day one. Sources disagree on whether the more expensive "EV" certificates still get instant trust: older vendor pages say yes, newer reports say reputation now builds up through downloads for every kind of certificate. Plan for the warning to fade over the first weeks of downloads, and for it to name you instead of "Unknown publisher" from the start.
+
+### Choosing a route
+
+| Route | Cost (as reported) | Good for | Catch |
+| --- | --- | --- | --- |
+| **Azure Artifact Signing** (formerly Trusted Signing) | about $10 a month ([pricing](https://azure.microsoft.com/pricing/details/artifact-signing/)) | The cheapest and simplest: no token, works from any machine | **Eligibility.** A March 2026 [Microsoft Q&A thread](https://learn.microsoft.com/en-us/answers/questions/5810735/cant-create-a-new-trusted-signing-individual-ident) says it is limited to organizations in the US and Canada with a verifiable history and that individual sign-up is paused. That is a secondary source, so check Microsoft's current page before relying on it |
+| **A certificate from a CA, with cloud signing** (SSL.com eSigner, DigiCert KeyLocker, Sectigo...) | typically a few hundred dollars a year | Individuals and companies anywhere the CA validates | Identity checks take days. Since June 2023 the private key must live on [hardware or in a cloud HSM](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options), so you cannot just get a `.pfx` file |
+| **A certificate on a USB token** | same | Offline signing | The token asks for its PIN on **every file** signed. A build signs several, so cloud signing is much less painful |
+
+Certificates are also limited in how long they last (reports say 459 days from February 2026), so plan to renew them.
+
+Not signing at all is a real option too: Steam and the Microsoft Store each handle trust their own way.
+
+### Turning it on
+
+Set environment variables before building. Nothing secret is ever written to a file.
+
+| You have | Set |
+| --- | --- |
+| A `.pfx` file | `CSC_LINK` (its path) and `CSC_KEY_PASSWORD` |
+| A certificate in the Windows store (token or cloud-signing client installed) | `HOOPS_SIGN_SHA1` (the certificate's 40-character thumbprint) or `HOOPS_SIGN_SUBJECT` (its name) |
+| Azure Artifact Signing | `HOOPS_AZURE_ENDPOINT`, `HOOPS_AZURE_ACCOUNT`, `HOOPS_AZURE_PROFILE`, `HOOPS_PUBLISHER`, plus Microsoft's `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` |
+
+`HOOPS_PUBLISHER` is your name exactly as it appears in the certificate. `HOOPS_TIMESTAMP_URL` changes the timestamp server (default DigiCert's). The rules live in `scripts/signing-config.cjs`, and a setup that is only half filled in stops the build with a message naming what is missing, instead of quietly shipping an unsigned app.
+
+### A release
+
+```bash
+HOOPS_REQUIRE_SIGNING=1 npm run desktop:dist     # fails at once if no certificate is configured
+node scripts/verify-signature.mjs --require      # reads the real signature off every file; fails unless Windows trusts the signer
+```
+
+`HOOPS_REQUIRE_SIGNING=1` is for release builds, so an unsigned installer can never go out by accident. The check afterwards looks at the files themselves, because "the build said it signed" is not proof.
+
+### Trying the pipeline without a real certificate
+
+Make a throwaway one and sign into a separate folder. It will correctly show as "signed, NOT trusted", because nobody trusts a certificate you made yourself. Never install it as trusted.
+
+```bash
+MSYS_NO_PATHCONV=1 openssl req -x509 -newkey rsa:3072 -sha256 -nodes -keyout k.pem -out c.pem -days 30 -subj "/CN=Hoops Legacy TEST ONLY" -addext "keyUsage=critical,digitalSignature" -addext "extendedKeyUsage=critical,codeSigning"
+openssl pkcs12 -export -out test.pfx -inkey k.pem -in c.pem -passout pass:testonly
+CSC_LINK=$PWD/test.pfx CSC_KEY_PASSWORD=testonly HOOPS_OUT=release/signtest node scripts/pack.mjs --dir
+```
+
+### Notes
+
+- electron-builder prints `Cannot create symbolic link ... privilege is not held` the first time it fetches its signing tools. It is harmless (only macOS files in that archive are affected), and signing carries on. Turning on Windows Developer Mode silences it.
+- This is written for electron-builder 26. Version 27 renames the signing options, so re-check `scripts/signing-config.cjs` if you upgrade.
+- **macOS** needs a different thing: a paid Apple Developer account, then signing and notarization. It is not set up, because the macOS build has not been tried.
 
 ## How it works
 

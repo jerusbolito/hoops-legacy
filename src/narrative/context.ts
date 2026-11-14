@@ -1,5 +1,6 @@
 import { LEVEL_CONFIG, yearLabel } from '../data/teams';
 import { BADGE_BY_ID } from '../engine/badges';
+import { byRelevance } from '../engine/cast';
 import { coachStanding } from '../engine/coach';
 import { MIN_GPA, academicStatus, isInjuryProne } from '../engine/consequences';
 import { nextOpponent, standingsRows, userAthlete, userRole, userTeam } from '../engine/career';
@@ -73,6 +74,9 @@ function ordinal(n: number) {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
+/** Most "other" characters named in one prompt. Featured characters are always included in full. */
+export const MAX_LISTED_OTHERS = 12;
+
 export function npcLine(state: GameState, n: Npc, detailed: boolean): string {
   const r = n.relationship;
   let s = `- id=${n.id} | ${n.name} | ${n.role} | ${n.title}${n.estranged ? ' | ESTRANGED: not speaking to you after a falling out' : ''}`;
@@ -107,7 +111,12 @@ export function castBlock(state: GameState, focusIds: string[]): string {
   const focus = active.filter((n) => focusIds.includes(n.id));
   const others = active.filter((n) => !focusIds.includes(n.id));
   const parts = ['FEATURED CHARACTERS (use their ids in effects):', ...focus.map((n) => npcLine(state, n, true))];
-  if (others.length) parts.push('OTHER KNOWN CHARACTERS (may be mentioned):', ...others.map((n) => npcLine(state, n, false)));
+  if (others.length) {
+    // the story can have many people in it; the prompt gets the ones who matter most right now
+    const shown = byRelevance(state, others).slice(0, MAX_LISTED_OTHERS);
+    parts.push('OTHER KNOWN CHARACTERS (may be mentioned):', ...shown.map((n) => npcLine(state, n, false)));
+    if (others.length > shown.length) parts.push(`(${others.length - shown.length} more minor acquaintances are not listed.)`);
+  }
   if (former.length) {
     parts.push(
       'NO LONGER PART OF YOUR DAILY LIFE (graduated, left, or moved on). They are NOT at practice, in the locker room, or on the bench. Mention only as a memory, a text, a call, or a brief cameo that fits their departure:',

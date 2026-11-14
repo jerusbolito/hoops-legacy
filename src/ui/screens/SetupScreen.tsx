@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
+import { getDesktop } from '../../desktop/bridge';
 import { createClient, testConnection } from '../../llm/client';
 import { PRESETS, configFromPreset, detectPreset, presetById } from '../../llm/presets';
 import type { LLMConfig } from '../../llm/types';
@@ -26,8 +27,11 @@ export function SetupScreen() {
   const [test, setTest] = useState<{ state: 'idle' | 'running' | 'ok' | 'fail'; msg?: string }>({ state: 'idle' });
   const [autoDetected, setAutoDetected] = useState<string | null>(null);
 
+  const [fastReplies, setFastReplies] = useState(existing?.config.fastReplies !== false);
+  const inDesktop = !!getDesktop();
+
   const preset = presetById(presetId);
-  const config: LLMConfig = { presetId, kind: preset.kind, baseUrl, apiKey: apiKey.trim(), model: model.trim() };
+  const config: LLMConfig = { presetId, kind: preset.kind, baseUrl, apiKey: apiKey.trim(), model: model.trim(), ...(presetId === 'ollama' ? { fastReplies } : {}) };
 
   const choosePreset = (id: string) => {
     const p = presetById(id);
@@ -116,14 +120,14 @@ export function SetupScreen() {
               placeholder={preset.needsKey ? (preset.keyHint ?? 'API key') : 'Not needed for this provider (optional)'}
               value={apiKey}
               onChange={(e) => onKey(e.target.value)}
-              disabled={preset.kind === 'mock'}
+              disabled={preset.kind === 'mock' || presetId === 'bundled'}
             />
           </Field>
 
           <div>
             <div className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-400">Provider</div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {PRESETS.map((p) => (
+              {PRESETS.filter((p) => p.id !== 'bundled' || inDesktop).map((p) => (
                 <button
                   key={p.id}
                   onClick={() => {
@@ -140,10 +144,17 @@ export function SetupScreen() {
                 </button>
               ))}
             </div>
-            {preset.note && <p className="mt-2 rounded-md bg-court-800 px-3 py-2 font-mono text-xs text-ink-300">{preset.note}</p>}
+            {preset.note && !(inDesktop && preset.id === 'ollama') && <p className="mt-2 rounded-md bg-court-800 px-3 py-2 font-mono text-xs text-ink-300">{preset.note}</p>}
           </div>
 
-          {preset.kind !== 'mock' && (
+          {presetId === 'bundled' && (
+            <div className="space-y-3 rounded-lg border border-court-600 bg-court-800/50 p-4">
+              <p className="text-sm text-ink-300">The game manages the built-in model for you: it starts it, keeps it private to this computer, and updates its address each time. Choose which model to use on the startup screen.</p>
+              <Button onClick={() => setScreen('desktop')}>Choose the model and start</Button>
+            </div>
+          )}
+
+          {preset.kind !== 'mock' && presetId !== 'bundled' && (
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Base URL">
                 <input className={inputCls} value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://…/v1" />
@@ -190,13 +201,23 @@ export function SetupScreen() {
             </div>
           )}
 
+          {presetId === 'ollama' && (
+            <label className="flex items-start gap-2 text-sm text-ink-300">
+              <input type="checkbox" checked={fastReplies} onChange={(e) => setFastReplies(e.target.checked)} className="mt-1 accent-hoop-500" />
+              <span>
+                Faster replies <span className="text-ink-500">(recommended)</span>
+                <span className="block text-xs text-ink-500">Skips the model's "thinking" step. Scenes arrive several times sooner. Turn this off to let the model reason in full.</span>
+              </span>
+            </label>
+          )}
+
           <label className="flex items-center gap-2 text-sm text-ink-300">
             <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="accent-hoop-500" />
             Remember on this device (stored in this browser only; never included in save files)
           </label>
 
           <div className="flex flex-wrap items-center gap-3 border-t border-court-700 pt-4">
-            {preset.kind !== 'mock' && (
+            {preset.kind !== 'mock' && presetId !== 'bundled' && (
               <Button variant="outline" onClick={runTest} disabled={!canSave || test.state === 'running'}>
                 Test connection
               </Button>

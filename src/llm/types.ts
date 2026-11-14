@@ -19,6 +19,11 @@ export interface LLMConfig {
   baseUrl: string;
   apiKey: string;
   model: string;
+  /**
+   * Local engine only (Ollama). Many local models "think" for thousands of tokens before they answer, which makes
+   * every scene several times slower. On by default; turn off to let the model reason in full.
+   */
+  fastReplies?: boolean;
 }
 
 export interface ChatMessage {

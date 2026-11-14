@@ -45,6 +45,16 @@ export const PRESETS: ProviderPreset[] = [
   { id: 'xai', label: 'xAI (Grok)', kind: 'openai-compatible', baseUrl: 'https://api.x.ai/v1', defaultModel: '', needsKey: true, jsonMode: true, keyHint: 'xai-…' },
   { id: 'together', label: 'Together AI', kind: 'openai-compatible', baseUrl: 'https://api.together.xyz/v1', defaultModel: '', needsKey: true, jsonMode: true },
   {
+    id: 'bundled',
+    label: 'Built-in model (this computer)',
+    kind: 'openai-compatible',
+    baseUrl: '',
+    defaultModel: 'gemma-4-12b',
+    needsKey: false,
+    jsonMode: true,
+    note: 'Desktop app only. The game runs its own model on this computer. Nothing is sent anywhere.',
+  },
+  {
     id: 'ollama',
     label: 'Ollama (local)',
     kind: 'openai-compatible',

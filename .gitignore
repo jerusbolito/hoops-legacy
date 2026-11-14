@@ -3,3 +3,8 @@ dist
 .DS_Store
 *.local
 *.tsbuildinfo
+release
+desktop/dist
+build/engine
+build/models
+dist-test

@@ -21,6 +21,9 @@ async function doFetch(url: string, init: RequestInit): Promise<Response> {
 export function openAICompatibleClient(config: LLMConfig): LLMClient {
   const preset = presetById(config.presetId);
   let jsonMode = preset.jsonMode ?? false;
+  // Local engines (Ollama, and the built-in llama.cpp one) accept this for thinking models and skip the reasoning.
+  // If some server rejects it we stop sending it.
+  let skipThinking = (config.presetId === 'ollama' || config.presetId === 'bundled') && config.fastReplies !== false;
 
   const headers = (): Record<string, string> => {
     const h: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -42,6 +45,7 @@ export function openAICompatibleClient(config: LLMConfig): LLMClient {
         max_tokens: req.maxTokens ?? 4000,
       };
       if (req.json && jsonMode) body.response_format = { type: 'json_object' };
+      if (skipThinking) body.reasoning_effort = 'none';
 
       let res = await doFetch(joinUrl(config.baseUrl, 'chat/completions'), {
         method: 'POST',
@@ -49,9 +53,13 @@ export function openAICompatibleClient(config: LLMConfig): LLMClient {
         body: JSON.stringify(body),
         signal: req.signal,
       });
-      // Some models reject response_format or max_tokens; retry once without them.
-      if (res.status === 400 && (body.response_format || body.max_tokens)) {
+      // Some models reject response_format, max_tokens or reasoning_effort; retry once without them.
+      if (res.status === 400 && (body.response_format || body.max_tokens || body.reasoning_effort)) {
         const text = await res.text();
+        if (/reasoning|think/i.test(text)) {
+          skipThinking = false;
+          delete body.reasoning_effort;
+        }
         if (/response_format|json/i.test(text)) jsonMode = false;
         delete body.response_format;
         if (/max_tokens/i.test(text)) {

@@ -11,6 +11,7 @@ import { AnalyticsView } from '../views/AnalyticsView';
 import { HubView } from '../views/HubView';
 import { MediaView } from '../views/MediaView';
 import { MemoryView } from '../views/MemoryView';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import { EventModal } from '../components/EventModal';
 import { LeagueView } from '../views/LeagueView';
 import { ProfileView } from '../views/ProfileView';
@@ -55,6 +56,15 @@ export function GameShell() {
   const setScreen = useStore((s) => s.setScreen);
   const liveActive = useStore((s) => !!s.live);
   const prefs = usePrefs();
+  const eventId = useStore((s) => s.eventId);
+  const revealId = useStore((s) => s.reveals[0]?.id);
+  /** Closes whichever pop-up broke and says so. Progress is saved after every action, so nothing is lost. */
+  const closeBroken = (what: 'event' | 'reveal') => {
+    const s = useStore.getState();
+    if (what === 'event') s.closeEvent();
+    else s.dismissReveal();
+    s.toast('That screen had a problem, so it was closed. Your progress is saved.', 'bad');
+  };
 
   const a = userAthlete(game);
   const team = userTeam(game);
@@ -133,8 +143,13 @@ export function GameShell() {
         {tab === 'story' && <StoryView />}
         {tab === 'memory' && <MemoryView />}
       </main>
-      <EventModal />
-      <RevealOverlay />
+      {/* A pop-up that breaks closes itself and the game carries on, instead of taking the whole page down with it */}
+      <ErrorBoundary resetKey={eventId} fallback={() => null} onError={() => closeBroken('event')}>
+        <EventModal />
+      </ErrorBoundary>
+      <ErrorBoundary resetKey={revealId} fallback={() => null} onError={() => closeBroken('reveal')}>
+        <RevealOverlay />
+      </ErrorBoundary>
     </div>
   );
 }

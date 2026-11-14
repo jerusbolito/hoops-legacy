@@ -37,7 +37,9 @@ import { seasonStory } from '../engine/analytics';
 import { buildSeasonReview } from '../engine/seasonReview';
 import type { TrainingFocus, TrainingResult } from '../engine/progression';
 import { RNG } from '../engine/rng';
+import { getDesktop, type EngineStatus } from '../desktop/bridge';
 import { createClient } from '../llm/client';
+import { configFromPreset, presetById } from '../llm/presets';
 import type { LLMClient, LLMConfig } from '../llm/types';
 import { generateRecap, generateScene, generateSeasonSummary, narrateFlavor, resolveScene, type Recap, type SceneResolution } from '../narrative/narrator';
 import type { SceneSetup } from '../narrative/parse';
@@ -46,7 +48,7 @@ import { loadGame, loadLLMConfig, saveGame, storeLLMConfig } from './persistence
 import type { Reveal, RevealData } from './reveals';
 import { RATING_KEYS, RATING_LABELS, type GameState, type PlanId, type RatingKey, type Ratings, type ScheduledGame } from './schemas';
 
-export type Screen = 'setup' | 'title' | 'create' | 'game';
+export type Screen = 'setup' | 'desktop' | 'title' | 'create' | 'game';
 export type Tab = 'hub' | 'profile' | 'relationships' | 'league' | 'analytics' | 'media' | 'story' | 'memory';
 
 export interface Toast {
@@ -105,6 +107,8 @@ interface Store {
   setScreen(s: Screen): void;
   setTab(t: Tab): void;
   setLLM(config: LLMConfig, remember: boolean): void;
+  /** Desktop app: use the AI engine running on this computer, at the address and with the model its status gives. */
+  connectLocalEngine(status: EngineStatus, fastReplies?: boolean): void;
   boot(): void;
   toast(text: string, kind?: Toast['kind']): void;
   dismissToast(id: number): void;
@@ -223,8 +227,22 @@ export const useStore = create<Store>((set, get) => {
 
     boot() {
       const saved = loadLLMConfig();
+      // The desktop app brings its own AI. Unless the player chose a cloud provider, make sure the local engine is
+      // running (and the model is there) before anything else. This runs on every launch, because the built-in
+      // engine gets a new address each time.
+      if (getDesktop() && (!saved || saved.config.presetId === 'ollama' || saved.config.presetId === 'bundled')) {
+        set({ screen: 'desktop', llm: saved?.config ?? null, client: saved ? createClient(saved.config) : null });
+        return;
+      }
       if (saved) set({ llm: saved.config, client: createClient(saved.config), screen: 'title' });
       else set({ screen: 'setup' });
+    },
+
+    connectLocalEngine(status, fastReplies = true) {
+      // the engine tells us where it is listening and what to call the model
+      const config: LLMConfig = { ...configFromPreset(presetById(status.provider === 'bundled' ? 'bundled' : 'ollama'), status.apiKey, status.requestModel), baseUrl: status.baseUrl, fastReplies };
+      storeLLMConfig(config, true);
+      set({ llm: config, client: createClient(config), screen: 'title' });
     },
 
     toast(text, kind = 'info') {

@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { LEVEL_CONFIG } from '../../data/teams';
-import { STYLE_INFO, availableEvents, type ContestState, type Entrant, type Style } from '../../engine/events';
+import { STYLE_INFO, availableEvents, type CombineResult, type ContestState, type Entrant, type Style } from '../../engine/events';
 import { useStore } from '../../state/store';
 import { Button, Pill, cx } from './ui';
 
@@ -62,13 +62,15 @@ function Scoreboard({ c, upTo }: { c: ContestState; upTo: number }) {
   );
 }
 
-function ContestFlow() {
-  const game = useStore((s) => s.game)!;
-  const c = useStore((s) => s.contest)!;
+/**
+ * The contest and the level's average rating come in as props, not from the store. When the player collects the result
+ * the store clears the contest straight away, but this pop-up is still on screen for its fade-out, and drawing it once
+ * more with no contest crashed the whole game to a blank page.
+ */
+function ContestFlow({ c, mean }: { c: ContestState; mean: number }) {
   const play = useStore((s) => s.playContest);
   const finish = useStore((s) => s.finishContest);
   const close = useStore((s) => s.closeEvent);
-  const mean = LEVEL_CONFIG[game.league.level].ratingMean;
   const me = c.entrants.find((e) => e.isUser)!;
   const field = c.entrants.filter((e) => !e.isUser);
   const fieldAvg = Math.round(field.reduce((a, e) => a + e.rating, 0) / field.length);
@@ -119,8 +121,8 @@ function ContestFlow() {
   );
 }
 
-function CombineFlow() {
-  const res = useStore((s) => s.combine);
+/** Like the contest, it is handed its result so the fade-out never draws it from a store that has already moved on. */
+function CombineFlow({ res }: { res: CombineResult | null }) {
   const run = useStore((s) => s.runCombine);
   const done = useStore((s) => s.finishCombine);
   const close = useStore((s) => s.closeEvent);
@@ -175,7 +177,10 @@ function CombineFlow() {
 export function EventModal() {
   const eventId = useStore((s) => s.eventId);
   const contest = useStore((s) => s.contest);
-  return <AnimatePresence>{eventId === 'combine' ? <CombineFlow key="combine" /> : eventId && contest ? <ContestFlow key={eventId} /> : null}</AnimatePresence>;
+  const combine = useStore((s) => s.combine);
+  const level = useStore((s) => s.game?.league.level);
+  const mean = LEVEL_CONFIG[level ?? 'hs'].ratingMean;
+  return <AnimatePresence>{eventId === 'combine' ? <CombineFlow key="combine" res={combine} /> : eventId && contest ? <ContestFlow key={eventId} c={contest} mean={mean} /> : null}</AnimatePresence>;
 }
 
 /** Invitations shown on the hub when an event is available. */

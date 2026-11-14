@@ -1,5 +1,6 @@
 import type { Effect, GameState, RelField } from '../state/schemas';
 import { RATING_LABELS } from '../state/schemas';
+import { trimCast } from './cast';
 import { addRipple } from './consequences';
 import { makeNpc } from './generate';
 import { RNG, clamp } from './rng';
@@ -218,6 +219,8 @@ export function applyEffects(state: GameState, effects: Effect[], source: string
         });
         state.npcs[npc.id] = npc;
         applied.push(`Met ${npc.name}`);
+        // a long career meets a lot of people; the least relevant minor ones drift out of the story
+        trimCast(state);
         break;
       }
       case 'arc_open': {

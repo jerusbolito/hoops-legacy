@@ -122,6 +122,8 @@ export const sfx = {
 /** Short vibration on phones, when enabled. */
 export function buzz(pattern: number | number[] = 20) {
   if (!usePrefs.getState().haptics) return;
+  // browsers refuse to vibrate before the player has tapped or clicked something, and log an error when asked to
+  if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
   try {
     navigator.vibrate?.(pattern);
   } catch {
