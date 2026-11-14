@@ -4,6 +4,10 @@ import { presetById } from '../../llm/presets';
 import { deleteSave, exportSave, importSave, listSaves, loadGame, type SaveRow } from '../../state/persistence';
 import { useStore } from '../../state/store';
 import { Avatar, Button, Panel } from '../components/ui';
+import { getDesktop } from '../../desktop/bridge';
+
+// always the newest release (see electron-builder.config.cjs)
+const DESKTOP_DOWNLOAD_URL = 'https://github.com/jerusbolito/hoops-legacy/releases/latest/download/Hoops-Legacy-Setup.exe';
 
 export function TitleScreen() {
   const [saves, setSaves] = useState<Omit<SaveRow, 'state'>[]>([]);
@@ -64,6 +68,22 @@ export function TitleScreen() {
         </Button>
         <input ref={fileRef} type="file" accept="application/json" hidden onChange={(e) => e.target.files?.[0] && doImport(e.target.files[0])} />
       </div>
+
+      {/* only on the website: the desktop app has no use for a link to itself */}
+      {!getDesktop() && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-court-700 bg-court-850/80 px-4 py-3">
+          <div className="min-w-0 text-sm">
+            <div className="font-semibold">Play offline with a built-in AI</div>
+            <div className="text-xs text-ink-400">The Windows app runs its own AI on your computer. No account or API key. Free.</div>
+          </div>
+          <a
+            href={DESKTOP_DOWNLOAD_URL}
+            className="rounded-lg border border-hoop-500 px-4 py-2 text-sm font-semibold text-hoop-500 transition hover:bg-hoop-500 hover:text-white"
+          >
+            Download for Windows
+          </a>
+        </div>
+      )}
 
       {saves.length > 0 && (
         <Panel title="Careers">
