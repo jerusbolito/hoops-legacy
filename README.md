@@ -24,6 +24,21 @@ On first load you'll see the **Story Engine** setup screen. Pick a provider, pas
 
 There is no backend. `dist/` is a static site you can host anywhere.
 
+### Deploying on Vercel
+
+Import the repo at vercel.com/new. Vite is auto-detected (build `npm run build`, output `dist`). The app includes `@vercel/analytics` and `@vercel/speed-insights` (see `src/ui/App.tsx`). They only report page views and web-vitals, never game data or API keys. They do nothing until you enable **Analytics** and **Speed Insights** in the project's Vercel dashboard tabs and redeploy; on other hosts or locally they are harmless no-ops. Ad blockers may block them, so treat the numbers as a lower bound.
+
+#### Security headers (`vercel.json`)
+
+`vercel.json` sets a Content-Security-Policy and related headers on every response:
+
+- `script-src 'self'` stops any injected or third-party script from running. This is the main protection for API keys stored in the browser. Vercel's analytics scripts are served from your own domain, so they are allowed.
+- `connect-src` allows any `https:` host plus `http://localhost` / `127.0.0.1`. It has to be this wide because players can enter custom provider URLs and local models (Ollama, LM Studio). That is the one part that can't be tightened.
+- `frame-ancestors 'none'` / `X-Frame-Options: DENY` stop other sites from embedding the game. `nosniff`, `Referrer-Policy`, `Permissions-Policy` (camera, mic, location off) and HSTS cover the basics.
+- `style-src` allows `'unsafe-inline'` because React and Framer Motion set inline `style` attributes, and Google Fonts for the typefaces.
+
+Vercel only applies these after a deploy, so test changes by serving `dist/` with the same headers. Watch for `Refused to ...` messages in DevTools. If you add a new external service (analytics, fonts, a CDN, images from another site), you must allow its domain in the matching directive or the browser will silently block it. Do not add `upgrade-insecure-requests`: it would break local models, which are served over plain `http://localhost`.
+
 ## How it works
 
 ### The core rule: the engine owns the facts

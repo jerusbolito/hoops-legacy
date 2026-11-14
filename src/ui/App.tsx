@@ -1,3 +1,5 @@
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { useEffect } from 'react';
 import { useStore } from '../state/store';
 import { Toasts } from './components/Toasts';
@@ -18,6 +20,9 @@ export function App() {
       {screen === 'create' && <CreateScreen />}
       {screen === 'game' && <GameShell />}
       <Toasts />
+      {/* Vercel page-view analytics and web-vitals. No-ops outside Vercel; never sent any game data or keys. */}
+      <Analytics />
+      <SpeedInsights />
     </>
   );
 }
