@@ -128,9 +128,24 @@ To photograph a first-run screen without a real engine: `--smoke-engine=bundled-
 
 - **Updating the engine or a model.** Edit `desktop/pins.json` (new tag, file name, size, SHA-256), run `npm run desktop:engine`, and test with `HOOPS_REAL_LLAMA=1`. The engine releases are rolling builds, which is why one is pinned.
 - **Hardware.** A 12B model wants about 12 GB of memory, or a graphics card with 8 GB. The engine fits itself to what is free (`--fit`), but on a computer without a graphics card it will be slow, and the first-run screen warns when memory is short.
+- **Smaller models for slower computers.** The catalog already has E4B (5.2 GB) and E2B (3.3 GB) next to the 12B model, chosen on first launch by memory and switchable under Advanced. Not done yet: picking by graphics-card memory, suggesting a lighter model when replies are slow, and a screen to delete downloaded models. Story quality on E4B and E2B has not been tested with the game's prompts.
 - **Signing.** Builds are unsigned until you give them a certificate, so Windows SmartScreen and macOS Gatekeeper warn on first run. Windows signing is ready to switch on: see "Code signing" below.
 - **Only Windows has been built and tried.** The macOS and Linux configuration is in place (engine builds are pinned) but untested. Intel Macs are not covered.
 - **If it will not open.** Some editors set `ELECTRON_RUN_AS_NODE`, which makes Electron behave like plain Node. `npm run desktop` clears it. If you launch Electron by hand, clear it first.
+
+### Releasing and updating
+
+The desktop app carries its own copy of the game and never loads the website, so **deploying the website does not update installed apps**. To ship a change to desktop players:
+
+1. Push the change (Vercel redeploys the website).
+2. Raise `version` in `package.json`, then run `npm run desktop:dist`. The installer is written to `release/Hoops-Legacy-Setup.exe`. The file name is fixed on purpose (see `nsis.artifactName` in `electron-builder.config.cjs`).
+3. Create a GitHub release (for example `v1.0.1`) and attach that file. GitHub allows 2 GB per file, so the standard installer fits and the full zip (about 7.5 GB) does not.
+
+The website's title screen shows a **Download for Windows** card (`src/ui/screens/TitleScreen.tsx`) that links to `https://github.com/jerusbolito/hoops-legacy/releases/latest/download/Hoops-Legacy-Setup.exe`. That address always serves the newest release, so a new release needs no website change. The card is hidden inside the desktop app.
+
+Players who already have the app must run the new installer themselves. It installs over the old version, and nothing they have is lost: careers live at the app's fixed local address, and the downloaded model sits in its own folder. There is no automatic update check yet.
+
+**Where things are kept on Windows** (`%APPDATA%\hoops-legacy\`): downloaded models in `models\` (about 7 GB for the default), plus the app's saved careers and settings. The uninstaller leaves this folder alone, so delete it by hand to reclaim the space. A model shipped inside the full build lives in the app's own `resources\models` and is preferred over a downloaded copy.
 
 ## Code signing (Windows)
 
