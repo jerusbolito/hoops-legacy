@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { nextOpponent, userAthlete, userRole, userTeam, type GameReport } from '../../engine/career';
 import { coachStanding } from '../../engine/coach';
 import { sitOutReason } from '../../engine/consequences';
+import { rivalryGame, seriesText } from '../../engine/rivalry';
 import { BADGE_BY_ID } from '../../engine/badges';
 import { PLAN_BY_ID } from '../../engine/gameplan';
 import { GamePrep } from '../components/GamePrep';
@@ -26,6 +27,7 @@ export function PreGamePanel() {
   const game = useStore((s) => s.game)!;
   const startGame = useStore((s) => s.startGame);
   const next = nextOpponent(game);
+  const rv = next ? rivalryGame(game, next.opp.id) : null;
   const team = userTeam(game);
   const me = userAthlete(game);
   if (!next) return null;
@@ -36,6 +38,12 @@ export function PreGamePanel() {
   return (
     <Panel title={game.career.phase === 'playoffs' ? 'Playoff game' : 'Game day'}>
       <SceneBanner kind="game" colors={team.colors} className="-mx-4 -mt-4 mb-2" height={130} />
+      {rv && (
+        <div className="mx-auto mb-1 max-w-md rounded-lg border border-loss/40 bg-loss/10 px-3 py-2 text-center text-sm">
+          <span className="font-semibold text-loss">🔥 Rivalry game</span>
+          <span className="text-ink-300"> · {rv.rival.name} · {seriesText(rv.w, rv.l)}</span>
+        </div>
+      )}
       <div className="flex items-center justify-center gap-6 py-4 sm:gap-12">
         {[away, home].map((t, i) => (
           <div key={t.id} className="flex flex-col items-center gap-2">

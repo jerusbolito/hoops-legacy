@@ -57,6 +57,14 @@ export const AthleteSchema = z.object({
   teamId: z.string().nullable(),
   /** Persistent athletes (user, rivals, friends) survive level transitions. */
   persistent: z.boolean().default(false),
+  /** Pros only: seasons left on their deal. Set the first time the league's contracts roll over. */
+  contractYears: z.number().optional(),
+  /** Pros only: what they are paid a year. Set along with the length of the deal. */
+  salary: z.number().optional(),
+  /** Their last finished season at this level, for the player card. */
+  prev: z
+    .object({ season: z.number(), team: z.string(), gp: z.number(), mpg: z.number(), ppg: z.number(), rpg: z.number(), apg: z.number(), spg: z.number(), bpg: z.number(), fgPct: z.number(), tpPct: z.number(), ftPct: z.number() })
+    .optional(),
 });
 export type Athlete = z.infer<typeof AthleteSchema>;
 
@@ -89,6 +97,20 @@ export const RelationshipSchema = z.object({
 });
 export type Relationship = z.infer<typeof RelationshipSchema>;
 
+/** How a story athlete (rival, friend, teammate) did last season, so they can be written about as people who move on. */
+export const NpcSeasonSchema = z.object({
+  season: z.number(),
+  teamName: z.string(),
+  gp: z.number(),
+  ppg: z.number(),
+  rpg: z.number(),
+  apg: z.number(),
+  mpg: z.number(),
+  /** Where they ranked on their own team by rating (1 = best). */
+  rank: z.number(),
+});
+export type NpcSeason = z.infer<typeof NpcSeasonSchema>;
+
 export const NpcSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -105,6 +127,10 @@ export const NpcSchema = z.object({
   estranged: z.boolean().default(false),
   active: z.boolean(),
   metSeason: z.number(),
+  /** Last finished season, for athletes who play. Updated at every season turn. */
+  lastSeason: NpcSeasonSchema.optional(),
+  /** Your record against this person's team in games they played in. */
+  h2h: z.object({ w: z.number(), l: z.number() }).default({ w: 0, l: 0 }),
 });
 export type Npc = z.infer<typeof NpcSchema>;
 
@@ -247,6 +273,32 @@ export const OfferSchema = z.object({
 });
 export type Offer = z.infer<typeof OfferSchema>;
 
+/** Where the money went and came from over one season. */
+export const FinanceLineSchema = z.object({
+  /** Everything earned before taxes: salary, stipend, endorsements. */
+  earned: z.number().default(0),
+  /** The part of `earned` that came from endorsements, after the agent's cut. */
+  endorse: z.number().default(0),
+  taxes: z.number().default(0),
+  living: z.number().default(0),
+  /** Trainers, recovery and the like. */
+  services: z.number().default(0),
+  /** Everything else you chose to spend on (events, family, camps). */
+  spent: z.number().default(0),
+  /** Windfalls and gifts. */
+  gifts: z.number().default(0),
+});
+export type FinanceLine = z.infer<typeof FinanceLineSchema>;
+
+export const FinanceSchema = FinanceLineSchema.extend({
+  season: z.number().default(0),
+  prev: FinanceLineSchema.nullable().default(null),
+});
+export type Finance = z.infer<typeof FinanceSchema>;
+
+export const ServiceIdSchema = z.enum(['trainer', 'recovery', 'nutrition', 'tutor', 'agency']);
+export type ServiceId = z.infer<typeof ServiceIdSchema>;
+
 export const PostSchema = z.object({
   id: z.number(),
   season: z.number(),
@@ -282,7 +334,7 @@ export const PlayerSchema = z.object({
   money: z.number(),
   reputation: z.number(), // 0..100
   followers: z.number(),
-  injury: z.object({ weeks: z.number(), desc: z.string() }).nullable(),
+  injury: z.object({ weeks: z.number(), desc: z.string(), /** How long it was at the start, for the comeback. */ total: z.number().optional(), /** Rehab sessions toward shaving off a week. */ rehab: z.number().optional() }).nullable(),
   /** fractional training progress per rating, flushes into ratings at >= 1 */
   progress: z.record(z.number()),
   contract: ContractSchema.nullable(),
@@ -300,6 +352,9 @@ export const PlayerSchema = z.object({
   draftBoost: z.number().default(0),
   /** Events already played, as "season:eventId". */
   eventsDone: z.array(z.string()).default([]),
+  /** Paid-for help (trainer, recovery team...). Each works through the end of season `until`. */
+  services: z.array(z.object({ id: ServiceIdSchema, until: z.number() })).default([]),
+  finance: FinanceSchema.default({}),
 });
 export type Player = z.infer<typeof PlayerSchema>;
 
@@ -317,6 +372,36 @@ export type Phase = z.infer<typeof PhaseSchema>;
 
 export const WeekStepSchema = z.enum(['training', 'scene', 'game', 'done']);
 export type WeekStep = z.infer<typeof WeekStepSchema>;
+
+/** A random moment waiting for the player to decide. The text and options are rebuilt from the id, the seed and the people it names. */
+export const LifeEventSchema = z.object({
+  id: z.string(),
+  seed: z.number(),
+  /** People and places the event is about, by role (coach, friend, rival, teammate, family, love, opp). */
+  refs: z.record(z.string()).default({}),
+});
+export type LifeEventPending = z.infer<typeof LifeEventSchema>;
+
+/** A school or team that wants the player, while they decide whether to leave. */
+export const MoveOfferSchema = z.object({
+  teamId: z.string(),
+  name: z.string(),
+  mascot: z.string(),
+  abbrev: z.string(),
+  colors: z.tuple([z.string(), z.string()]),
+  prestige: z.number(),
+  coachName: z.string(),
+  /** Where the player would sit on that roster (1 = best). */
+  rank: z.number(),
+  role: z.string(),
+  /** One-time money a college collective puts up to land you. */
+  nil: z.number().default(0),
+  pitch: z.string(),
+});
+export type MoveOffer = z.infer<typeof MoveOfferSchema>;
+
+export const PendingMoveSchema = z.object({ kind: z.enum(['transfer', 'trade']), offers: z.array(MoveOfferSchema), headline: z.string().default('') });
+export type PendingMove = z.infer<typeof PendingMoveSchema>;
 
 export const CareerSchema = z.object({
   level: LevelSchema,
@@ -337,6 +422,17 @@ export const CareerSchema = z.object({
   press: PressSchema.nullable().default(null),
   /** Games since the last press question, so they stay rare. */
   gamesSincePress: z.number().default(0),
+  /** A random moment waiting for a decision. */
+  lifeEvent: LifeEventSchema.nullable().default(null),
+  /** The last few random moments, so the same one does not come around again right away. */
+  recentLife: z.array(z.string()).default([]),
+  weeksSinceLife: z.number().default(0),
+  /** How well the locker room gets along, 0 to 100. It nudges every teammate's play. */
+  chemistry: z.number().default(55),
+  /** Season in which the player last opened the transfer portal or asked for a trade. One try per season. */
+  moveSeason: z.number().default(0),
+  /** Teams that want the player right now, until they pick one or stay. */
+  pendingMove: PendingMoveSchema.nullable().default(null),
 });
 export type Career = z.infer<typeof CareerSchema>;
 
@@ -434,8 +530,98 @@ export const LeagueStatLineSchema = z.object({
   ast: z.number(),
   stl: z.number(),
   blk: z.number(),
+  // the rest arrived later; older saves count from zero
+  fgm: z.number().default(0),
+  fga: z.number().default(0),
+  tpm: z.number().default(0),
+  tpa: z.number().default(0),
+  ftm: z.number().default(0),
+  fta: z.number().default(0),
+  orb: z.number().default(0),
+  drb: z.number().default(0),
+  tov: z.number().default(0),
+  pf: z.number().default(0),
 });
 export type LeagueStatLine = z.infer<typeof LeagueStatLineSchema>;
+
+/* ───────────────────────── The week, and the paper ───────────────────────── */
+
+/** One player's night, kept until the week's paper is printed. */
+export const WeekLineSchema = z.object({
+  id: z.string(),
+  t: z.string(),
+  o: z.string(),
+  ts: z.number(),
+  os: z.number(),
+  min: z.number(),
+  pts: z.number(),
+  reb: z.number(),
+  ast: z.number(),
+  stl: z.number(),
+  blk: z.number(),
+  fgm: z.number(),
+  fga: z.number(),
+  tpm: z.number(),
+  tpa: z.number(),
+  tov: z.number(),
+  gs: z.number(),
+});
+export type WeekLine = z.infer<typeof WeekLineSchema>;
+
+/** A piece of text with the people in it, so a screen can make their names clickable. */
+export const PaperItemSchema = z.object({ text: z.string(), people: z.array(z.object({ id: z.string(), name: z.string() })).default([]) });
+export type PaperItem = z.infer<typeof PaperItemSchema>;
+
+export const IssueSchema = z.object({
+  id: z.number(),
+  kind: z.enum(['preview', 'weekly', 'playoffs', 'recap']),
+  season: z.number(),
+  week: z.number(),
+  masthead: z.string(),
+  dateline: z.string(),
+  headline: z.string(),
+  deck: z.string(),
+  lead: z.array(PaperItemSchema),
+  sections: z.array(z.object({ id: z.string(), title: z.string(), items: z.array(PaperItemSchema) })),
+  scoreboard: z.array(z.object({ away: z.string(), home: z.string(), as: z.number(), hs: z.number(), you: z.boolean(), round: z.string().optional() })).default([]),
+  standings: z.array(z.object({ team: z.string(), w: z.number(), l: z.number(), you: z.boolean(), move: z.number() })).default([]),
+  leaders: z.array(z.object({ label: z.string(), rows: z.array(z.object({ id: z.string(), name: z.string(), team: z.string(), value: z.string() })) })).default([]),
+});
+export type Issue = z.infer<typeof IssueSchema>;
+
+/* ───────────────────────── Recruiting ───────────────────────── */
+
+/** A school or team that is interested in the player. */
+export const SuitorSchema = z.object({ name: z.string(), interest: z.number(), contacts: z.number().default(0), visited: z.boolean().default(false) });
+export type Suitor = z.infer<typeof SuitorSchema>;
+
+/** A player the user is trying to convince to join their team. */
+export const RecruitTargetSchema = z.object({
+  athleteId: z.string(),
+  name: z.string(),
+  position: z.string(),
+  fromTeam: z.string(),
+  /** How sold they are on the user's team, 0 to 100. */
+  pull: z.number(),
+  contacts: z.number().default(0),
+  /** Other teams chasing the same player. */
+  rivals: z.array(z.object({ teamId: z.string(), pull: z.number() })),
+  note: z.string().default(''),
+  arcId: z.string().optional(),
+});
+export type RecruitTarget = z.infer<typeof RecruitTargetSchema>;
+
+export const RecruitResultSchema = z.object({ season: z.number(), name: z.string(), outcome: z.enum(['signed', 'lost', 'stayed']), team: z.string(), text: z.string() });
+export type RecruitResult = z.infer<typeof RecruitResultSchema>;
+
+export const RecruitingSchema = z.object({
+  /** Recruiting actions in hand. One more arrives each week, up to a cap. */
+  points: z.number().default(2),
+  suitors: z.array(SuitorSchema).default([]),
+  targets: z.array(RecruitTargetSchema).default([]),
+  history: z.array(RecruitResultSchema).default([]),
+});
+export type Recruiting = z.infer<typeof RecruitingSchema>;
 
 /* ───────────────────────── Root state ───────────────────────── */
 
@@ -464,5 +650,13 @@ export const GameStateSchema = z.object({
   feed: z.array(PostSchema).default([]),
   /** Endorsement offers waiting for an answer. */
   offers: z.array(OfferSchema).default([]),
+  /** Every player's line from this week's games, until the week's paper is printed. */
+  weekLog: z.object({ lines: z.array(WeekLineSchema).default([]) }).default({}),
+  /** The newspaper, newest last. */
+  paper: z.array(IssueSchema).default([]),
+  /** Who is recruiting you, and who you are recruiting. */
+  recruiting: RecruitingSchema.default({}),
+  /** Who moved where around the league, newest last. */
+  transactions: z.array(z.object({ season: z.number(), week: z.number(), kind: z.enum(['transfer', 'trade', 'signing', 'coach', 'recruit', 'draft']), text: z.string() })).default([]),
 });
 export type GameState = z.infer<typeof GameStateSchema>;

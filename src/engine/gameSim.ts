@@ -385,7 +385,7 @@ export class GameSim {
 
   private usage(a: Athlete): number {
     const scoring = this.r(a, 'shooting') * 0.45 + this.r(a, 'finishing') * 0.4 + this.r(a, 'handles') * 0.15;
-    return Math.exp((scoring - this.opts.levelMean) / 9);
+    return Math.exp((scoring - this.opts.levelMean) / 16);
   }
 
   private pickShot(a: Athlete): ShotType {

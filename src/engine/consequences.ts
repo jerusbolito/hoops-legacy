@@ -53,6 +53,7 @@ export function isInjuryProne(state: GameState): boolean {
 
 /** Everything that keeps the player out of the next game, with the reason to show. */
 export function sitOutReason(state: GameState): string | null {
+  if (state.story.flags.holdout === true) return 'You are holding out for a new contract, so you are not playing.';
   const ac = academicStatus(state);
   if (!ac.eligible) return `You are academically ineligible. Your GPA is ${ac.gpa.toFixed(2)} and you need ${MIN_GPA.toFixed(1)} to play.`;
   const inj = state.player.injury;

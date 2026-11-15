@@ -1,8 +1,9 @@
 import type { Athlete, GameState, Player, RatingKey } from '../state/schemas';
 import { RATING_KEYS, RATING_LABELS } from '../state/schemas';
+import { hasService } from './finance';
 import { RNG, clamp } from './rng';
 
-export type TrainingFocus = RatingKey | 'rest' | 'study';
+export type TrainingFocus = RatingKey | 'rest' | 'study' | 'rehab';
 
 export const TRAINING_OPTIONS: { id: TrainingFocus; label: string; desc: string; energy: number }[] = [
   { id: 'shooting', label: 'Shooting', desc: 'Form shooting, catch-and-shoot, off the dribble.', energy: -12 },
@@ -16,7 +17,11 @@ export const TRAINING_OPTIONS: { id: TrainingFocus; label: string; desc: string;
   { id: 'stamina', label: 'Conditioning', desc: 'Suicides until you hate the baseline.', energy: -15 },
   { id: 'rest', label: 'Rest & Recover', desc: 'Ice bath, sleep, and some peace.', energy: 28 },
   { id: 'study', label: 'Hit the Books', desc: 'Keep your grades up (and eligibility).', energy: -4 },
+  { id: 'rehab', label: 'Rehab', desc: 'Work with the trainer. Two sessions shave a week off the injury and protect you from losing a step.', energy: -3 },
 ];
+
+/** Weeks of a layoff that make a comeback a story of its own. */
+export const COMEBACK_WEEKS = 3;
 
 /** Secondary ratings that get a sliver of growth when training a skill. */
 const SPILLOVER: Partial<Record<RatingKey, RatingKey>> = {
@@ -30,7 +35,8 @@ const SPILLOVER: Partial<Record<RatingKey, RatingKey>> = {
   iq: 'passing',
 };
 
-function addProgress(player: Player, ath: Athlete, key: RatingKey, amount: number): number {
+/** Fractional training progress; whole points flush into the rating. Returns the rating points gained. */
+export function addProgress(player: Player, ath: Athlete, key: RatingKey, amount: number): number {
   const cur = (player.progress[key] ?? 0) + amount;
   const whole = Math.floor(cur);
   player.progress[key] = cur - whole;
@@ -70,13 +76,32 @@ export function train(state: GameState, rng: RNG, focus: TrainingFocus, intensit
   const gains: { key: RatingKey; delta: number }[] = [];
   let academicsDelta = 0;
 
+  if (focus === 'rehab') {
+    const inj = p.injury;
+    if (!inj) {
+      p.energy = clamp(p.energy + 10, 0, 100);
+      return { gains, energyDelta: 10, academicsDelta, text: 'Nothing to rehab. You take it easy instead.' };
+    }
+    inj.total ??= inj.weeks;
+    inj.rehab = (inj.rehab ?? 0) + 1;
+    state.story.flags.rehab_sessions = Number(state.story.flags.rehab_sessions ?? 0) + 1;
+    p.energy = clamp(p.energy + opt.energy, 0, 100);
+    p.morale = clamp(p.morale + 2, 0, 100);
+    let text = 'Hours with the trainer, a little progress at a time.';
+    if (inj.rehab >= 2 && inj.weeks > 1) {
+      inj.weeks -= 1;
+      inj.rehab = 0;
+      text = 'The work pays off. The trainer clears you a week sooner than planned.';
+    }
+    return { gains, energyDelta: opt.energy, academicsDelta, text };
+  }
   if (focus === 'rest') {
     p.energy = clamp(p.energy + opt.energy, 0, 100);
     p.morale = clamp(p.morale + 3, 0, 100);
     return { gains, energyDelta: opt.energy, academicsDelta, text: 'You rest up. Your legs thank you.' };
   }
   if (focus === 'study') {
-    academicsDelta = state.career.level === 'pro' ? 0 : Math.round(rng.range(0.05, 0.14) * 100) / 100;
+    academicsDelta = state.career.level === 'pro' ? 0 : Math.round(rng.range(0.05, 0.14) * (hasService(state, 'tutor') ? 1.5 : 1) * 100) / 100;
     p.academics = clamp(p.academics + academicsDelta, 0, 4);
     p.energy = clamp(p.energy + opt.energy, 0, 100);
     if (state.career.level === 'pro') {
@@ -87,7 +112,8 @@ export function train(state: GameState, rng: RNG, focus: TrainingFocus, intensit
 
   const energyF = clamp(p.energy / 70, 0.35, 1.15);
   const coach = 0.95 + (state.teams[state.career.teamId]?.prestige ?? 50) / 400;
-  const amount = 0.55 * gapFactor(ath, focus) * energyF * ageFactor(ath.age) * coach * intensity * rng.range(0.8, 1.2);
+  const trainer = hasService(state, 'trainer') ? 1.2 : 1;
+  const amount = 0.55 * gapFactor(ath, focus) * energyF * ageFactor(ath.age) * coach * intensity * trainer * rng.range(0.8, 1.2);
   const d = addProgress(p, ath, focus, amount);
   if (d) gains.push({ key: focus, delta: d });
   const spill = SPILLOVER[focus];
@@ -115,7 +141,7 @@ export function offseasonDevelopment(state: GameState, rng: RNG, focuses: Rating
     out.set(k, (out.get(k) ?? 0) + (ath.ratings[k] - before));
   };
   for (const k of focuses) {
-    bump(k, Math.round(rng.range(2.5, 4.5) * gapFactor(ath, k) * ageFactor(ath.age)));
+    bump(k, Math.round(rng.range(2.5, 4.5) * gapFactor(ath, k) * ageFactor(ath.age) * (hasService(state, 'trainer') ? 1.2 : 1)));
   }
   // natural growth / aging
   for (const k of RATING_KEYS) {
@@ -158,7 +184,8 @@ export function postGameWear(state: GameState, rng: RNG, secPlayed: number, tota
   p.energy = clamp(p.energy - Math.round(share * 26 * stamF), 0, 100);
   // a body that has been through a lot breaks down more easily
   const proneF = p.injuryHistory >= 3 ? 1.4 : 1;
-  const injuryP = (0.008 + share * 0.012 + (p.energy < 25 ? 0.05 : p.energy < 40 ? 0.02 : 0)) * proneF;
+  const careF = hasService(state, 'recovery') ? 0.75 : 1;
+  const injuryP = (0.008 + share * 0.012 + (p.energy < 25 ? 0.05 : p.energy < 40 ? 0.02 : 0)) * proneF * careF;
   if (secPlayed > 0 && rng.chance(injuryP)) {
     const inj = rng.weighted(
       [
@@ -181,10 +208,16 @@ export function postGameWear(state: GameState, rng: RNG, secPlayed: number, tota
 export function weeklyRecovery(state: GameState) {
   const p = state.player;
   const ath = state.athletes[p.athleteId];
-  p.energy = clamp(p.energy + 10 + Math.round(ath.ratings.stamina / 12), 0, 100);
+  const extra = (hasService(state, 'nutrition') ? 5 : 0) + (hasService(state, 'recovery') ? 3 : 0);
+  p.energy = clamp(p.energy + 10 + extra + Math.round(ath.ratings.stamina / 12), 0, 100);
   if (p.injury) {
-    p.injury.weeks -= 1;
-    if (p.injury.weeks <= 0) p.injury = null;
+    p.injury.total ??= p.injury.weeks;
+    p.injury.weeks -= hasService(state, 'recovery') ? 2 : 1;
+    if (p.injury.weeks <= 0) {
+      // a long layoff ends: the comeback is waiting
+      if ((p.injury.total ?? 0) >= COMEBACK_WEEKS) state.story.flags.comeback_due = p.injury.total ?? COMEBACK_WEEKS;
+      p.injury = null;
+    }
   }
   // relationships drift slowly toward neutral affinity
   for (const n of Object.values(state.npcs)) {

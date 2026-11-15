@@ -3,6 +3,8 @@ import type { Athlete, BoxScore, GameState, League, Level, ScheduledGame, Team }
 import { HURT_PENALTY, isPlayingHurt, sitOutReason } from './consequences';
 import { GameSim, type SimOptions, type SimTeamInput } from './gameSim';
 import { RNG } from './rng';
+import { chemistryMod } from './chemistry';
+import { gameScore } from './stats';
 import { buildUserMods } from './userMods';
 
 /** Circle-method single round robin. Returns weeks of [home, away] pairs. */
@@ -84,7 +86,8 @@ export function simOptions(state: GameState, keyMoments: boolean): SimOptions {
     foulOut: state.league.level === 'pro' ? 6 : 5,
     keyMoments,
     userAthleteId: p.athleteId,
-    ratingMods: { [p.athleteId]: mod },
+    // a close locker room plays above its ratings, a fractured one below
+    ratingMods: { ...Object.fromEntries((state.teams[state.career.teamId]?.rosterIds ?? []).map((id) => [id, chemistryMod(state)])), [p.athleteId]: mod + chemistryMod(state) },
     rivalIds,
     userTraits: p.traits,
     userMods: buildUserMods(state),
@@ -127,9 +130,10 @@ export function simOtherGames(state: GameState, rng: RNG, week: number, skipTeam
 
 export function accumulateLeagueStats(state: GameState, box: BoxScore) {
   for (const t of [box.home, box.away]) {
+    const other = t === box.home ? box.away : box.home;
     for (const l of t.players) {
       if (l.sec <= 0) continue;
-      const s = (state.leagueStats[l.athleteId] ??= { gp: 0, min: 0, pts: 0, reb: 0, ast: 0, stl: 0, blk: 0 });
+      const s = (state.leagueStats[l.athleteId] ??= { gp: 0, min: 0, pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, orb: 0, drb: 0, tov: 0, pf: 0 });
       s.gp++;
       s.min += l.sec / 60;
       s.pts += l.pts;
@@ -137,6 +141,18 @@ export function accumulateLeagueStats(state: GameState, box: BoxScore) {
       s.ast += l.ast;
       s.stl += l.stl;
       s.blk += l.blk;
+      s.fgm += l.fgm;
+      s.fga += l.fga;
+      s.tpm += l.tpm;
+      s.tpa += l.tpa;
+      s.ftm += l.ftm;
+      s.fta += l.fta;
+      s.orb += l.orb;
+      s.drb += l.drb;
+      s.tov += l.tov;
+      s.pf += l.pf;
+      // kept for the week's paper
+      state.weekLog.lines.push({ id: l.athleteId, t: t.teamId, o: other.teamId, ts: t.score, os: other.score, min: Math.round(l.sec / 6) / 10, pts: l.pts, reb: l.orb + l.drb, ast: l.ast, stl: l.stl, blk: l.blk, fgm: l.fgm, fga: l.fga, tpm: l.tpm, tpa: l.tpa, tov: l.tov, gs: Math.round(gameScore(l) * 10) / 10 });
     }
   }
 }

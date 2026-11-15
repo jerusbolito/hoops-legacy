@@ -13,6 +13,11 @@ import { MediaView } from '../views/MediaView';
 import { MemoryView } from '../views/MemoryView';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { EventModal } from '../components/EventModal';
+import { LifeEventModal } from '../components/LifeEventModal';
+import { AthleteCardModal } from '../components/AthleteCardModal';
+import { MoneyView } from '../views/MoneyView';
+import { NewspaperView } from '../views/NewspaperView';
+import { RecruitingView } from '../views/RecruitingView';
 import { LeagueView } from '../views/LeagueView';
 import { ProfileView } from '../views/ProfileView';
 import { RelationshipsView } from '../views/RelationshipsView';
@@ -23,11 +28,17 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'profile', label: 'Player', icon: '⛹️' },
   { id: 'relationships', label: 'People', icon: '🤝' },
   { id: 'league', label: 'League', icon: '🏆' },
+  { id: 'paper', label: 'Newspaper', icon: '📰' },
   { id: 'analytics', label: 'Analytics', icon: '📊' },
   { id: 'media', label: 'Media', icon: '📱' },
+  { id: 'money', label: 'Money', icon: '💰' },
+  { id: 'recruiting', label: 'Recruiting', icon: '🎯' },
   { id: 'story', label: 'Story', icon: '📖' },
   { id: 'memory', label: 'Memory', icon: '🧠' },
 ];
+
+/** Short money for the header: $850, $12K, $3.2M. */
+const shortMoney = (n: number) => (n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e4 ? `$${(n / 1e3).toFixed(0)}K` : `$${Math.round(n).toLocaleString()}`);
 
 function OverallBadge({ value }: { value: number }) {
   const prev = useRef(value);
@@ -59,9 +70,13 @@ export function GameShell() {
   const eventId = useStore((s) => s.eventId);
   const revealId = useStore((s) => s.reveals[0]?.id);
   /** Closes whichever pop-up broke and says so. Progress is saved after every action, so nothing is lost. */
-  const closeBroken = (what: 'event' | 'reveal') => {
+  const cardKey = useStore((s) => s.cardId);
+  const paperSeen = useStore((s) => s.paperSeen);
+  const lifeKey = useStore((s) => s.game?.career.lifeEvent?.id ?? s.lifeOutcome?.id);
+  const closeBroken = (what: 'event' | 'reveal' | 'life') => {
     const s = useStore.getState();
     if (what === 'event') s.closeEvent();
+    else if (what === 'life') s.dismissLifeOutcome();
     else s.dismissReveal();
     s.toast('That screen had a problem, so it was closed. Your progress is saved.', 'bad');
   };
@@ -104,6 +119,9 @@ export function GameShell() {
             <Meter className="flex-1" label="Morale" value={p.morale} color={p.morale < 35 ? 'var(--color-loss)' : 'var(--color-win)'} />
             <Meter className="flex-1" label="Rep" value={p.reputation} color="var(--color-gold)" />
           </div>
+          <button onClick={() => setTab('money')} title="Your money. Open the Money tab." className="rounded-md border border-court-700 px-2 py-1 font-mono text-xs text-gold hover:border-gold/60">
+            💰 {shortMoney(p.money)}
+          </button>
           {p.injury && <span className="rounded-md bg-loss/15 px-2 py-1 text-xs font-semibold text-loss">🩹 {p.injury.desc} · {p.injury.weeks}w</span>}
           <div className="ml-auto flex gap-1">
             <Button variant="ghost" title={prefs.sound ? 'Mute sound' : 'Turn sound on'} aria-pressed={prefs.sound} onClick={() => prefs.set({ sound: !prefs.sound })}>
@@ -129,6 +147,7 @@ export function GameShell() {
             >
               <span>{t.icon}</span>
               {t.label}
+              {t.id === 'paper' && tab !== 'paper' && (game.paper[game.paper.length - 1]?.id ?? 0) > paperSeen && <span className="h-2 w-2 rounded-full bg-hoop-500" aria-label="new edition" />}
             </button>
           ))}
         </nav>
@@ -138,14 +157,23 @@ export function GameShell() {
         {tab === 'profile' && <ProfileView />}
         {tab === 'relationships' && <RelationshipsView />}
         {tab === 'league' && <LeagueView />}
+        {tab === 'paper' && <NewspaperView />}
         {tab === 'analytics' && <AnalyticsView />}
         {tab === 'media' && <MediaView />}
+        {tab === 'money' && <MoneyView />}
+        {tab === 'recruiting' && <RecruitingView />}
         {tab === 'story' && <StoryView />}
         {tab === 'memory' && <MemoryView />}
       </main>
       {/* A pop-up that breaks closes itself and the game carries on, instead of taking the whole page down with it */}
       <ErrorBoundary resetKey={eventId} fallback={() => null} onError={() => closeBroken('event')}>
         <EventModal />
+      </ErrorBoundary>
+      <ErrorBoundary resetKey={cardKey} fallback={() => null} onError={() => useStore.getState().closeCard()}>
+        <AthleteCardModal />
+      </ErrorBoundary>
+      <ErrorBoundary resetKey={lifeKey} fallback={() => null} onError={() => closeBroken('life')}>
+        <LifeEventModal />
       </ErrorBoundary>
       <ErrorBoundary resetKey={revealId} fallback={() => null} onError={() => closeBroken('reveal')}>
         <RevealOverlay />

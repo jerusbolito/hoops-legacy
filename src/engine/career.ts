@@ -15,8 +15,21 @@ import { SAVE_VERSION, type PlanId } from '../state/schemas';
 import { checkBadgeUnlocks } from './badges';
 import { coachReacts, coachStanding, practiceEffort, type CoachChange } from './coach';
 import { AGGRAVATE_CHANCE, MIN_GPA, WEEKLY_GPA_DRIFT, activateDueRipples, canPlayHurt, isPlayingHurt, updateEstrangement } from './consequences';
+import { hasService, payWeek, rollFinanceSeason } from './finance';
 import { FILM_ENERGY_COST, energySavedBy } from './gameplan';
-import { addNews } from './news';
+import { midseasonHeadlines, scoredPlayers } from './awards';
+import { draftStock, projectedPick, simulateDraft, type DraftPick } from './draft';
+import { archiveSeasonStats } from './leaders';
+import { publishIssue } from './paper';
+import { chemistryAfterGame, chemistryNewSeason, weeklyChemistry } from './chemistry';
+import { capSpace, MIN_SALARY, weeklyHoldout } from './contracts';
+import { adoptCoach } from './moves';
+import { romanceNewLevel, weeklyRomance } from './romance';
+import { rollLifeEvent } from './lifeEvents';
+import { recordRivalryGame } from './rivalry';
+import { classCommitNews, refreshTargets, suitorOf, tickRecruiting, topSuitor } from './recruiting';
+import { leagueInSeasonTrades, leagueOffseasonMoves } from './transactions';
+import { addNews, logTransaction } from './news';
 import { expireOffers, maybeOffer, maybePress, postGamePosts, settleDeals, systemPost, weeklyDealEnergy } from './media';
 import { GameSim, type MomentResult } from './gameSim';
 import { generateAthlete, generateLeagueTeams, generateTeam, makeNpc } from './generate';
@@ -39,7 +52,8 @@ import {
 import { developNpcs, offseasonDevelopment, postGameWear, train, weeklyRecovery, type TrainingFocus, type TrainingResult } from './progression';
 import { makeRatings, overall } from './ratings';
 import { RNG, clamp } from './rng';
-import { averages, gameScore, seasonAverages, totals } from './stats';
+import { gameScore, seasonAverages } from './stats';
+import { developStoryAthletes, promoteTeammate, recordStorySeasons, refreshStoryTitles } from './storyAthletes';
 
 /* ───────────────────────── RNG plumbing ───────────────────────── */
 
@@ -136,6 +150,8 @@ export function createCareer(input: NewCareerInput): GameState {
       clutchWins: 0,
       draftBoost: 0,
       eventsDone: [],
+      services: [],
+      finance: { season: 1, earned: 0, endorse: 0, taxes: 0, living: 0, services: 0, spent: 0, gifts: 0, prev: null },
     },
     athletes: Object.fromEntries(allAthletes.map((a) => [a.id, a])),
     npcs: {},
@@ -154,15 +170,25 @@ export function createCareer(input: NewCareerInput): GameState {
       playHurt: false,
       press: null,
       gamesSincePress: 0,
+      lifeEvent: null,
+      recentLife: [],
+      weeksSinceLife: 0,
+      moveSeason: 0,
+      pendingMove: null,
+      chemistry: 55,
     },
     gameLog: [],
     leagueStats: {},
     lastBox: null,
-    story: { log: [], seasonSummaries: [], flags: {}, arcs: [], careerSummary: '', defining: [], threads: [], ripples: [] },
+    story: { log: [], seasonSummaries: [], flags: { story_athletes_v2: true }, arcs: [], careerSummary: '', defining: [], threads: [], ripples: [] },
     news: [],
     effectLog: [],
     feed: [],
     offers: [],
+    transactions: [],
+    recruiting: { points: 2, suitors: [], targets: [], history: [] },
+    weekLog: { lines: [] },
+    paper: [],
   };
 
   seedHighSchoolCast(state, rng, team, teams);
@@ -171,7 +197,7 @@ export function createCareer(input: NewCareerInput): GameState {
   return state;
 }
 
-function addNpc(state: GameState, npc: Npc): Npc {
+export function addNpc(state: GameState, npc: Npc): Npc {
   state.npcs[npc.id] = npc;
   return npc;
 }
@@ -185,7 +211,7 @@ function seedHighSchoolCast(state: GameState, rng: RNG, team: Team, teams: Team[
 
   // Best friend: a teammate at a different position, same age-ish
   const friendAth = roster.find((a) => a.position !== user.position && a.age <= 15) ?? roster.find((a) => a.position !== user.position)!;
-  friendAth.age = Math.min(friendAth.age, 15);
+  friendAth.age = user.age; // same class as you, so they do not graduate a year early
   friendAth.persistent = true;
   addNpc(
     state,
@@ -417,6 +443,9 @@ export function finishUserGame(state: GameState, sim: GameSim, game: ScheduledGa
   if (line && gs > 22) addNews(state, `${userAthlete(state).lastName} erupts vs ${opp.name}: ${line.pts} pts, ${line.orb + line.drb} reb, ${line.ast} ast.`);
   if (report) addNews(state, `${userAthlete(state).lastName} suffered a ${report} and will miss time.`);
 
+  chemistryAfterGame(state, { won, margin: Math.abs(ourBox.score - theirBox.score) });
+  // a marked game against the rival's team: the series, the headline, what it does to you
+  recordRivalryGame(state, theirBox.teamId, won, `${ourBox.score}-${theirBox.score}`);
   // rivalry bookkeeping
   for (const n of Object.values(state.npcs)) {
     if (n.athleteId && theirBox.players.some((l) => l.athleteId === n.athleteId && l.sec > 0)) {
@@ -502,15 +531,27 @@ export interface WeekAdvance {
   messages: string[];
 }
 
-/** Move the calendar forward after the current week's steps are done. */
+/** Move the calendar forward after the current week's steps are done. A random moment may be waiting when the new week starts. */
 export function advanceWeek(state: GameState): WeekAdvance {
+  const r = advanceWeekCore(state);
+  withRng(state, (rng) => rollLifeEvent(state, rng));
+  return r;
+}
+
+function advanceWeekCore(state: GameState): WeekAdvance {
   const c = state.career;
   const messages: string[] = [];
+  // every week of the regular season pays: salary or stipend, endorsements, minus taxes and living costs
+  if (c.phase === 'regular') payWeek(state);
   weeklyRecovery(state);
+  weeklyChemistry(state);
+  weeklyRomance(state);
+  weeklyHoldout(state);
+  withRng(state, (rng) => tickRecruiting(state, rng));
   // grades slip when you do not keep up with school
   if (state.career.level !== 'pro') {
     const before = state.player.academics;
-    state.player.academics = clamp(Math.round((before - WEEKLY_GPA_DRIFT) * 1000) / 1000, 0, 4);
+    state.player.academics = clamp(Math.round((before - WEEKLY_GPA_DRIFT * (hasService(state, 'tutor') ? 0 : 1)) * 1000) / 1000, 0, 4);
     if (before >= MIN_GPA && state.player.academics < MIN_GPA) addNews(state, `${userAthlete(state).lastName} is now academically ineligible.`);
   }
   for (const msg of updateEstrangement(state)) addNews(state, msg);
@@ -524,6 +565,7 @@ export function advanceWeek(state: GameState): WeekAdvance {
 
   return withRng(state, (rng) => {
     if (c.phase === 'preseason') {
+      publishIssue(state, 'preview');
       c.phase = 'regular';
       c.week = 1;
       c.step = 'training';
@@ -533,6 +575,9 @@ export function advanceWeek(state: GameState): WeekAdvance {
     if (c.phase === 'regular') {
       // make sure every game of this week is played (e.g., user was injured/bye)
       simOtherGames(state, rng, c.week, '__none__');
+      leagueInSeasonTrades(state, rng);
+      midseasonHeadlines(state);
+      publishIssue(state, 'weekly');
       if (c.week < state.league.regularWeeks) {
         c.week++;
         c.step = 'training';
@@ -553,6 +598,7 @@ export function advanceWeek(state: GameState): WeekAdvance {
       // finish any non-user games in this round, then advance bracket
       simOtherGames(state, rng, c.week, '__none__', true);
       const champ = advancePlayoffs(state.league, rng);
+      publishIssue(state, 'weekly');
       if (champ) return finishPlayoffsAndSeason(state, rng, messages);
       c.week++;
       if (!userGameForWeek(state, c.week)) return finishPlayoffsAndSeason(state, rng, messages);
@@ -584,6 +630,7 @@ function finishPlayoffsAndSeason(state: GameState, rng: RNG, messages: string[])
     messages.push(champ.id === state.career.teamId ? 'CHAMPIONS! You won the title!' : `${champ.name} won the championship.`);
   }
   computeAwards(state, messages);
+  publishIssue(state, 'recap');
   state.career.phase = 'offseason';
   state.career.week = 0;
   state.career.step = 'training';
@@ -596,23 +643,7 @@ function computeAwards(state: GameState, messages: string[]) {
   const season = state.career.season;
   const level = state.career.level;
   const league = state.league;
-  const ids = league.teamIds.flatMap((t) => state.teams[t].rosterIds);
-  const winPct = (teamId: string | null) => {
-    if (!teamId) return 0.5;
-    const s = league.standings[teamId];
-    return s ? s.w / Math.max(1, s.w + s.l) : 0.5;
-  };
-  const scored = ids
-    .map((id) => {
-      const s = state.leagueStats[id];
-      const a = state.athletes[id];
-      if (!s || !a || s.gp < Math.max(3, league.regularWeeks * 0.5)) return null;
-      const per = (s.pts + s.reb * 0.6 + s.ast * 0.8 + s.stl * 1.2 + s.blk * 1.2) / s.gp;
-      const def = (s.stl + s.blk) / s.gp + a.ratings.defense / 40;
-      return { id, per: per * (0.75 + winPct(a.teamId) * 0.5), def };
-    })
-    .filter((x): x is { id: string; per: number; def: number } => !!x)
-    .sort((a, b) => b.per - a.per);
+  const scored = scoredPlayers(state);
 
   const uid = state.player.athleteId;
   const give = (name: string) => {
@@ -721,6 +752,12 @@ function newSeasonCommon(state: GameState, rng: RNG) {
   state.player.energy = clamp(state.player.energy + 30, 0, 100);
   // past choices whose time has come
   activateDueRipples(state);
+  rollFinanceSeason(state);
+  chemistryNewSeason(state);
+  refreshStoryTitles(state);
+  // this season's recruiting targets (a player in their last year is leaving, so there is nobody to recruit for)
+  if (state.career.level === 'pro' || state.career.year < 4) refreshTargets(state, rng);
+  else state.recruiting.targets = [];
 }
 
 function ageEveryone(state: GameState) {
@@ -731,20 +768,26 @@ function startNextSeason(state: GameState, rng: RNG, messages: string[]): WeekAd
   const c = state.career;
   // a season without a new injury lets the body recover a little
   state.player.injuryHistory = Math.max(0, state.player.injuryHistory - 1);
-  // endorsement money lands at the turn of the season
+  // everyone's season gets filed away before the stats reset
+  archiveSeasonStats(state);
+  recordStorySeasons(state);
+  // endorsement money came in week by week; the turn of the season only retires finished deals and checks for blow-ups
   if (state.player.deals.length) {
-    const pay = settleDeals(state, rng);
-    if (pay.income > 0) {
-      messages.push(`Endorsements paid $${pay.income.toLocaleString()}.`);
-      addNews(state, `${userAthlete(state).lastName} earns $${pay.income.toLocaleString()} from endorsements this season.`);
+    const pay = settleDeals(state, rng, false);
+    const earned = state.player.finance.endorse;
+    if (earned > 0) {
+      messages.push(`Endorsements paid $${earned.toLocaleString()}.`);
+      addNews(state, `${userAthlete(state).lastName} earns $${earned.toLocaleString()} from endorsements this season.`);
     }
     for (const line of pay.lines.filter((l) => /blew up/.test(l))) messages.push(line);
   }
   ageEveryone(state);
   developNpcs(state, rng);
+  developStoryAthletes(state, rng);
   const nextYear = c.year + 1;
 
   if (c.level === 'hs' && nextYear > 4) {
+    classCommitNews(state, rng);
     c.phase = 'recruiting';
     c.step = 'scene';
     messages.push('Your high school career is over. Time to pick a college.');
@@ -765,8 +808,7 @@ function startNextSeason(state: GameState, rng: RNG, messages: string[]): WeekAd
     }
     const k = state.player.contract;
     if (k) {
-      k.yearsLeft--;
-      state.player.money += k.salary;
+      k.yearsLeft--; // the salary was paid week by week through the season
       if (k.yearsLeft <= 0) {
         c.phase = 'free_agency';
         c.step = 'scene';
@@ -777,6 +819,7 @@ function startNextSeason(state: GameState, rng: RNG, messages: string[]): WeekAd
   }
 
   c.year = nextYear;
+  leagueOffseasonMoves(state, rng); // transfers and signings happen before graduates leave and newcomers arrive
   turnoverRosters(state, rng);
   retireStaleNpcs(state);
   promoteTeammate(state, rng);
@@ -784,29 +827,6 @@ function startNextSeason(state: GameState, rng: RNG, messages: string[]): WeekAd
   if (c.level === 'hs' && c.year === 3) introduceScout(state, rng);
   messages.push(`Season ${c.season} begins.`);
   return { seasonEnded: false, messages };
-}
-
-/** If the last teammate character left, the team's best remaining veteran steps into that role. */
-function promoteTeammate(state: GameState, rng: RNG) {
-  const hasTeammate = Object.values(state.npcs).some((n) => n.active && n.role === 'teammate' && n.athleteId && state.athletes[n.athleteId]?.teamId === state.career.teamId);
-  if (hasTeammate) return;
-  const level = state.career.level;
-  const mate = teamRoster(state, state.career.teamId)
-    .filter((a) => a.id !== state.player.athleteId && !a.persistent && !Object.values(state.npcs).some((n) => n.athleteId === a.id))
-    .sort((a, b) => b.age - a.age || overall(b.ratings) - overall(a.ratings))[0];
-  if (!mate) return;
-  const sameSpot = mate.position === userAthlete(state).position;
-  addNpc(
-    state,
-    makeNpc(rng, {
-      name: `${mate.firstName} ${mate.lastName}`,
-      role: 'teammate',
-      title: level === 'pro' ? `Veteran teammate at ${userTeam(state).name}` : `${sameSpot ? 'Upperclassman competing for your minutes' : 'Upperclassman leader'} at ${userTeam(state).name}`,
-      season: state.career.season + 1,
-      athleteId: mate.id,
-      rel: { affinity: 0, respect: 25, trust: 15, rivalry: sameSpot ? 10 : 0 },
-    }),
-  );
 }
 
 function introduceScout(state: GameState, rng: RNG) {
@@ -824,7 +844,7 @@ function introduceScout(state: GameState, rng: RNG) {
 }
 
 /** Move the user (and persistent NPC athletes) into a fresh league at a new level. */
-function enterLevel(state: GameState, rng: RNG, level: Level, tpl: TeamTemplate) {
+function enterLevel(state: GameState, rng: RNG, level: Level, tpl: TeamTemplate, drafted?: Map<string, string>) {
   // school NIL deals end when you leave, and pending offers lapse
   state.offers = [];
   state.player.deals = [];
@@ -855,6 +875,11 @@ function enterLevel(state: GameState, rng: RNG, level: Level, tpl: TeamTemplate)
   };
 
   placeInto(userAthlete(state), team);
+  // schools courting you and players you were chasing belong to the old level
+  state.recruiting.suitors = [];
+  state.recruiting.targets = [];
+  // last level's numbers mean nothing here
+  for (const n of Object.values(state.npcs)) n.lastSeason = undefined;
   // persistent NPC athletes follow the user up the ladder
   const persistentNpcs = Object.values(state.npcs).filter((n) => n.athleteId && state.athletes[n.athleteId]?.persistent && n.active);
   for (const n of persistentNpcs) {
@@ -871,7 +896,11 @@ function enterLevel(state: GameState, rng: RNG, level: Level, tpl: TeamTemplate)
       continue;
     }
     let target: Team;
-    if (n.role === 'rival') {
+    const calledBy = drafted?.get(ath.id);
+    if (calledBy && teams.some((t) => t.name === calledBy)) {
+      // someone from your story who was picked goes to the team that picked them
+      target = teams.find((t) => t.name === calledBy)!;
+    } else if (n.role === 'rival') {
       target = [...teams].filter((t) => t.id !== team.id).sort((a, b) => b.prestige - a.prestige)[rng.int(0, 2)];
     } else if (n.role === 'friend' && n.relationship.affinity > 50 && rng.chance(0.5)) {
       target = team;
@@ -897,6 +926,7 @@ function enterLevel(state: GameState, rng: RNG, level: Level, tpl: TeamTemplate)
 
   state.career.level = level;
   state.career.year = 1;
+  romanceNewLevel(state);
   state.career.teamId = team.id;
   state.league = createLeague(rng, level, teams.map((t) => t.id));
 
@@ -948,12 +978,16 @@ export function recruitingOffers(state: GameState): CollegeOffer[] {
     const sorted = [...pool].sort((a, b) => b.prestige - a.prestige);
     const picks = sorted.slice(0, 2).concat(rng.shuffle(sorted.slice(2)).slice(0, 2));
     const guaranteed = picks.length ? picks : COLLEGE_TEAMS.filter((t) => t.prestige < 55);
+    // the school that has been calling the most gets a spot on the list, even if it reaches a little
+    const suitor = topSuitor(state);
+    const suitorTpl = suitor && suitor.interest >= 45 && gpaOk ? COLLEGE_TEAMS.find((t) => t.name === suitor.name) : undefined;
+    if (suitorTpl && !guaranteed.includes(suitorTpl)) guaranteed[guaranteed.length - 1] = suitorTpl;
     return guaranteed.map((t) => ({
       name: t.name,
       mascot: t.mascot,
       prestige: t.prestige,
       colors: t.colors,
-      pitch: t.prestige >= 85 ? 'Blue-blood program. Title or bust, national TV every week.' : t.prestige >= 70 ? 'Rising power that wants to build around you.' : 'You would be the face of the program from day one.',
+      pitch: (suitorOf(state, t.name) && suitorOf(state, t.name)!.interest >= 40 ? `They have been in touch ${suitorOf(state, t.name)!.contacts || 'for months'}${suitorOf(state, t.name)!.contacts ? ' times' : ''}${suitorOf(state, t.name)!.visited ? ' and you have visited' : ''}. ` : '') + (t.prestige >= 85 ? 'Blue-blood program. Title or bust, national TV every week.' : t.prestige >= 70 ? 'Rising power that wants to build around you.' : 'You would be the face of the program from day one.'),
       playingTime: t.prestige - stars * 12 >= 40 ? 'Earn your minutes' : t.prestige - stars * 12 >= 20 ? 'Rotation from day one' : 'Starter from day one',
     }));
   });
@@ -972,41 +1006,27 @@ export function commitToCollege(state: GameState, collegeName: string) {
 
 /* ───────────────────────── Draft ───────────────────────── */
 
-export function draftStock(state: GameState): number {
-  const a = userAthlete(state);
-  const ovr = overall(a.ratings);
-  const avg = averages(totals(state.gameLog.filter((e) => e.season === state.career.season - 1 || e.season === state.career.season)));
-  const youth = Math.max(0, 22 - a.age) * 1.5;
-  return ovr + avg.ppg * 0.25 + youth + (a.potential - ovr) * 0.25 + state.player.reputation * 0.05 + state.player.draftBoost;
-}
-
-export function projectedPick(state: GameState): string {
-  const s = draftStock(state);
-  if (s >= 80) return 'Projected lottery pick';
-  if (s >= 74) return 'Projected first round';
-  if (s >= 68) return 'Projected second round';
-  return 'Projected undrafted';
-}
+export { draftStock, projectedPick };
 
 export interface DraftResult {
   pick: number | null;
   teamName: string;
   salary: number;
   years: number;
+  /** Every pick in the draft, in order. */
+  picks: DraftPick[];
 }
 
 export function runDraft(state: GameState): DraftResult {
   return withRng(state, (rng) => {
-    const stock = draftStock(state) + rng.normal(0, 2.5);
-    // pick 1 at stock >= 84, ~0.8 pick per point below
-    const raw = Math.round((84 - stock) * 1.4) + 1;
-    const pick = raw < 1 ? 1 : raw > 24 ? null : raw;
+    const sim = simulateDraft(state, rng);
+    const pick = sim.userPick;
     // worse teams pick earlier: reverse prestige order
     const order = [...PRO_TEAMS].sort((a, b) => a.prestige - b.prestige);
     const tpl = pick ? order[(pick - 1) % order.length] : rng.pick(PRO_TEAMS);
     const salary = pick ? Math.round((pick <= 12 ? 11_000_000 - (pick - 1) * 700_000 : 2_400_000 - (pick - 13) * 70_000) / 1000) * 1000 : 1_100_000;
     const years = pick && pick <= 12 ? 4 : 2;
-    enterLevel(state, rng, 'pro', tpl);
+    enterLevel(state, rng, 'pro', tpl, sim.drafted);
     state.player.draftPick = pick;
     state.player.draftBoost = 0;
     state.player.contract = { teamId: state.career.teamId, salary, yearsLeft: years };
@@ -1025,7 +1045,10 @@ export function runDraft(state: GameState): DraftResult {
     );
     newSeasonCommon(state, rng);
     addNews(state, pick ? `${tpl.name} ${tpl.mascot} select ${userAthlete(state).lastName} with pick #${pick}.` : `${userAthlete(state).lastName} goes undrafted, signs with ${tpl.name}.`);
-    return { pick, teamName: `${tpl.name} ${tpl.mascot}`, salary, years };
+    // the night's top of the board, and the people from your story who were called
+    for (const p of sim.picks.slice(0, 5).filter((x) => !x.isUser)) logTransaction(state, 'draft', `#${p.pick}: ${p.team} take ${p.name} (${p.position}, ${p.college}).`);
+    for (const p of sim.picks.filter((x) => (x.isRival || x.isFriend) && x.pick > 5)) logTransaction(state, 'draft', `#${p.pick}: ${p.team} take ${p.name}${p.isRival ? ', your old rival' : ', your old friend'}.`);
+    return { pick, teamName: `${tpl.name} ${tpl.mascot}`, salary, years, picks: sim.picks };
   });
 }
 
@@ -1039,6 +1062,8 @@ export interface FaOffer {
   salary: number;
   years: number;
   current: boolean;
+  /** Room under the cap this team has, before signing you. */
+  capSpace: number;
 }
 
 export function marketValue(state: GameState): number {
@@ -1053,17 +1078,31 @@ export function freeAgencyOffers(state: GameState): FaOffer[] {
   const age = userAthlete(state).age;
   const currentName = userTeam(state).name;
   return withRng(state, (rng) => {
-    const teams = rng.shuffle([...PRO_TEAMS]).slice(0, 3);
+    // room under the cap each team has for you (your old team gets your old salary back)
+    const roomFor = (t: TeamTemplate) => {
+      const team = Object.values(state.teams).find((x) => x.level === 'pro' && x.name === t.name && state.league.teamIds.includes(x.id));
+      return team ? Math.max(MIN_SALARY, capSpace(state, team) + (team.id === state.career.teamId && state.player.contract ? state.player.contract.salary : 0)) : 100_000_000;
+    };
+    const shuffled = rng.shuffle([...PRO_TEAMS]);
+    // teams that can actually pay you come first; capped-out teams only fill the list if there are not enough
+    const viable = shuffled.filter((t) => roomFor(t) >= value * 0.6);
+    const teams = (viable.length >= 3 ? viable : shuffled).slice(0, 3);
     if (!teams.some((t) => t.name === currentName)) teams.unshift(PRO_TEAMS.find((t) => t.name === currentName)!);
-    return teams.map((t) => ({
-      teamName: t.name,
-      mascot: t.mascot,
-      prestige: t.prestige,
-      colors: t.colors,
-      salary: Math.round((value * rng.range(0.85, 1.15) * (t.name === currentName ? 1.05 : 1)) / 100_000) * 100_000,
-      years: age >= 32 ? rng.int(1, 2) : rng.int(2, 5),
-      current: t.name === currentName,
-    }));
+    return teams.map((t) => {
+      // a team can only pay what fits under its cap (never less than the minimum)
+      const room = roomFor(t);
+      const want = Math.round((value * rng.range(0.85, 1.15) * (t.name === currentName ? 1.05 : 1)) / 100_000) * 100_000;
+      return {
+        teamName: t.name,
+        mascot: t.mascot,
+        prestige: t.prestige,
+        colors: t.colors,
+        salary: Math.max(MIN_SALARY, Math.min(want, Math.round(room / 100_000) * 100_000)),
+        years: age >= 32 ? rng.int(1, 2) : rng.int(2, 5),
+        current: t.name === currentName,
+        capSpace: room,
+      };
+    });
   });
 }
 
@@ -1091,10 +1130,11 @@ export function signFreeAgent(state: GameState, offer: FaOffer) {
           n.title = 'Your former coach';
         }
       }
-      addNpc(state, makeNpc(rng, { name: target.coachName, role: 'coach', title: `Head coach, ${target.name}`, season: c.season + 1 }));
+      adoptCoach(state, rng, target.coachName, target.name, { respect: 30, trust: 25 });
     }
     state.player.contract = { teamId: c.teamId, salary: offer.salary, yearsLeft: offer.years };
     c.year++;
+    leagueOffseasonMoves(state, rng); // the rest of the market signs around you
     turnoverRosters(state, rng);
     newSeasonCommon(state, rng);
     addNews(state, `${userAthlete(state).lastName} signs ${offer.years}-year, $${(offer.salary / 1e6).toFixed(1)}M/yr deal with ${offer.teamName}.`);

@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie';
 import type { LLMConfig } from '../llm/types';
+import { upgradeSave } from '../engine/storyAthletes';
 import { GameStateSchema, type GameState } from './schemas';
 import { LEVEL_CONFIG, yearLabel } from '../data/teams';
 
@@ -44,7 +45,9 @@ export async function listSaves(): Promise<Omit<SaveRow, 'state'>[]> {
 export async function loadGame(id: string): Promise<GameState | null> {
   const row = await db().saves.get(id);
   if (!row) return null;
-  return GameStateSchema.parse(row.state);
+  const state = GameStateSchema.parse(row.state);
+  upgradeSave(state);
+  return state;
 }
 
 export async function deleteSave(id: string): Promise<void> {
@@ -58,6 +61,7 @@ export function exportSave(state: GameState): string {
 
 export function importSave(json: string): GameState {
   const parsed = GameStateSchema.parse(JSON.parse(json));
+  upgradeSave(parsed);
   return { ...parsed, updatedAt: Date.now() };
 }
 

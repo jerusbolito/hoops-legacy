@@ -214,6 +214,24 @@ export async function generateSeasonSummary(client: LLMClient | null, state: Gam
   }
 }
 
+/** Every number in a retelling has to be one the engine already stated. The narrator may not invent money or stats. */
+export function numbersMatch(text: string, facts: string): boolean {
+  const nums = (s: string) => (s.match(/\d[\d,.]*/g) ?? []).map((n) => n.replace(/[,.]+$/, '').replace(/,/g, ''));
+  const allowed = new Set(nums(facts));
+  return nums(text).every((n) => allowed.has(n));
+}
+
+/**
+ * The engine decided what happened; the narrator tells it. Used for the engine-written moments (random events, moving
+ * teams, recruiting results). If the retelling adds a number or the model is unavailable, the engine's own text stands.
+ */
+export async function narrateResult(client: LLMClient | null, state: GameState, title: string, choice: string, facts: string, focusIds: string[] = []): Promise<string> {
+  if (!isLive(client)) return facts;
+  const situation = `${title}.${choice ? ` The player chose: "${choice}".` : ''} What happened (these facts are fixed; keep every name and number exactly and add nothing that changes them): ${facts} Retell it in 2 to 4 sentences, speaking to the player as "you".`;
+  const text = await narrateFlavor(client, state, situation, facts, focusIds);
+  return numbersMatch(text, facts) ? text : facts;
+}
+
 export async function narrateFlavor(client: LLMClient | null, state: GameState, situation: string, fallback: string, focusIds: string[] = []): Promise<string> {
   if (!isLive(client)) return fallback;
   try {

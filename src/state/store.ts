@@ -3,6 +3,12 @@ import { LEVEL_CONFIG } from '../data/teams';
 import { BADGE_BY_ID, checkBadgeUnlocks } from '../engine/badges';
 import { applyCombine, applyContestResult, playRound, runCombine, startContest, type CombineResult, type ContestState, type EventId, type Style } from '../engine/events';
 import { acceptOffer, answerPress, declineOffer, type PressOptionId, type PressOutcome } from '../engine/media';
+import { buyService as engineBuyService, SERVICE_BY_ID } from '../engine/finance';
+import { resolveLifeEvent, type LifeOutcome } from '../engine/lifeEvents';
+import { recruitAct as engineRecruitAct, type RecruitAction } from '../engine/recruiting';
+import { acceptCounter, endHoldout, negotiate, startHoldout, type Stance } from '../engine/contracts';
+import { boardRank } from '../engine/draft';
+import { executeMove, stayPut as engineStayPut, startMove as engineStartMove, type MoveResult } from '../engine/moves';
 import { resolveRipple, updateEstrangement } from '../engine/consequences';
 import {
   addNews,
@@ -41,15 +47,15 @@ import { getDesktop, type EngineStatus } from '../desktop/bridge';
 import { createClient } from '../llm/client';
 import { configFromPreset, presetById } from '../llm/presets';
 import type { LLMClient, LLMConfig } from '../llm/types';
-import { generateRecap, generateScene, generateSeasonSummary, narrateFlavor, resolveScene, type Recap, type SceneResolution } from '../narrative/narrator';
+import { generateRecap, generateScene, generateSeasonSummary, narrateFlavor, narrateResult, resolveScene, type Recap, type SceneResolution } from '../narrative/narrator';
 import type { SceneSetup } from '../narrative/parse';
 import { pickScene, type ScenePlan } from '../narrative/scenes';
 import { loadGame, loadLLMConfig, saveGame, storeLLMConfig } from './persistence';
 import type { Reveal, RevealData } from './reveals';
-import { RATING_KEYS, RATING_LABELS, type GameState, type PlanId, type RatingKey, type Ratings, type ScheduledGame } from './schemas';
+import { RATING_KEYS, RATING_LABELS, type GameState, type PlanId, type RatingKey, type Ratings, type ScheduledGame, type ServiceId } from './schemas';
 
 export type Screen = 'setup' | 'desktop' | 'title' | 'create' | 'game';
-export type Tab = 'hub' | 'profile' | 'relationships' | 'league' | 'analytics' | 'media' | 'story' | 'memory';
+export type Tab = 'hub' | 'profile' | 'relationships' | 'league' | 'paper' | 'analytics' | 'media' | 'money' | 'recruiting' | 'story' | 'memory';
 
 export interface Toast {
   id: number;
@@ -101,11 +107,21 @@ interface Store {
   eventId: EventId | null;
   contest: ContestState | null;
   combine: CombineResult | null;
+  /** What your last choice in a random moment did, shown until dismissed. */
+  lifeOutcome: LifeOutcome | null;
+  /** The last time you changed teams, shown on the Money page until dismissed. */
+  lastMove: MoveResult | null;
+  /** The player whose card is open. */
+  cardId: string | null;
+  /** The newest paper the player has seen. */
+  paperSeen: number;
 
   pushReveals(items: RevealData[]): void;
   dismissReveal(): void;
   setScreen(s: Screen): void;
   setTab(t: Tab): void;
+  openCard(id: string): void;
+  closeCard(): void;
   setLLM(config: LLMConfig, remember: boolean): void;
   /** Desktop app: use the AI engine running on this computer, at the address and with the model its status gives. */
   connectLocalEngine(status: EngineStatus, fastReplies?: boolean): void;
@@ -141,6 +157,18 @@ interface Store {
   runCombine(approach: 'push' | 'steady'): void;
   finishCombine(): void;
   closeEvent(): void;
+  answerLife(optionId: string): Promise<void>;
+  dismissLifeOutcome(): void;
+  buyService(id: ServiceId): void;
+  recruit(athleteId: string, action: RecruitAction): void;
+  negotiate(stance: Stance): void;
+  acceptCounter(): void;
+  holdOut(): void;
+  endHoldOut(): void;
+  startMove(): void;
+  pickMove(teamId: string): void;
+  stayPut(): void;
+  dismissMove(): void;
   advance(): Promise<void>;
   setFlag(key: string, value: boolean): void;
 
@@ -210,6 +238,10 @@ export const useStore = create<Store>((set, get) => {
     eventId: null,
     contest: null,
     combine: null,
+    lifeOutcome: null,
+    lastMove: null,
+    cardId: null,
+    paperSeen: 0,
 
     pushReveals(items) {
       if (!items.length) return;
@@ -218,7 +250,9 @@ export const useStore = create<Store>((set, get) => {
     dismissReveal: () => set({ reveals: get().reveals.slice(1) }),
 
     setScreen: (screen) => set({ screen }),
-    setTab: (tab) => set({ tab }),
+    setTab: (tab) => set({ tab, ...(tab === 'paper' ? { paperSeen: get().game?.paper[get().game!.paper.length - 1]?.id ?? 0 } : {}) }),
+    openCard: (id) => set({ cardId: id }),
+    closeCard: () => set({ cardId: null }),
 
     setLLM(config, remember) {
       storeLLMConfig(config, remember);
@@ -265,11 +299,11 @@ export const useStore = create<Store>((set, get) => {
     },
 
     async openCareer(state) {
-      set({ game: state, screen: 'game', tab: 'hub', scene: null, live: null, post: null, offers: {}, draft: null, phaseNarration: null, lastTraining: null, pressOutcome: null, eventId: null, contest: null, combine: null });
+      set({ game: state, screen: 'game', tab: 'hub', scene: null, live: null, post: null, offers: {}, draft: null, phaseNarration: null, lastTraining: null, pressOutcome: null, eventId: null, contest: null, combine: null, lifeOutcome: null, lastMove: null, cardId: null, paperSeen: state.paper[state.paper.length - 1]?.id ?? 0 });
       await saveGame(state);
     },
 
-    closeCareer: () => set({ game: null, screen: 'title', scene: null, live: null, post: null, reveals: [], pressOutcome: null, eventId: null, contest: null, combine: null }),
+    closeCareer: () => set({ game: null, screen: 'title', scene: null, live: null, post: null, reveals: [], pressOutcome: null, eventId: null, contest: null, combine: null, lifeOutcome: null, lastMove: null }),
 
     /* ── weekly steps ── */
 
@@ -427,10 +461,81 @@ export const useStore = create<Store>((set, get) => {
       const res = get().combine;
       if (!res) return;
       mutate((d) => applyCombine(d, res));
-      get().toast(res.boost >= 0 ? `The combine helped your stock (+${res.boost.toFixed(1)}).` : `The combine hurt your stock (${res.boost.toFixed(1)}).`, res.boost >= 0 ? 'good' : 'bad');
+      const rank = boardRank(get().game!);
+      get().toast(`${res.boost >= 0 ? `The combine helped your stock (+${res.boost.toFixed(1)}).` : `The combine hurt your stock (${res.boost.toFixed(1)}).`} You are #${rank} on the draft board.`, res.boost >= 0 ? 'good' : 'bad');
       set({ combine: null, eventId: null });
     },
     closeEvent: () => set({ eventId: null, contest: null, combine: null }),
+
+    /* ── random moments, money, and moving on ── */
+
+    async answerLife(optionId) {
+      const before = snapshot();
+      const refs = Object.values(get().game?.career.lifeEvent?.refs ?? {});
+      const out = mutate((d) => withRng(d, (rng) => resolveLifeEvent(d, rng, optionId)));
+      if (!out) get().toast('You cannot pay for that.', 'bad');
+      else set({ lifeOutcome: out });
+      announceTiers(before.ratings, before.overall);
+      // the engine's text shows at once; the narrator's retelling replaces it when it arrives
+      if (out && get().client) {
+        const text = await narrateResult(get().client, get().game!, out.title, out.choice, out.text, refs);
+        const cur = get().lifeOutcome;
+        if (cur && cur.id === out.id && cur.text === out.text && text !== out.text) set({ lifeOutcome: { ...cur, text } });
+      }
+    },
+    dismissLifeOutcome: () => set({ lifeOutcome: null }),
+
+    buyService(id) {
+      const r = mutate((d) => engineBuyService(d, id));
+      if (r.ok) get().toast(`${SERVICE_BY_ID[id].name} hired for $${r.price.toLocaleString()}.`, 'good');
+      else get().toast(r.reason, 'bad');
+    },
+
+    recruit(athleteId, action) {
+      const r = mutate((d) => withRng(d, (rng) => engineRecruitAct(d, rng, athleteId, action)));
+      get().toast(r.message, r.ok ? 'good' : 'bad');
+    },
+
+    negotiate(stance) {
+      const r = mutate((d) => withRng(d, (rng) => negotiate(d, rng, stance)));
+      if (r) get().toast(r.text, r.outcome === 'accepted' ? 'good' : r.outcome === 'counter' ? 'info' : 'bad');
+    },
+    acceptCounter() {
+      const r = mutate((d) => acceptCounter(d));
+      if (r) get().toast(r.text, 'good');
+    },
+    holdOut() {
+      const ok = mutate((d) => startHoldout(d));
+      get().toast(ok ? 'You are holding out. You will not play until this is settled.' : 'You cannot hold out right now.', ok ? 'info' : 'bad');
+    },
+    endHoldOut() {
+      mutate((d) => endHoldout(d));
+    },
+
+    startMove() {
+      if (get().live) return;
+      const r = mutate((d) => withRng(d, (rng) => engineStartMove(d, rng)));
+      get().toast(r.message, r.ok ? 'info' : 'bad');
+    },
+    pickMove(teamId) {
+      const r = mutate((d) => withRng(d, (rng) => executeMove(d, rng, teamId)));
+      if (!r) return get().toast('That offer is no longer on the table.', 'bad');
+      const sc = get().scene;
+      set({ lastMove: r, scene: sc && !sc.chosen ? null : sc }); // a scene still waiting was written for the old team
+      get().toast(r.headline, 'good');
+      if (get().client) {
+        const g = get().game!;
+        const focus = Object.values(g.npcs).filter((n) => n.active && ['coach', 'friend', 'family'].includes(n.role)).map((n) => n.id);
+        void narrateResult(get().client, g, r.kind === 'transfer' ? 'You transferred' : 'You were traded', '', `${r.headline} ${r.lines.join('. ')}.`, focus).then((story) => {
+          const cur = get().lastMove;
+          if (cur && cur.headline === r.headline && story !== `${r.headline} ${r.lines.join('. ')}.`) set({ lastMove: { ...cur, story } });
+        });
+      }
+    },
+    stayPut() {
+      mutate((d) => engineStayPut(d));
+    },
+    dismissMove: () => set({ lastMove: null }),
 
     async advance() {
       if (get().busy) return;
@@ -438,8 +543,37 @@ export const useStore = create<Store>((set, get) => {
       try {
         const prevSeason = get().game!.career.season;
         const offersBefore = new Set(get().game!.offers.map((o) => o.id));
+        const resultsBefore = get().game!.recruiting.history.length;
+        const issueBefore = get().game!.paper[get().game!.paper.length - 1]?.id ?? 0;
         const r = mutate((d) => advanceWeek(d));
         for (const o of get().game!.offers.filter((x) => !offersBefore.has(x.id))) get().toast(`${o.brand} wants to sign you. Check the Media tab.`, 'good');
+        // a new edition of the paper: say so, and let the narrator polish the lead story
+        const edition = get().game!.paper[get().game!.paper.length - 1];
+        if (edition && edition.id > issueBefore) {
+          get().toast(`The new edition is out: ${edition.headline}`, 'info');
+          const lead = edition.lead[0];
+          if (lead && get().client) {
+            void narrateResult(get().client, get().game!, 'Newspaper lead story', '', lead.text).then((text) => {
+              if (text === lead.text) return;
+              mutate((d) => {
+                const e = d.paper.find((x) => x.id === edition.id);
+                if (e && e.lead[0] && e.lead[0].text === lead.text) e.lead[0].text = text;
+              });
+            });
+          }
+        }
+        // recruiting decisions land at the turn of the season: tell the ones you worked on
+        const g2 = get().game!;
+        const decided = g2.recruiting.history.slice(resultsBefore);
+        for (const h of decided.slice(0, 2)) {
+          void narrateResult(get().client, g2, h.outcome === 'signed' ? 'A recruit signs with you' : 'A recruit decides', '', h.text).then((story) => {
+            if (story === h.text) return;
+            mutate((d) => {
+              const e = d.recruiting.history.find((x) => x.season === h.season && x.name === h.name);
+              if (e) e.text = story;
+            });
+          });
+        }
         // championships and awards get full-screen reveals instead of toasts
         r.messages.filter((m) => !m.startsWith('Award') && !m.startsWith('CHAMP')).forEach((m) => get().toast(m, 'info'));
         if (r.seasonEnded) {

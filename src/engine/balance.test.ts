@@ -7,6 +7,7 @@ import { acceptOffer, answerPress } from './media';
 import { RNG } from './rng';
 import { overall } from './ratings';
 import type { TrainingFocus } from './progression';
+import { PRO_TAX_RATE } from './finance';
 
 interface Stats {
   games: number;
@@ -124,7 +125,8 @@ describe('balance over whole careers', () => {
   it('endorsements stay a supplement, not the main income', () => {
     for (const { r } of runs) {
       // measured $23M to $82M against $145M to $325M total. It used to reach $340M on its own.
-      expect(r.endorse).toBeLessThan(r.money * 0.5);
+      // endorsements are counted before tax and the bank after it, so compare them the same way
+      expect(r.endorse * (1 - PRO_TAX_RATE)).toBeLessThan(r.money * 0.5);
       expect(r.maxOffer).toBeLessThan(12_000_000);
       // measured 8 to 20 offers in a whole career
       expect(r.offersSeen).toBeLessThan(35);
@@ -133,6 +135,7 @@ describe('balance over whole careers', () => {
   });
 
   it('injuries stay occasional and the body recovers between seasons', () => {
+    // measured over 24 careers: 0 to 3
     for (const { r } of runs) expect(r.injuryHistory).toBeLessThanOrEqual(5);
   });
 

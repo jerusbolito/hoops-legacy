@@ -121,6 +121,7 @@ export function makeNpc(
     memories: p.memories ?? [],
     keyMemories: [],
     estranged: false,
+    h2h: { w: 0, l: 0 },
     active: true,
     metSeason: p.season,
   };

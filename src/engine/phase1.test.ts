@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { GameState } from '../state/schemas';
+import type { GameState, Ratings } from '../state/schemas';
 import { BADGES, applyBadges, badgeStatus, checkBadgeUnlocks } from './badges';
 import { advanceWeek, completeScene, createCareer, createUserGameSim, doSummerTraining, doTraining, finishUserGame, setGamePlan, setPlayHurt, userAthlete, userRole } from './career';
 import { coachOf, coachReacts, coachStanding } from './coach';
@@ -251,6 +251,8 @@ describe('consequences', () => {
 
   it('lets you play through a minor injury at a cost, and not through a serious one', () => {
     const s = toGameDay();
+    // a starter, so the coach has real minutes to react to (the hurt penalty still applies)
+    for (const k of Object.keys(s.athletes[s.player.athleteId].ratings) as (keyof Ratings)[]) s.athletes[s.player.athleteId].ratings[k] = 85;
     s.player.injury = { weeks: 2, desc: 'rolled ankle' };
     expect(canPlayHurt(s)).toBe(true);
     expect(sitOutReason(s)).toMatch(/rolled ankle/);

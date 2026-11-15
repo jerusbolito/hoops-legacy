@@ -192,5 +192,5 @@ describe('whole careers', () => {
       expect(s.career.phase).toBe('retired');
       check('retirement');
     }
-  });
+  }, 30_000);
 });

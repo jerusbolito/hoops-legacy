@@ -1,5 +1,6 @@
 import type { Deal, GameState, Offer, Press } from '../state/schemas';
 import { coachOf } from './coach';
+import { hasService } from './finance';
 import { addNews } from './news';
 import { overall } from './ratings';
 import { RNG, clamp } from './rng';
@@ -131,7 +132,8 @@ export function offerChance(state: GameState): number {
   if (!dealsAllowed(state)) return 0;
   if (state.offers.length >= 3 || state.player.deals.length >= MAX_DEALS) return 0;
   const p = state.player;
-  return clamp(0.02 + p.reputation / 800 + Math.min(0.06, p.followers / 400_000), 0, 0.14);
+  const base = clamp(0.02 + p.reputation / 800 + Math.min(0.06, p.followers / 400_000), 0, 0.14);
+  return hasService(state, 'agency') ? Math.min(0.2, base * 1.5) : base;
 }
 
 export function maybeOffer(state: GameState, rng: RNG): Offer | null {
@@ -145,7 +147,7 @@ export function maybeOffer(state: GameState, rng: RNG): Offer | null {
   const step = state.career.level === 'college' ? 100 : 50_000;
   // each deal you already have makes the next one worth less: there is only so much attention to sell
   const crowded = 0.8 ** state.player.deals.length;
-  const perSeason = Math.max(step, roundTo(nameValue(state) * crowded * rng.range(0.55, 1.2) * (sketchy ? 1.45 : 1), step));
+  const perSeason = Math.max(step, roundTo(nameValue(state) * crowded * rng.range(0.55, 1.2) * (sketchy ? 1.45 : 1) * (hasService(state, 'agency') ? 1.1 : 1), step));
   const years = rng.int(1, 3);
   const agent = state.career.level === 'pro' ? agentOf(state) : null;
   const commission = agent ? 0.1 : 0;
@@ -210,14 +212,14 @@ export interface Settlement {
 }
 
 /** Season end: pay out, retire finished deals, and see whether a shady one blew up. */
-export function settleDeals(state: GameState, rng: RNG): Settlement {
+export function settleDeals(state: GameState, rng: RNG, pay = true): Settlement {
   const out: Settlement = { income: 0, lines: [] };
   const me = state.athletes[state.player.athleteId];
   const keep: Deal[] = [];
   for (const d of state.player.deals) {
-    const pay = Math.round(d.perSeason * (1 - d.commission));
-    out.income += pay;
-    out.lines.push(`${d.brand}: $${pay.toLocaleString()}`);
+    const owed = Math.round(d.perSeason * (1 - d.commission));
+    out.income += owed;
+    out.lines.push(`${d.brand}: $${owed.toLocaleString()}`);
     if (d.sketchy && rng.chance(0.35)) {
       state.player.followers = Math.round(state.player.followers * 0.9);
       state.player.reputation = clamp(state.player.reputation - 4, 0, 100);
@@ -230,7 +232,8 @@ export function settleDeals(state: GameState, rng: RNG): Settlement {
     else out.lines.push(`${d.brand} deal ended`);
   }
   state.player.deals = keep;
-  state.player.money += out.income;
+  // the weekly paycheck already covered a season's worth; only a caller who settles it all at once gets paid here
+  if (pay) state.player.money += out.income;
   return out;
 }
 

@@ -10,11 +10,11 @@ export function TrainingPanel() {
   const train = useStore((s) => s.train);
   const a = userAthlete(game);
   const p = game.player;
-  const options = TRAINING_OPTIONS.filter((o) => o.id !== 'study' || game.career.level !== 'pro');
+  const options = TRAINING_OPTIONS.filter((o) => (o.id !== 'study' || game.career.level !== 'pro') && (o.id !== 'rehab' || !!p.injury));
 
   return (
     <Panel title="Training — how do you spend this week?" right={<span className="text-xs text-ink-400">Energy {p.energy}</span>}>
-      {p.injury && <p className="mb-3 rounded-md bg-loss/10 px-3 py-2 text-sm text-loss">You are injured. Hard training risks little extra, but resting speeds nothing up. Film study and books are smart choices.</p>}
+      {p.injury && <p className="mb-3 rounded-md bg-loss/10 px-3 py-2 text-sm text-loss">You are injured. Rehab can shave weeks off it, and film study and books are smart choices. A long layoff ends with a comeback of its own.</p>}
       {game.career.level !== 'pro' && p.academics < 2.3 && <p className="mb-3 rounded-md bg-gold/10 px-3 py-2 text-sm text-gold">Your GPA ({p.academics.toFixed(2)}) is low. Top programs will not take you below 2.3.</p>}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
         {options.map((o) => {

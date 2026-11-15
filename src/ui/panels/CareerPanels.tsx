@@ -2,9 +2,12 @@ import { motion } from 'framer-motion';
 import { useEffect } from 'react';
 import { LEVEL_CONFIG } from '../../data/teams';
 import { draftStock, marketValue, projectedPick, recruitingStars, userAthlete } from '../../engine/career';
+import { boardRank, draftBoard } from '../../engine/draft';
 import { overall } from '../../engine/ratings';
 import { averages, fmt1, seasonRows, totals } from '../../engine/stats';
+import { marketPreview } from '../../engine/transactions';
 import { useStore } from '../../state/store';
+import { PlayerLink } from '../components/PlayerLink';
 import { Typewriter } from '../components/Typewriter';
 import { Button, Panel, Spinner, Stat, TeamBadge } from '../components/ui';
 
@@ -70,6 +73,23 @@ export function DraftPanel() {
         <Stat label="Stock" value={draftStock(game).toFixed(1)} />
         <Stat label="Overall" value={overall(userAthlete(game).ratings)} />
       </div>
+      <div className="mb-5">
+        <div className="mb-1 text-[11px] font-semibold tracking-widest text-ink-500 uppercase">The big board · you are #{boardRank(game)}</div>
+        <ol className="divide-y divide-court-800 text-sm">
+          {draftBoard(game).slice(0, 12).map((p, i) => (
+            <li key={p.id} className={`flex items-center justify-between gap-3 py-1.5 ${p.isUser ? 'font-semibold text-hoop-400' : ''}`}>
+              <span>
+                <span className="mr-2 font-mono text-ink-500">{i + 1}</span>
+                <PlayerLink id={p.id}>{p.name}</PlayerLink> {p.isUser && <span className="text-[10px] uppercase">you</span>}
+                {p.isRival && <span className="ml-1 text-[10px] text-loss uppercase">rival</span>}
+                {p.isFriend && <span className="ml-1 text-[10px] text-win uppercase">friend</span>}
+                <span className="ml-2 text-xs text-ink-500">{p.position} · {p.team}</span>
+              </span>
+              <span className="font-mono text-xs text-ink-300">OVR {p.ovr} · stock {p.stock}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
       <Button onClick={enter} disabled={busy} className="px-8 py-3 text-base">
         {busy ? 'The commissioner approaches the podium…' : 'Start the draft'}
       </Button>
@@ -99,11 +119,28 @@ export function FreeAgencyPanel() {
               </div>
               <div className="mt-2 font-mono text-2xl text-win">{money(o.salary)}<span className="text-sm text-ink-400">/yr × {o.years}</span></div>
               <div className="text-xs text-ink-400">Total {money(o.salary * o.years)} · Prestige {o.prestige}</div>
+              <div className="text-xs text-ink-500">Cap room {money(o.capSpace)}{o.capSpace < marketValue(game) * 0.9 ? ' (tight: they cannot pay your full price)' : ''}</div>
               <Button className="mt-3 w-full" onClick={() => sign(o)}>
                 Sign
               </Button>
             </div>
           ))}
+        </div>
+      )}
+      {offers && (
+        <div className="mt-5">
+          <div className="mb-2 text-[11px] font-semibold tracking-widest text-ink-500 uppercase">Also on the market</div>
+          <ul className="divide-y divide-court-800 text-sm">
+            {marketPreview(game).map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-3 py-1.5">
+                <span>
+                  {p.name} <span className="text-xs text-ink-500">{p.position} · age {p.age} · {p.team}</span>
+                </span>
+                <span className="font-mono text-xs text-ink-300">OVR {p.ovr} · asks {money(p.asking)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-ink-500">Teams will sign these players around you once you decide. Your choice shapes who is left for them.</p>
         </div>
       )}
     </Panel>

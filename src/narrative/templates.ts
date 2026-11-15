@@ -119,9 +119,12 @@ const TONE_EFFECTS: Record<string, { narration: string; build: (ids: string[]) =
 
 export function templateResolution(plan: ScenePlan, tone: string, choiceText: string): { narration: string; summary: string; effects: Effect[] } {
   const t = TONE_EFFECTS[tone] ?? TONE_EFFECTS.calm;
+  const effects = t.build(plan.castIds);
+  // time together counts for something even when the narrator is off
+  if (plan.kind === 'date') for (const id of plan.castIds) effects.push({ type: 'rel', npc: id, field: 'romance', delta: 4 });
   return {
     narration: t.narration,
     summary: `${plan.kind.replace(/_/g, ' ')}: you chose to "${choiceText}".`,
-    effects: t.build(plan.castIds),
+    effects,
   };
 }

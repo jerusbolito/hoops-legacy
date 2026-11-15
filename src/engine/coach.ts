@@ -144,6 +144,6 @@ export function coachReacts(state: GameState, o: { line: PlayerLine | null; won:
 /** Working hard in practice earns a little respect. Resting when you are worn down does not cost any. */
 export function practiceEffort(state: GameState, focus: string) {
   const coach = coachOf(state);
-  if (!coach || focus === 'rest' || focus === 'study') return;
+  if (!coach || focus === 'rest' || focus === 'study' || focus === 'rehab') return;
   coach.relationship.respect = clamp(coach.relationship.respect + 0.3, 0, 100);
 }

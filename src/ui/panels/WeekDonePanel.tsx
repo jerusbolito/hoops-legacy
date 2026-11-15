@@ -1,6 +1,7 @@
 import { draftStock, projectedPick, userAthlete } from '../../engine/career';
 import { fmt1, seasonAverages } from '../../engine/stats';
 import { useStore } from '../../state/store';
+import { moveStatus } from '../../engine/moves';
 import { Button, Panel, Stat } from '../components/ui';
 
 export function WeekDonePanel() {
@@ -8,6 +9,8 @@ export function WeekDonePanel() {
   const advance = useStore((s) => s.advance);
   const busy = useStore((s) => s.busy);
   const setFlag = useStore((s) => s.setFlag);
+  const setTab = useStore((s) => s.setTab);
+  const move = moveStatus(game);
   const c = game.career;
   const a = userAthlete(game);
   const avg = seasonAverages(game.gameLog, c.season);
@@ -61,6 +64,18 @@ export function WeekDonePanel() {
             <input type="checkbox" className="accent-hoop-500" checked={flags.retiring === true} onChange={(e) => setFlag('retiring', e.target.checked)} />
             Retire after this offseason
           </label>
+        </div>
+      )}
+
+      {move?.can && (c.phase === 'offseason' || c.level === 'pro') && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-court-600 p-4">
+          <div>
+            <div className="font-semibold">{move.kind === 'trade' ? 'Want out?' : 'Thinking about a fresh start?'}</div>
+            <p className="mt-1 text-sm text-ink-400">{move.kind === 'trade' ? 'You can ask the front office for a trade.' : c.level === 'hs' ? 'You can look at transferring schools.' : 'The transfer portal is open.'}</p>
+          </div>
+          <Button variant="outline" onClick={() => setTab('money')}>
+            {move.title}
+          </Button>
         </div>
       )}
 

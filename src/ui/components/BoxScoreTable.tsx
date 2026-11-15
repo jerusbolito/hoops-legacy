@@ -1,4 +1,5 @@
 import { shortName } from '../../engine/ratings';
+import { PlayerLink } from './PlayerLink';
 import type { GameState, TeamBox } from '../../state/schemas';
 import { TeamBadge, cx } from './ui';
 
@@ -33,7 +34,7 @@ export function BoxScoreTable({ state, box }: { state: GameState; box: TeamBox }
               const me = l.athleteId === state.player.athleteId;
               return (
                 <tr key={l.athleteId} className={cx('border-b border-court-800', me && 'bg-hoop-500/10 text-hoop-400', l.sec === 0 && 'text-ink-500')}>
-                  <td className="py-1 font-sans">{a ? shortName(a) : '—'}{a ? <span className="ml-1 text-[10px] text-ink-500">{a.position}</span> : null}</td>
+                  <td className="py-1 font-sans">{a ? <PlayerLink id={a.id}>{shortName(a)}</PlayerLink> : '—'}{a ? <span className="ml-1 text-[10px] text-ink-500">{a.position}</span> : null}</td>
                   <td className="text-right">{l.sec ? Math.round(l.sec / 60) : 'DNP'}</td>
                   <td className="text-right font-semibold">{l.pts}</td>
                   <td className="text-right">{l.orb + l.drb}</td>

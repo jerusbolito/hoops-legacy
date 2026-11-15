@@ -1,6 +1,7 @@
 import { nextOpponent, standingsRows } from '../../engine/career';
 import { useStore } from '../../state/store';
 import { MIN_GPA, academicStatus } from '../../engine/consequences';
+import { ChemistryCard } from '../components/ChemistryCard';
 import { CoachPanel } from '../components/CoachPanel';
 import { EventsCard } from '../components/EventModal';
 import { PressCard } from '../components/PressCard';
@@ -70,6 +71,8 @@ function Sidebar() {
   const next = nextOpponent(game);
   const rows = standingsRows(game);
   const news = [...game.news].reverse().slice(0, 8);
+  const issue = game.paper[game.paper.length - 1];
+  const setTab = useStore((s) => s.setTab);
   return (
     <aside className="space-y-4">
       {next && (
@@ -89,6 +92,7 @@ function Sidebar() {
         </Panel>
       )}
       <CoachPanel />
+      <ChemistryCard />
       <Panel title={game.league.name}>
         <table className="w-full text-xs">
           <tbody>
@@ -107,6 +111,15 @@ function Sidebar() {
           </tbody>
         </table>
       </Panel>
+      {issue && (
+        <Panel title="The paper">
+          <button onClick={() => setTab('paper')} className="w-full text-left">
+            <div className="font-serif text-base leading-snug font-bold text-ink-100">{issue.headline}</div>
+            <div className="mt-1 text-xs text-ink-400">{issue.deck}</div>
+            <div className="mt-2 text-xs font-semibold text-hoop-400">Read the whole edition →</div>
+          </button>
+        </Panel>
+      )}
       <Panel title="Headlines">
         {news.length === 0 ? (
           <p className="text-sm text-ink-500">Nothing yet.</p>

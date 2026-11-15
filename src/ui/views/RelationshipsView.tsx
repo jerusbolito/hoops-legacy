@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { PlayerLink } from '../components/PlayerLink';
 import { overall } from '../../engine/ratings';
+import { athleteStatus, statusText } from '../../engine/storyAthletes';
 import type { Npc } from '../../state/schemas';
 import { useStore } from '../../state/store';
 import { npcLook } from '../components/looks';
@@ -90,6 +92,15 @@ export function RelationshipsView() {
             <div className="mb-4 rounded-md bg-court-800 px-3 py-2 text-xs text-ink-300">
               Plays {game.athletes[sel.athleteId].position} for {game.athletes[sel.athleteId].teamId ? game.teams[game.athletes[sel.athleteId].teamId!].name : '—'} · OVR{' '}
               <span className="font-mono text-hoop-400">{overall(game.athletes[sel.athleteId].ratings)}</span>
+              {(() => {
+                const st = athleteStatus(game, sel);
+                return st ? <div className="mt-1 text-ink-400">{statusText(st)}</div> : null;
+              })()}
+              <div className="mt-1">
+                <PlayerLink id={sel.athleteId} className="text-hoop-400">
+                  View player card →
+                </PlayerLink>
+              </div>
             </div>
           )}
           <div className="space-y-3">

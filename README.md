@@ -237,6 +237,21 @@ src/
 | `career.ts` | The calendar / phase machine, career creation, awards, roster turnover, level transitions (HS → college → pro), recruiting, draft, free agency. |
 | `progression.ts` | Weekly training, summer development, aging curves, injuries, energy recovery. |
 | `effects.ts` | `applyEffects()`: the only place narrative-driven changes are applied. Caps live in `SCENE_CAPS` / `GAME_CAPS`. |
+| `lifeEvents.ts` | Random moments: about 50 engine-written events (a flat tire, a viral clip, a booster with an envelope, trade rumors) that arrive without warning, ask for a decision and change something real. Each is a definition with its own conditions, cast and choices, so adding one is adding one object to `DEFS`. They work with or without the AI, and are added to the story log so the narrator remembers them. |
+| `finance.ts` | Money. Pay arrives every regular-season week (salary, a stipend or allowance, endorsements); pros lose 30% to taxes and fees and 8% of salary to living costs. A ledger keeps the season's numbers. Services (trainer, recovery team, nutritionist, tutor, PR team) are bought with it and change training, injuries, energy, grades and endorsements. |
+| `moves.ts` | Leaving a team: the transfer portal in high school and college, trade requests in the pros. Works out who wants you and what role you would have, how the front office answers a request, and what changes when you go (coach, teammates, your best friend, a signing package in college). Also the forced trade and the fired coach. |
+| `leaders.ts` | League leaders in every category (scoring, rebounds, assists, steals, blocks, shooting percentages, minutes, turnovers) with qualifying minimums, ranks, and each player's last season filed away at the turn. |
+| `athleteCard.ts` | Everything the player card shows about anyone in the league, built from the save: bio, ratings against yours, this season's line with league ranks, last season, contract, your career and recent games. |
+| `paper.ts` | The weekly newspaper: a preview, an edition every week (your game, scoreboard, players of the week, standings movement, leaders and lead changes, the MVP race, league moves, your people, next up), playoff editions and a season recap. Built only from the week's real box scores. |
+| `chemistry.ts` | Team chemistry (0-100) and captaincy. It moves with wins, losses, events, coach changes and roster churn, and gives every teammate a -2 to +2 rating nudge in the game sim. |
+| `contracts.ts` | Pro salaries for everyone, a salary cap that follows the league's payrolls, extension talks (fair / high / max asks, counteroffers) and holdouts. |
+| `draft.ts` | A real draft: every college player is on a ranked board, teams pick best-available by need, and your rival and friend land on the team that picks them. |
+| `awards.ts` | The MVP race, All-Star selection at the midpoint, and the formula the year-end awards share. |
+| `rivalry.ts` | The head-to-head series with your rival and marked rivalry games. |
+| `romance.ts` | Relationship stages (crush, dating, partner, engaged, married), long distance after a level change, and kids. |
+| `recruiting.ts` | Recruiting both ways. A board of schools whose interest in you follows how you play (feeds your real offers at the end of high school). Each season a few targets from other teams, or soon-to-be free agents in the pros, who you work with calls, hosted visits, hype and perks, using one action a week while rival teams chase them. At the turn of the season each target picks you, a rival or staying put (the pick itself is in `transactions.ts`). Also league recruiting buzz and the top seniors' commitments. |
+| `transactions.ts` | The rest of the league moving: transfers in high school and college each offseason, trades in a pro trade week, and a pro free-agent market (every pro deal has a length, expiring players hit the market, teams with open spots sign the best of them, the unwanted retire). Your rival and friend can transfer too (a benched friend is the likeliest to leave). Everything lands in the `transactions` log shown on the League tab, and rosters stay whole. |
+| `storyAthletes.ts` | Your rival's and best friend's careers: class year, last season's line, a title that stays true, and growth that keeps them near your level and moving up their own depth chart. `upgradeSave()` brings older saves up to date once. |
 | `stats.ts` | Averages and season rows computed from the game log (stats are always derived, never stored as running totals). |
 | `ratings.ts`, `generate.ts` | Overall rating formula, archetypes, player/team/NPC generation. |
 | `nameBook.ts` | Hands out every name in the game and remembers it. Guarantees no repeated full names, no repeated first or last names across a league (so no two players share a surname), and never generates a famous real person. **Anything that needs a name must draw it from a `NameBook`** (build one from existing state with `NameBook.fromState(state)`), never straight from the pools. |
@@ -257,7 +272,9 @@ preseason → regular → playoffs → offseason ─┬→ (next season, same le
                                             └→ retired
 ```
 
-Persistent characters (your rival, your best friend) follow you up through the levels if they're good enough to make it.
+Persistent characters (your rival, your best friend) follow you up through the levels if they're good enough to make it. Each season they move up a class and get their own line (`storyAthletes.ts`), so a senior rival reads and plays like one.
+
+At the start of each new week a random moment may be waiting (`lifeEvents.ts`). It has to be answered before play continues. Leaving a team is a separate decision, made from the **Money** tab (`moves.ts`).
 
 ### Narrative (`src/narrative/`)
 
@@ -367,7 +384,7 @@ What the tests guarantee:
 
 - Reloading during a game or a scene replays it from the start. The live sim and the current scene are not saved.
 - Model responses are not streamed. The typewriter effect plays after the full response arrives.
-- Trades are not implemented.
+- League moves are simple. Trades are one-for-one at similar quality, and free agents sign by team prestige and need, with no salary cap, no draft picks and no bidding. Other players' salaries are not tracked, only contract length.
 - Zod 3 has a known memory-exhaustion advisory for oversized inputs (the worst case is that importing a malicious save freezes the tab). Upgrading to Zod 4 is a breaking change and hasn't been done yet.
 
 ## Tuning the game
@@ -377,6 +394,13 @@ What the tests guarantee:
 | Quarter length, pace, roster size, rating means, playoff size per level | `LEVEL_CONFIG` in `src/data/teams.ts` |
 | Shot, turnover, foul and rebound odds | `shotOdds()` and `runPossession()` in `src/engine/gameSim.ts` |
 | Training gains, aging, injuries | `src/engine/progression.ts` |
+| Pay, taxes, living costs, service prices | `src/engine/finance.ts` (`PRO_TAX_RATE`, `PRO_LIVING_RATE`, `WEEKLY_ALLOWANCE`, `LEVEL_SCALE`, `SERVICES`) |
+| How often random moments happen, and what they are | `lifeChance()` and `DEFS` in `src/engine/lifeEvents.ts` |
+| Salary cap, extension odds, holdout length | `salaryCap()`, `ceilingFor()`, `STANCE`, `weeklyHoldout()` in `src/engine/contracts.ts` |
+| How fast a relationship grows or cools | `weeklyRomance()` in `src/engine/romance.ts` |
+| What chemistry is worth, and what moves it | `chemistryMod()`, `chemistryAfterGame()`, `weeklyChemistry()` in `src/engine/chemistry.ts` |
+| Who wants you, trade odds, signing packages | `buildOffers()`, `tradeOdds()`, `nilBonus()` in `src/engine/moves.ts` |
+| How fast your rival and friend grow | `targetFor()` in `src/engine/storyAthletes.ts` |
 | How much one scene can change relationships/ratings | `SCENE_CAPS` in `src/engine/effects.ts` |
 | Which scenes appear and how often | `POOL` in `src/narrative/scenes.ts` |
 | Which backdrop a scene gets | `ENV_BY_KIND` in `src/ui/components/SceneBanner.tsx` |

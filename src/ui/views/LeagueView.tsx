@@ -1,7 +1,11 @@
 import { useState } from 'react';
+import { LeadersPanel } from '../components/LeadersPanel';
+import { PlayerLink } from '../components/PlayerLink';
 import { standingsRows } from '../../engine/career';
+import { allStarIds, mvpRace } from '../../engine/awards';
+import { payroll, salaryCap, salaryOf } from '../../engine/contracts';
 import { playoffRoundName, teamRoster } from '../../engine/league';
-import { overall, shortName } from '../../engine/ratings';
+import { overall } from '../../engine/ratings';
 import { fmt1 } from '../../engine/stats';
 import { useStore } from '../../state/store';
 import { Panel, TeamBadge, cx } from '../components/ui';
@@ -13,10 +17,6 @@ export function LeagueView() {
   const team = game.teams[teamId];
   const roster = teamRoster(game, teamId).sort((a, b) => overall(b.ratings) - overall(a.ratings));
 
-  const leaders = Object.entries(game.leagueStats)
-    .filter(([id, s]) => s.gp >= 2 && game.athletes[id])
-    .map(([id, s]) => ({ id, ppg: s.pts / s.gp, rpg: s.reb / s.gp, apg: s.ast / s.gp }));
-  const top = (k: 'ppg' | 'rpg' | 'apg') => [...leaders].sort((a, b) => b[k] - a[k]).slice(0, 5);
 
   const playoffGames = game.league.schedule.filter((g) => g.playoffRound);
   const rounds = [...new Set(playoffGames.map((g) => g.playoffRound!))].sort();
@@ -24,6 +24,46 @@ export function LeagueView() {
 
   return (
     <div className="grid gap-5 lg:grid-cols-2">
+      <Panel title="Around the league" className="lg:col-span-2" right={<span className="text-xs text-ink-500">{game.transactions.length} moves logged</span>}>
+        {game.transactions.length === 0 ? (
+          <p className="text-sm text-ink-500">Nobody has moved yet. Transfers and trades happen as seasons turn.</p>
+        ) : (
+          <ul className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
+            {[...game.transactions].reverse().slice(0, 10).map((t, i) => (
+              <li key={i} className="border-l-2 border-court-600 pl-2 text-ink-300">
+                <span className="mr-1.5 font-mono text-[10px] text-ink-500">S{t.season}W{t.week}</span>
+                <span className="mr-1.5 text-[10px] font-semibold uppercase text-hoop-400">{t.kind}</span>
+                {t.text}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+
+      <Panel title="MVP race" right={<span className="text-xs text-ink-500">{allStarIds(game).length ? 'All-Stars named' : 'Builds as the season goes'}</span>}>
+        {(() => {
+          const race = mvpRace(game, 6);
+          const stars = new Set(allStarIds(game));
+          if (race.length === 0) return <p className="text-sm text-ink-500">Too early to tell. Check back after a few games.</p>;
+          return (
+            <ul className="space-y-1.5 text-sm">
+              {race.map((r, i) => (
+                <li key={r.id} className={cx('flex items-center justify-between gap-3 rounded-md px-2 py-1', r.isYou && 'bg-hoop-500/10 text-hoop-400')}>
+                  <span>
+                    <span className="mr-2 font-mono text-ink-500">{i + 1}</span>
+                    <PlayerLink id={r.id}>{r.name}</PlayerLink> {r.isYou && <span className="text-[10px] uppercase">you</span>}
+                    {r.isRival && <span className="ml-1 text-[10px] text-loss uppercase">rival</span>}
+                    {stars.has(r.id) && <span className="ml-1" title="All-Star">⭐</span>}
+                    <span className="ml-2 text-xs text-ink-500">{r.team}</span>
+                  </span>
+                  <span className="font-mono text-xs">{r.ppg} ppg · {r.score}</span>
+                </li>
+              ))}
+            </ul>
+          );
+        })()}
+      </Panel>
+
       <Panel title={`${game.league.name} standings`}>
         <table className="w-full text-sm">
           <thead className="text-[10px] uppercase tracking-wider text-ink-500">
@@ -60,7 +100,7 @@ export function LeagueView() {
         <p className="mt-2 text-xs text-ink-500">Top {game.league.playoffTeams} make the playoffs. Click a team to view its roster.</p>
       </Panel>
 
-      <Panel title={<span className="flex items-center gap-2"><TeamBadge team={team} size={22} /> {team.name} {team.mascot}</span>} right={<span className="text-xs text-ink-400">Coach {team.coachName}</span>}>
+      <Panel title={<span className="flex items-center gap-2"><TeamBadge team={team} size={22} /> {team.name} {team.mascot}</span>} right={<span className="text-xs text-ink-400">Coach {team.coachName}{game.league.level === 'pro' && <> · payroll ${(payroll(game, team) / 1e6).toFixed(0)}M of ${(salaryCap(game) / 1e6).toFixed(0)}M</>}</span>}>
         <table className="w-full text-sm">
           <tbody>
             {roster.map((a) => {
@@ -71,10 +111,13 @@ export function LeagueView() {
                 <tr key={a.id} className={cx('border-b border-court-800', me && 'text-hoop-400')}>
                   <td className="w-8 py-1.5 font-mono text-xs text-ink-500">{a.position}</td>
                   <td>
-                    {a.firstName} {a.lastName}
+                    <PlayerLink id={a.id}>
+                      {a.firstName} {a.lastName}
+                    </PlayerLink>
                     {npc && <span className="ml-1.5 text-[10px] uppercase text-ink-500">{npc.role.replace('_', ' ')}</span>}
                   </td>
                   <td className="text-right font-mono text-xs text-ink-400">{a.age}y</td>
+                  {game.league.level === 'pro' && <td className="w-16 text-right font-mono text-xs text-ink-500">${(((me && game.player.contract ? game.player.contract.salary : salaryOf(a)) / 1e6)).toFixed(1)}M</td>}
                   <td className="w-20 text-right font-mono text-xs text-ink-400">{s && s.gp ? `${fmt1(s.pts / s.gp)} ppg` : ''}</td>
                   <td className="w-10 text-right font-mono font-semibold">{overall(a.ratings)}</td>
                 </tr>
@@ -84,24 +127,7 @@ export function LeagueView() {
         </table>
       </Panel>
 
-      <Panel title="League leaders">
-        <div className="grid grid-cols-3 gap-4 text-xs">
-          {(['ppg', 'rpg', 'apg'] as const).map((k) => (
-            <div key={k}>
-              <div className="mb-2 font-semibold uppercase tracking-wider text-ink-400">{k}</div>
-              <ol className="space-y-1">
-                {top(k).map((l) => (
-                  <li key={l.id} className={cx('flex justify-between gap-1', l.id === game.player.athleteId && 'text-hoop-400')}>
-                    <span className="truncate">{shortName(game.athletes[l.id])}</span>
-                    <span className="font-mono">{fmt1(l[k])}</span>
-                  </li>
-                ))}
-                {!leaders.length && <li className="text-ink-500">—</li>}
-              </ol>
-            </div>
-          ))}
-        </div>
-      </Panel>
+      <LeadersPanel />
 
       <Panel title={rounds.length ? 'Playoff bracket' : 'Your schedule'}>
         {rounds.length ? (
