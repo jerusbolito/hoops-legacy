@@ -37,6 +37,6 @@ module.exports = {
   // https://github.com/jerusbolito/hoops-legacy/releases/latest/download/Hoops-Legacy-Setup.exe
   // build/installer.nsh adds the uninstall step that removes downloaded story models (and keeps saved careers)
   nsis: { oneClick: false, allowToChangeInstallationDirectory: true, perMachine: false, artifactName: 'Hoops-Legacy-Setup.${ext}', include: 'build/installer.nsh' },
-  mac: { target: full ? ['zip'] : ['dmg'], category: 'public.app-category.games' },
+  mac: { target: full ? ['zip'] : ['dmg'], artifactName: full ? undefined : 'Hoops-Legacy-Mac.${ext}', category: 'public.app-category.games' },
   linux: { target: full ? ['tar.gz'] : ['AppImage'], category: 'Game' },
 };

@@ -9,6 +9,12 @@ import { WhatsNew } from '../components/WhatsNew';
 
 // always the newest release (see electron-builder.config.cjs)
 const DESKTOP_DOWNLOAD_URL = 'https://github.com/jerusbolito/hoops-legacy/releases/latest/download/Hoops-Legacy-Setup.exe';
+// the Mac build (Apple Silicon only) is a .dmg named after its version, so link to the release page that lists it
+const MAC_DOWNLOAD_URL = 'https://github.com/jerusbolito/hoops-legacy/releases/latest';
+
+const onMac = () => typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform || navigator.userAgent) && !/iPhone|iPad/i.test(navigator.userAgent);
+
+const downloadCls = 'rounded-lg border border-hoop-500 px-4 py-2 text-sm font-semibold text-hoop-500 transition hover:bg-hoop-500 hover:text-white';
 
 export function TitleScreen() {
   const [saves, setSaves] = useState<Omit<SaveRow, 'state'>[]>([]);
@@ -80,14 +86,15 @@ export function TitleScreen() {
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-court-700 bg-court-850/80 px-4 py-3">
           <div className="min-w-0 text-sm">
             <div className="font-semibold">Play offline with a built-in AI</div>
-            <div className="text-xs text-ink-400">The Windows app runs its own AI on your computer. No account or API key. Free.</div>
+            <div className="text-xs text-ink-400">The desktop app runs its own AI on your computer. No account or API key. Free. Windows, or Mac with Apple Silicon (M1 or later).</div>
           </div>
-          <a
-            href={DESKTOP_DOWNLOAD_URL}
-            className="rounded-lg border border-hoop-500 px-4 py-2 text-sm font-semibold text-hoop-500 transition hover:bg-hoop-500 hover:text-white"
-          >
-            Download for Windows
-          </a>
+          <div className="flex flex-wrap items-center gap-2">
+            {(onMac() ? ['mac', 'win'] : ['win', 'mac']).map((p, k) => (
+              <a key={p} href={p === 'mac' ? MAC_DOWNLOAD_URL : DESKTOP_DOWNLOAD_URL} className={k === 0 ? downloadCls : 'text-xs text-ink-400 underline hover:text-ink-200'}>
+                Download for {p === 'mac' ? 'Mac' : 'Windows'}
+              </a>
+            ))}
+          </div>
         </div>
       )}
 
