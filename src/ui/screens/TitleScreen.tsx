@@ -5,6 +5,7 @@ import { deleteSave, exportSave, importSave, listSaves, loadGame, type SaveRow }
 import { useStore } from '../../state/store';
 import { Avatar, Button, Panel } from '../components/ui';
 import { getDesktop } from '../../desktop/bridge';
+import { WhatsNew } from '../components/WhatsNew';
 
 // always the newest release (see electron-builder.config.cjs)
 const DESKTOP_DOWNLOAD_URL = 'https://github.com/jerusbolito/hoops-legacy/releases/latest/download/Hoops-Legacy-Setup.exe';
@@ -17,6 +18,7 @@ export function TitleScreen() {
   const toast = useStore((s) => s.toast);
   const llm = useStore((s) => s.llm);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [showNew, setShowNew] = useState(false);
 
   const refresh = () => listSaves().then(setSaves);
   useEffect(() => {
@@ -46,6 +48,7 @@ export function TitleScreen() {
 
   return (
     <div className="mx-auto flex min-h-full max-w-2xl flex-col justify-center px-4 py-10">
+      {showNew && <WhatsNew onClose={() => setShowNew(false)} />}
       <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="mb-10 text-center">
         <motion.div className="text-6xl" animate={{ y: [0, -14, 0] }} transition={{ repeat: Infinity, duration: 1.4, ease: 'easeInOut' }}>
           🏀
@@ -65,6 +68,9 @@ export function TitleScreen() {
         </Button>
         <Button variant="ghost" onClick={() => setScreen('setup')}>
           ⚙ {llm ? presetById(llm.presetId).label : 'AI settings'}
+        </Button>
+        <Button variant="ghost" onClick={() => setShowNew(true)}>
+          What's new
         </Button>
         <input ref={fileRef} type="file" accept="application/json" hidden onChange={(e) => e.target.files?.[0] && doImport(e.target.files[0])} />
       </div>

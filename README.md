@@ -147,6 +147,8 @@ To photograph a first-run screen without a real engine: `--smoke-engine=bundled-
 
 ### Releasing and updating
 
+**Changelog.** Before each release, add a `## <version>` section at the top of `CHANGELOG.md` (major changes and engine changes only). The title screen's **What's new** button shows that file, and a test fails if its newest version does not match `package.json`, so a release cannot go out with stale notes.
+
 The desktop app carries its own copy of the game and never loads the website, so **deploying the website does not update installed apps**. To ship a change to desktop players:
 
 1. Push the change (Vercel redeploys the website).
