@@ -35,7 +35,8 @@ module.exports = {
   win: { target: full ? ['zip'] : ['nsis'], artifactName: full ? '${productName}-${version}-full-win.${ext}' : undefined, ...signing.win },
   // a fixed file name (no version, no spaces) so one permanent link always points at the newest release:
   // https://github.com/jerusbolito/hoops-legacy/releases/latest/download/Hoops-Legacy-Setup.exe
-  nsis: { oneClick: false, allowToChangeInstallationDirectory: true, perMachine: false, artifactName: 'Hoops-Legacy-Setup.${ext}' },
+  // build/installer.nsh adds the uninstall step that removes downloaded story models (and keeps saved careers)
+  nsis: { oneClick: false, allowToChangeInstallationDirectory: true, perMachine: false, artifactName: 'Hoops-Legacy-Setup.${ext}', include: 'build/installer.nsh' },
   mac: { target: full ? ['zip'] : ['dmg'], category: 'public.app-category.games' },
   linux: { target: full ? ['tar.gz'] : ['AppImage'], category: 'Game' },
 };

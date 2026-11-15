@@ -5,6 +5,7 @@ import { ChemistryCard } from '../components/ChemistryCard';
 import { CoachPanel } from '../components/CoachPanel';
 import { EventsCard } from '../components/EventModal';
 import { PressCard } from '../components/PressCard';
+import { SlowModelBanner } from '../components/SlowModelBanner';
 import { Panel, TeamBadge, cx } from '../components/ui';
 import { DraftPanel, FreeAgencyPanel, RecruitingPanel, RetiredPanel } from '../panels/CareerPanels';
 import { GamePanel, PreGamePanel } from '../panels/GamePanel';
@@ -44,6 +45,7 @@ export function HubView() {
             {academics.eligible ? `Grades warning: your GPA is ${academics.gpa.toFixed(2)}. Below ${MIN_GPA.toFixed(1)} you cannot play. Studying raises it; every week without school work lets it slip.` : `You are academically ineligible. Your GPA is ${academics.gpa.toFixed(2)} and you need ${MIN_GPA.toFixed(1)}. You will sit out until it recovers. Choose "Hit the Books" in training.`}
           </div>
         )}
+        <SlowModelBanner />
         <PressCard />
         {!live && <EventsCard />}
         {showSteps && (

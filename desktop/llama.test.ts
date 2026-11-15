@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { ChildProcess } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { PullProgress } from '../src/desktop/bridge';
-import { LlamaEngine, buildServerArgs, findModel, findVariants, pinnedModel, serverExecutable, variantOrder, type LlamaDeps } from './llama';
+import { LlamaEngine, buildServerArgs, findModel, findVariants, looksIntegrated, parseDevices, pinnedModel, serverExecutable, variantOrder, type LlamaDeps } from './llama';
 import pins from './pins.json';
 
 const model = pins.models[0]; // gemma-4-12b
@@ -19,6 +19,8 @@ interface Rig {
   killed: string[];
   requests: { url: string; method?: string; origin?: string; body?: string }[];
   files: Map<string, number>;
+  /** How many times the graphics check was run. */
+  deviceChecks: { n: number };
 }
 
 const servers: http.Server[] = [];
@@ -31,7 +33,7 @@ afterEach(async () => {
 });
 
 /** A computer with the given engine builds and model files, where each build behaves as described. */
-function rig(o: { variants?: Record<string, Behavior>; withModel?: 'with-app' | 'downloaded' | null; platform?: NodeJS.Platform } = {}): Rig {
+function rig(o: { variants?: Record<string, Behavior>; withModel?: 'with-app' | 'downloaded' | null; platform?: NodeJS.Platform; devices?: string; ramGB?: number } = {}): Rig {
   const variants = o.variants ?? { vulkan: { mode: 'serve', loadMs: 60 } };
   const platform = o.platform ?? 'win32';
   const exeName = serverExecutable(platform);
@@ -44,6 +46,7 @@ function rig(o: { variants?: Record<string, Behavior>; withModel?: 'with-app' | 
   const exes = new Set(Object.keys(variants).map((v) => j(engineRoot, v, exeName)));
 
   const spawned: Rig['spawned'] = [];
+  const deviceChecks = { n: 0 };
   const killed: string[] = [];
   const requests: Rig['requests'] = [];
 
@@ -102,15 +105,20 @@ function rig(o: { variants?: Record<string, Behavior>; withModel?: 'with-app' | 
       { dir: data, source: 'downloaded' },
     ],
     allowedOrigin: ORIGIN,
-    totalMemBytes: () => 32 * 1024 ** 3,
+    totalMemBytes: () => (o.ramGB ?? 32) * 1024 ** 3,
     sleep: (ms) => new Promise((r) => setTimeout(r, Math.min(ms, 15))),
     killTree: (c) => void c.kill(),
     freePort: async () => nextPort++,
     download: async () => 'downloaded',
     contextTokens: 8192,
     startTimeoutMs: 3000,
+    listDevices: async () => {
+      deviceChecks.n++;
+      return o.devices ?? '';
+    },
+    remove: (p) => void files.delete(p),
   };
-  return { deps, spawned, killed, requests, files };
+  return { deps, spawned, killed, requests, files, deviceChecks };
 }
 
 describe('finding the engine and the model', () => {
@@ -297,5 +305,103 @@ describe('downloading the model', () => {
 
   it('rejects a model that is not in the catalog', async () => {
     await expect(new LlamaEngine(rig().deps).pull('made-up', () => {})).rejects.toThrow(/Unknown model/);
+  });
+});
+
+describe('knowing the computer: graphics cards, built-in graphics, and what is installed', () => {
+  const THIS_PC = 'Available devices:\n  Vulkan0: NVIDIA GeForce RTX 5070 Ti (15995 MiB, 15227 MiB free)\n  Vulkan1: AMD Radeon(TM) Graphics (16180 MiB, 15371 MiB free)\n';
+
+  it('tells a real graphics card from graphics built into the processor', () => {
+    const real = (n: string, mib: number, ram = 16, platform: NodeJS.Platform = 'win32') => !looksIntegrated(n, mib / 1024, ram, platform);
+    // real cards
+    expect(real('NVIDIA GeForce RTX 5070 Ti', 15995, 31)).toBe(true);
+    expect(real('NVIDIA GeForce GTX 1650', 4096, 16)).toBe(true);
+    expect(real('AMD Radeon RX 7800 XT', 16384, 32)).toBe(true);
+    expect(real('Intel(R) Arc(TM) A770 Graphics', 16384, 32)).toBe(true);
+    // built into the processor (these borrow ordinary memory, which is why they claim so much)
+    expect(real('AMD Radeon(TM) Graphics', 16180, 31)).toBe(false);
+    expect(real('AMD Radeon(TM) 780M Graphics', 8192, 16)).toBe(false);
+    expect(real('Intel(R) UHD Graphics 770', 8000, 16)).toBe(false);
+    expect(real('Intel(R) Iris(R) Xe Graphics', 8000, 16)).toBe(false);
+    expect(real('Intel(R) Arc(TM) Graphics', 8000, 16)).toBe(false);
+    // a Mac's graphics are shared memory too, but that is the fast kind
+    expect(real('Apple M2 Pro', 21845, 32, 'darwin')).toBe(true);
+    // an unknown device that claims half the computer's memory is borrowing it
+    expect(real('Mystery Adapter', 9000, 16)).toBe(false);
+    expect(real('Mystery Adapter', 4000, 32)).toBe(true);
+  });
+
+  it('reads the engine\'s device list', () => {
+    const d = parseDevices(THIS_PC, 31, 'win32');
+    expect(d).toHaveLength(2);
+    expect(d[0]).toMatchObject({ name: 'NVIDIA GeForce RTX 5070 Ti', integrated: false });
+    expect(d[0].vramGB).toBeCloseTo(15.6, 1);
+    expect(d[1]).toMatchObject({ name: 'AMD Radeon(TM) Graphics', integrated: true });
+    expect(parseDevices('Available devices:\n  (none)\n', 16, 'win32')).toEqual([]);
+    expect(parseDevices('', 16, 'win32')).toEqual([]);
+  });
+
+  it('reports the real card, ignores the built-in one, and checks only once', async () => {
+    const r = rig({ variants: { vulkan: { mode: 'serve' }, cpu: { mode: 'serve' } }, devices: THIS_PC, ramGB: 31 });
+    const e = new LlamaEngine(r.deps);
+    const hw = await e.hardware();
+    expect(hw).toMatchObject({ ramGB: 31, gpuName: 'NVIDIA GeForce RTX 5070 Ti', integratedOnly: false });
+    expect(hw.gpuGB).toBeCloseTo(15.6, 1);
+    await e.hardware();
+    await e.hardware();
+    expect(r.deviceChecks.n).toBe(1);
+  });
+
+  it('says so when the only graphics are built in, and when there is no graphics build at all', async () => {
+    const igpu = rig({ variants: { vulkan: { mode: 'serve' }, cpu: { mode: 'serve' } }, devices: 'Available devices:\n  Vulkan0: Intel(R) UHD Graphics 770 (8000 MiB, 7000 MiB free)\n', ramGB: 16 });
+    expect(await new LlamaEngine(igpu.deps).hardware()).toMatchObject({ gpuGB: 0, integratedOnly: true, gpuName: 'Intel(R) UHD Graphics 770' });
+    const none = rig({ variants: { cpu: { mode: 'serve' } }, ramGB: 8 });
+    expect(await new LlamaEngine(none.deps).hardware()).toEqual({ ramGB: 8, gpuGB: 0, gpuName: '', integratedOnly: false });
+    expect(none.deviceChecks.n).toBe(0);
+    // an engine that cannot be asked is the same as no graphics card, never a crash
+    const broken = rig({ variants: { vulkan: { mode: 'serve' } } });
+    broken.deps.listDevices = async () => {
+      throw new Error('boom');
+    };
+    expect(await new LlamaEngine(broken.deps).hardware()).toMatchObject({ gpuGB: 0 });
+  });
+
+  it('lists what is on disk, including a download stopped partway', () => {
+    const r = rig({ withModel: 'downloaded' });
+    const small = pinnedModel('gemma-4-e2b')!;
+    r.files.set(j('data', 'models', `${small.file}.part`), 1_234_567);
+    const list = new LlamaEngine(r.deps).installed();
+    const full = list.find((x) => x.id === 'gemma-4-12b')!;
+    expect(full).toMatchObject({ source: 'downloaded', partial: false, bytes: model.bytes, inUse: false });
+    expect(list.find((x) => x.id === small.id)).toMatchObject({ partial: true, bytes: 1_234_567, source: 'downloaded' });
+    expect(list).toHaveLength(2);
+  });
+
+  it('deletes a downloaded model and its half-finished copy, and says how much space that freed', () => {
+    const r = rig({ withModel: 'downloaded' });
+    r.files.set(j('data', 'models', `${model.file}.part`), 5_000);
+    const e = new LlamaEngine(r.deps);
+    expect(e.remove('gemma-4-12b')).toBe(model.bytes + 5_000);
+    expect(r.files.has(j('data', 'models', model.file))).toBe(false);
+    expect(e.installed()).toEqual([]);
+    expect(() => e.remove('gemma-4-12b')).toThrow(/not downloaded/);
+    expect(() => e.remove('nonsense')).toThrow(/Unknown model/);
+  });
+
+  it('never deletes a model that came with the app, or one that is running', async () => {
+    const shipped = rig({ withModel: 'with-app' });
+    const e = new LlamaEngine(shipped.deps);
+    expect(() => e.remove('gemma-4-12b')).toThrow(/came with the app/);
+    expect(shipped.files.has(j('app', 'models', model.file))).toBe(true);
+
+    const running = rig({ withModel: 'downloaded', variants: { vulkan: { mode: 'serve', loadMs: 20 } } });
+    const eng = new LlamaEngine(running.deps);
+    await eng.start('gemma-4-12b');
+    expect(eng.installed().find((x) => x.id === 'gemma-4-12b')!.inUse).toBe(true);
+    expect(() => eng.remove('gemma-4-12b')).toThrow(/in use/);
+    expect(running.files.has(j('data', 'models', model.file))).toBe(true);
+    eng.stop();
+    expect(eng.installed().find((x) => x.id === 'gemma-4-12b')!.inUse).toBe(false);
+    expect(eng.remove('gemma-4-12b')).toBe(model.bytes);
   });
 });

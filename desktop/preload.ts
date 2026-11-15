@@ -30,6 +30,9 @@ const bridge: DesktopBridge = {
       return false;
     }
   },
+  hardware: () => ipcRenderer.invoke('desktop:hardware').catch((e) => Promise.reject(new Error(message(e)))),
+  installedModels: () => ipcRenderer.invoke('desktop:models').catch((e) => Promise.reject(new Error(message(e)))),
+  deleteModel: (id) => ipcRenderer.invoke('desktop:delete-model', id).catch((e) => Promise.reject(new Error(message(e)))),
   openOllamaDownload: () => ipcRenderer.invoke('desktop:open-download'),
 };
 

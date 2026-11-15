@@ -1,9 +1,9 @@
-import { spawn as nodeSpawn, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdirSync, statSync, statfsSync } from 'node:fs';
+import { execFile, spawn as nodeSpawn, type ChildProcess } from 'node:child_process';
+import { existsSync, mkdirSync, rmSync, statSync, statfsSync } from 'node:fs';
 import { totalmem } from 'node:os';
 import net from 'node:net';
 import path from 'node:path';
-import type { EngineStatus, PullProgress } from '../src/desktop/bridge';
+import type { EngineStatus, Hardware, InstalledModel, PullProgress } from '../src/desktop/bridge';
 import { downloadFile } from './download';
 import { killProcessTree } from './engine';
 import pins from './pins.json';
@@ -41,6 +41,10 @@ export interface LlamaDeps {
   contextTokens: number;
   /** Loading a 7 GB model from a slow disk can take a while. */
   startTimeoutMs: number;
+  /** Asks an engine program which graphics devices it can see (its own `--list-devices` output). Never throws. */
+  listDevices: (exe: string) => Promise<string>;
+  /** Deletes a file, if it is there. */
+  remove: (p: string) => void;
 }
 
 const pickPort = () =>
@@ -83,6 +87,11 @@ export function defaultLlamaDeps(o: { engineRoots: string[]; modelDirs: LlamaDep
     download: downloadFile,
     contextTokens: 8192,
     startTimeoutMs: 240_000,
+    listDevices: (exe) =>
+      new Promise((resolve) => {
+        execFile(exe, ['--list-devices'], { cwd: path.dirname(exe), timeout: 10_000, windowsHide: true }, (_err, stdout, stderr) => resolve(`${stdout}\n${stderr}`));
+      }),
+    remove: (p) => rmSync(p, { force: true }),
     ...o,
   };
 }
@@ -132,6 +141,43 @@ export function buildServerArgs(o: { modelPath: string; port: number; origin: st
   return ['-m', o.modelPath, '--host', '127.0.0.1', '--port', String(o.port), '--cors-origins', o.origin, '--no-webui', '--jinja', '-c', String(o.contextTokens), '-np', '1', '--alias', o.alias];
 }
 
+/* ───────────────────────── Graphics hardware ───────────────────────── */
+
+export interface Gpu {
+  name: string;
+  vramGB: number;
+  /** Built into the processor, sharing ordinary memory. */
+  integrated: boolean;
+}
+
+/**
+ * Built-in graphics borrow ordinary memory (so a laptop with 32 GB can report a "16 GB" graphics device that is really
+ * just its own RAM) and a model gains little from them. A real card has its own memory.
+ */
+export function looksIntegrated(name: string, vramGB: number, ramGB: number, platform: NodeJS.Platform): boolean {
+  // a Mac's graphics share memory with the processor by design, and that is fast, so they count as a real device
+  if (platform === 'darwin') return false;
+  if (/\b(uhd|iris|hd|xe)\b.*graphics/i.test(name) || /^intel\(r\)\s+graphics/i.test(name)) return true;
+  if (/arc\(tm\)\s+graphics/i.test(name)) return true; // the processor's Arc graphics, not an Arc card
+  if (/^(amd\s+)?radeon(\(tm\))?\s+(\d{3,4}m\s+)?graphics$/i.test(name.trim())) return true;
+  if (/\b\d{3,4}m\b/i.test(name)) return true; // 680M, 780M and friends
+  if (/nvidia|geforce|quadro|tesla|\brtx\b|\bgtx\b|radeon\s+(rx|pro|vii)|\barc\(tm\)\s+[ab]\d/i.test(name)) return false;
+  // unknown device: if it claims close to half of the computer's own memory, it is borrowing it
+  return ramGB > 0 && vramGB >= ramGB * 0.45;
+}
+
+/** Reads the engine's "Vulkan0: NVIDIA GeForce RTX 5070 Ti (15995 MiB, 15227 MiB free)" lines. */
+export function parseDevices(text: string, ramGB: number, platform: NodeJS.Platform): Gpu[] {
+  const out: Gpu[] = [];
+  for (const line of text.split('\n')) {
+    const m = /^\s*[A-Za-z]+\d*:\s*(.+?)\s*\((\d+)\s*MiB(?:,\s*\d+\s*MiB free)?\)\s*$/.exec(line);
+    if (!m) continue;
+    const vramGB = Math.round((Number(m[2]) / 1024) * 10) / 10;
+    out.push({ name: m[1], vramGB, integrated: looksIntegrated(m[1], vramGB, ramGB, platform) });
+  }
+  return out;
+}
+
 /* ───────────────────────── The engine ───────────────────────── */
 
 const GB = 1e9;
@@ -142,6 +188,9 @@ export class LlamaEngine implements AIEngine {
   private variant: string | null = null;
   private lastError = '';
   private pullAbort: AbortController | null = null;
+  /** The model the running engine has loaded. */
+  private activeId: string | null = null;
+  private hw: Promise<Gpu[]> | null = null;
 
   constructor(private d: LlamaDeps) {}
 
@@ -164,11 +213,62 @@ export class LlamaEngine implements AIEngine {
     }
   }
 
+  private get ramGB(): number {
+    return Math.round((this.d.totalMemBytes() / 1024 ** 3) * 10) / 10;
+  }
+
+  /** What this computer has to run a model with. The graphics check runs once and is remembered. */
+  async hardware(): Promise<Hardware> {
+    if (!this.hw) {
+      const gpuBuild = findVariants(this.d).find((v) => v.variant !== 'cpu');
+      this.hw = gpuBuild ? this.d.listDevices(gpuBuild.exe).then((t) => parseDevices(t, this.ramGB, this.d.platform)).catch(() => []) : Promise.resolve([]);
+    }
+    const devices = await this.hw;
+    const real = devices.filter((g) => !g.integrated).sort((a, b) => b.vramGB - a.vramGB)[0];
+    return { ramGB: this.ramGB, gpuGB: real?.vramGB ?? 0, gpuName: real?.name ?? devices[0]?.name ?? '', integratedOnly: !real && devices.length > 0 };
+  }
+
+  /** Every model file on this computer, including a download that was stopped partway. */
+  installed(): InstalledModel[] {
+    const out: InstalledModel[] = [];
+    for (const m of pins.models) {
+      for (const { dir, source } of this.d.modelDirs) {
+        const p = path.join(dir, m.file);
+        const size = this.d.fileSize(p);
+        if (size === m.bytes) out.push({ id: m.id, label: m.label, bytes: size, source, partial: false, inUse: !!this.child && this.activeId === m.id });
+        const part = source === 'downloaded' ? this.d.fileSize(`${p}.part`) : null;
+        if (part) out.push({ id: m.id, label: m.label, bytes: part, source, partial: true, inUse: false });
+      }
+    }
+    return out;
+  }
+
+  /** Deletes a downloaded model (and any half-finished copy). Returns the space freed. Never touches files that came with the app. */
+  remove(id: string): number {
+    const m = pinnedModel(id);
+    if (!m) throw new Error(`Unknown model "${id}".`);
+    if (this.child && this.activeId === id) throw new Error(`${m.label} is in use right now. Switch to another model first, then delete it.`);
+    const target = [...this.d.modelDirs].reverse().find((x) => x.source === 'downloaded');
+    if (!target) throw new Error('There is nowhere models are downloaded to.');
+    const file = path.join(target.dir, m.file);
+    let freed = 0;
+    for (const p of [file, `${file}.part`]) {
+      const size = this.d.fileSize(p);
+      if (size !== null) {
+        this.d.remove(p);
+        freed += size;
+      }
+    }
+    if (!freed) throw new Error(this.d.fileSize(path.join(this.d.modelDirs[0].dir, m.file)) !== null ? `${m.label} came with the app, so it cannot be deleted here.` : `${m.label} is not downloaded.`);
+    return freed;
+  }
+
   async status(id: string): Promise<EngineStatus> {
     const m = pinnedModel(id);
     const variants = findVariants(this.d);
     const found = m ? findModel(this.d, m) : null;
-    const running = await this.healthy();
+    // "running" means running THIS model: an engine still holding another one is not ready for it
+    const running = this.activeId === id && (await this.healthy());
     const state = !variants.length ? 'no-engine' : !found ? 'missing-model' : running ? 'ready' : 'not-running';
     return {
       provider: 'bundled',
@@ -176,7 +276,7 @@ export class LlamaEngine implements AIEngine {
       running,
       model: id,
       hasModel: !!found,
-      ramGB: Math.round((this.d.totalMemBytes() / 1024 ** 3) * 10) / 10,
+      ramGB: this.ramGB,
       weStarted: this.weStarted,
       baseUrl: running ? `${this.base}/v1` : '',
       apiKey: '',
@@ -191,6 +291,8 @@ export class LlamaEngine implements AIEngine {
 
   /** Starts the engine. If the graphics-card build will not start, falls back to the CPU one. */
   async start(id: string): Promise<EngineStatus> {
+    // asked for a different model than the one loaded: let the old one go first
+    if (this.child && this.activeId !== id) this.stop();
     const before = await this.status(id);
     if (before.state !== 'not-running') return before;
     const m = pinnedModel(id)!;
@@ -232,6 +334,7 @@ export class LlamaEngine implements AIEngine {
     this.child = child;
     this.port = port;
     this.variant = v.variant;
+    this.activeId = alias;
 
     const deadline = Date.now() + this.d.startTimeoutMs;
     while (Date.now() < deadline) {

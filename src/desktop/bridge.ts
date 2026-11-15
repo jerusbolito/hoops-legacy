@@ -26,21 +26,72 @@ export interface ModelInfo {
   label: string;
   blurb: string;
   bytes: number;
+  /** Memory that makes this model comfortable. Below it the computer will struggle. */
   minRamGB: number;
+  /** Video memory that holds the whole model on the graphics card (fast). */
+  minVramGB: number;
+  /** Memory at which running it on the processor alone is still tolerable. */
+  cpuRamGB: number;
+  /** Whether it can be trusted to retell the engine's own results (newspaper, moves) without changing the facts. */
+  retell: boolean;
   license: string;
 }
 
-/** The models the built-in engine can run. Sizes and checksums come from desktop/pins.json. */
-export const MODEL_CATALOG: ModelInfo[] = pins.models.map((m) => ({ id: m.id, label: m.label, blurb: m.blurb, bytes: m.bytes, minRamGB: m.minRamGB, license: m.license }));
+/** The models the built-in engine can run, biggest first. Sizes and checksums come from desktop/pins.json. */
+export const MODEL_CATALOG: ModelInfo[] = pins.models.map((m) => ({ id: m.id, label: m.label, blurb: m.blurb, bytes: m.bytes, minRamGB: m.minRamGB, minVramGB: m.minVramGB, cpuRamGB: m.cpuRamGB, retell: m.retell, license: m.license }));
 
 /** The best model for the stories, and the one set up by default. */
 export const DEFAULT_BUNDLED_MODEL = 'gemma-4-12b';
 
-/** Picks the best model that will run comfortably in this much memory. */
-export function recommendModel(ramGB: number): string {
-  if (ramGB >= 16) return 'gemma-4-12b';
-  if (ramGB >= 10) return 'gemma-4-e4b';
-  return 'gemma-4-e2b';
+/** What this computer has to run a model with. */
+export interface Hardware {
+  ramGB: number;
+  /** Memory on a real graphics card (or a Mac's shared memory). 0 when the computer has none, or only built-in graphics. */
+  gpuGB: number;
+  gpuName: string;
+  /** The only graphics here are built into the processor and borrow ordinary memory, so they do not speed a model up much. */
+  integratedOnly: boolean;
+}
+
+/**
+ * Picks the best model this computer will run well. A graphics card that holds the whole model makes it fast, so that
+ * decides it. With no usable graphics card the processor does the work, several times slower, so it aims lower.
+ */
+export function recommendModel(ramGB: number, gpuGB = 0): string {
+  if (gpuGB > 0) {
+    const fits = MODEL_CATALOG.find((m) => gpuGB >= m.minVramGB && ramGB >= m.minRamGB * 0.6);
+    if (fits) return fits.id;
+  }
+  return (MODEL_CATALOG.find((m) => ramGB >= m.cpuRamGB) ?? MODEL_CATALOG[MODEL_CATALOG.length - 1]).id;
+}
+
+export type FitLevel = 'fast' | 'ok' | 'slow' | 'tight';
+
+/** What running this model on this computer will be like, in plain words. */
+export function fitNote(m: ModelInfo, hw: Hardware): { level: FitLevel; text: string } {
+  if (hw.gpuGB >= m.minVramGB && hw.ramGB >= m.minRamGB * 0.6) return { level: 'fast', text: `Fits on your graphics card (${hw.gpuName}, ${Math.round(hw.gpuGB)} GB). Fast.` };
+  if (hw.gpuGB > 0) {
+    const roomy = hw.ramGB >= m.cpuRamGB;
+    return { level: roomy ? 'ok' : 'slow', text: `Too big for your graphics card's ${Math.round(hw.gpuGB)} GB, so part of it runs on the processor. ${roomy ? 'Slower, but fine.' : 'Slow.'}` };
+  }
+  if (hw.ramGB >= m.cpuRamGB) return { level: 'ok', text: `Runs on the processor${hw.integratedOnly ? ' (this computer only has built-in graphics)' : ''}. Scenes take around 15 seconds or more.` };
+  if (hw.ramGB >= m.minRamGB) return { level: 'slow', text: `Runs on the processor, and slowly: scenes can take a minute or more.` };
+  return { level: 'tight', text: `This computer has ${Math.round(hw.ramGB)} GB of memory and this model wants ${m.minRamGB} GB. It will struggle.` };
+}
+
+/** The next model down from this one, or undefined if it is already the smallest. */
+export function lighterModel(id: string): ModelInfo | undefined {
+  const i = MODEL_CATALOG.findIndex((m) => m.id === id);
+  return i >= 0 ? MODEL_CATALOG[i + 1] : undefined;
+}
+
+/** A reply that takes this long feels broken. */
+export const SLOW_REPLY_SECONDS = 25;
+
+/** True when the last few replies have all been slow, not just one (the first one after loading always is). */
+export function repliesAreSlow(seconds: number[], threshold = SLOW_REPLY_SECONDS): boolean {
+  const last = seconds.slice(-3);
+  return last.length >= 3 && [...last].sort((a, b) => a - b)[1] >= threshold;
 }
 
 export const modelInfo = (id: string): ModelInfo | undefined => MODEL_CATALOG.find((m) => m.id === id);
@@ -95,6 +146,20 @@ export interface EngineStatus {
   error?: string;
 }
 
+/** A model file on this computer. */
+export interface InstalledModel {
+  id: string;
+  label: string;
+  /** Size on disk. For a half-finished download, what has arrived so far. */
+  bytes: number;
+  /** "with-app" files came inside the app and cannot be deleted here. */
+  source: 'with-app' | 'downloaded';
+  /** A download that was stopped partway. */
+  partial: boolean;
+  /** The engine is running this one right now. */
+  inUse: boolean;
+}
+
 export interface PullProgress {
   status: string;
   /** 0 to 100 once the size is known, otherwise null. */
@@ -117,6 +182,12 @@ export interface DesktopBridge {
   cancelPull(): Promise<void>;
   /** Load the model into memory so the first scene is not slow. Never throws. */
   warmUp(sel: EngineSelection): Promise<boolean>;
+  /** What this computer has to run a model with. */
+  hardware(): Promise<Hardware>;
+  /** The model files on this computer. */
+  installedModels(): Promise<InstalledModel[]>;
+  /** Delete a downloaded model file to free the space. Rejects if it is in use or came with the app. */
+  deleteModel(id: string): Promise<void>;
   /** Opens the official Ollama download page in the browser. */
   openOllamaDownload(): Promise<void>;
 }

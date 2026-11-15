@@ -46,16 +46,39 @@ function escapeControlCharsInStrings(s: string): string {
   return out;
 }
 
+/**
+ * The game gives the model internal ids for people (like npc_8p2ib7) so its effects can name them. Smaller models
+ * sometimes print one in the story itself ("Coach Rangel (npc_hsvcmq) speaks"). A player must never see that, so
+ * every piece of story text is cleaned: an id in brackets goes, and a bare id goes too.
+ */
+export function scrubIds(text: string): string {
+  return text
+    .replace(/\s*[([{]\s*(?:id\s*[:=]\s*)?(?:npc|ath|team|arc|ripple|save)_[a-z0-9]+\s*[)\]}]/gi, '')
+    // "npc_1l8tdh4, Salvatore Huffman": the name follows the id, so the id is just dropped
+    .replace(/\s*(?:npc|ath|team|arc|ripple|save)_(?=[a-z0-9]*\d)[a-z0-9]{4,},\s*(?=[A-Z])/gi, ' ')
+    // any other bare id, even one stuck to the word before it ("withnpc_1l8tdh4"). A real id always has a digit in it,
+    // which keeps phrases like team_spirit safe.
+    .replace(/(\w)?(?:npc|ath|team|arc|ripple|save)_(?=[a-z0-9]*\d)[a-z0-9]{4,}/gi, (_m, pre?: string) => (pre ? `${pre} someone` : 'someone'))
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s+([,.;:!?])/g, '$1')
+    .trim();
+}
+
+const story = (min: number, max?: number) => {
+  const s = z.string().min(min);
+  return (max ? s.max(max) : s).transform(scrubIds);
+};
+
 const ChoiceSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
-  text: z.string().min(1).max(200),
+  text: story(1, 200),
   tone: z.string().default('neutral'),
 });
 
 export const SceneSetupSchema = z.object({
-  title: z.string().min(1).max(80),
-  location: z.string().max(80).default(''),
-  narration: z.string().min(20),
+  title: story(1, 80),
+  location: z.string().max(80).default('').transform(scrubIds),
+  narration: story(20),
   choices: z.array(ChoiceSchema).min(2).max(5),
 });
 export type SceneSetup = z.infer<typeof SceneSetupSchema>;
@@ -74,20 +97,20 @@ export function parseEffects(raw: unknown): { effects: Effect[]; invalid: number
 }
 
 export const SceneResolveSchema = z.object({
-  narration: z.string().min(10),
-  summary: z.string().min(3).max(400),
-  hook: z.string().max(300).nullish(),
+  narration: story(10),
+  summary: story(3, 400),
+  hook: z.string().max(300).transform(scrubIds).nullish(),
   effects: z.unknown().optional(),
 });
 
 export const RecapSchema = z.object({
-  headline: z.string().min(3).max(140),
-  narration: z.string().min(10),
+  headline: story(3, 140),
+  narration: story(10),
   effects: z.unknown().optional(),
 });
 
-export const SummarySchema = z.object({ summary: z.string().min(10), career: z.string().max(1600).nullish() });
-export const FlavorSchema = z.object({ narration: z.string().min(10) });
+export const SummarySchema = z.object({ summary: story(10), career: z.string().max(1600).transform(scrubIds).nullish() });
+export const FlavorSchema = z.object({ narration: story(10) });
 
 /* ── Fact checking ── */
 

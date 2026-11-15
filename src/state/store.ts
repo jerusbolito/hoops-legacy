@@ -113,6 +113,13 @@ interface Store {
   lastMove: MoveResult | null;
   /** The player whose card is open. */
   cardId: string | null;
+  /** Desktop: the model manager is open over the game (rather than the first-run setup). */
+  desktopManage: boolean;
+  /** A model to have selected when the manager opens. */
+  desktopPreselect: string | null;
+  /** How long the last few AI replies took, in seconds. Used to notice when the model is too slow for this computer. */
+  replySeconds: number[];
+  slowDismissed: boolean;
   /** The newest paper the player has seen. */
   paperSeen: number;
 
@@ -122,6 +129,10 @@ interface Store {
   setTab(t: Tab): void;
   openCard(id: string): void;
   closeCard(): void;
+  openModelManager(preselect?: string): void;
+  closeModelManager(): void;
+  recordReply(seconds: number): void;
+  dismissSlow(): void;
   setLLM(config: LLMConfig, remember: boolean): void;
   /** Desktop app: use the AI engine running on this computer, at the address and with the model its status gives. */
   connectLocalEngine(status: EngineStatus, fastReplies?: boolean): void;
@@ -242,6 +253,10 @@ export const useStore = create<Store>((set, get) => {
     lastMove: null,
     cardId: null,
     paperSeen: 0,
+    desktopManage: false,
+    desktopPreselect: null,
+    replySeconds: [],
+    slowDismissed: false,
 
     pushReveals(items) {
       if (!items.length) return;
@@ -253,6 +268,10 @@ export const useStore = create<Store>((set, get) => {
     setTab: (tab) => set({ tab, ...(tab === 'paper' ? { paperSeen: get().game?.paper[get().game!.paper.length - 1]?.id ?? 0 } : {}) }),
     openCard: (id) => set({ cardId: id }),
     closeCard: () => set({ cardId: null }),
+    openModelManager: (preselect) => set({ desktopManage: true, desktopPreselect: preselect ?? null, screen: 'desktop' }),
+    closeModelManager: () => set({ desktopManage: false, desktopPreselect: null, screen: get().game ? 'game' : 'title' }),
+    recordReply: (seconds) => set({ replySeconds: [...get().replySeconds, Math.round(seconds * 10) / 10].slice(-6) }),
+    dismissSlow: () => set({ slowDismissed: true }),
 
     setLLM(config, remember) {
       storeLLMConfig(config, remember);
@@ -276,7 +295,8 @@ export const useStore = create<Store>((set, get) => {
       // the engine tells us where it is listening and what to call the model
       const config: LLMConfig = { ...configFromPreset(presetById(status.provider === 'bundled' ? 'bundled' : 'ollama'), status.apiKey, status.requestModel), baseUrl: status.baseUrl, fastReplies };
       storeLLMConfig(config, true);
-      set({ llm: config, client: createClient(config), screen: 'title' });
+      // a new model starts with a clean slate for judging how fast it is, and returns to wherever the player was
+      set({ llm: config, client: createClient(config), screen: get().game ? 'game' : 'title', desktopManage: false, desktopPreselect: null, replySeconds: [], slowDismissed: false });
     },
 
     toast(text, kind = 'info') {
@@ -325,7 +345,9 @@ export const useStore = create<Store>((set, get) => {
       if (get().scene) return;
       const plan = mutate((d) => withRng(d, (rng) => pickScene(d, rng)));
       set({ scene: { plan, setup: null, loading: true, chosen: null, resolution: null } });
+      const t0 = performance.now();
       const res = await generateScene(get().client, get().game!, plan);
+      if (res.source === 'ai') get().recordReply((performance.now() - t0) / 1000);
       if (res.error) get().toast(`AI narration failed, using a template: ${res.error.slice(0, 120)}`, 'bad');
       set({ scene: { plan, setup: res.setup, loading: false, chosen: null, resolution: null, error: res.error } });
     },
@@ -336,7 +358,9 @@ export const useStore = create<Store>((set, get) => {
       const choice = sc.setup.choices.find((c) => c.id === choiceId)!;
       set({ scene: { ...sc, chosen: choiceId, loading: true } });
       const before = snapshot();
+      const t0 = performance.now();
       const res = await resolveScene(get().client, get().game!, sc.plan, sc.setup, choice);
+      if (res.source === 'ai') get().recordReply((performance.now() - t0) / 1000);
       if (res.error) get().toast(`AI narration failed, using a template.`, 'bad');
       const applied = mutate((d) => {
         const rng = new RNG(d.rngState);

@@ -60,6 +60,21 @@ describe('the narrator retells what the engine decided', () => {
     expect(prompt).toContain('You return the wallet.');
   });
 
+  it('the smallest built-in models do not retell the engine\'s results (they get who did what wrong)', async () => {
+    const s = make(5);
+    const facts = 'Alex Rivera transfers from Westbrook High to Oak Hill Christian.';
+    const tiny = scripted([say('You transferred to Oak Hill Christian.')]);
+    tiny.config = { ...tiny.config, presetId: 'bundled', model: 'qwen3-1.7b' };
+    expect(await narrateResult(tiny, s, 'You transferred', '', facts)).toBe(facts);
+    expect(tiny.calls).toHaveLength(0);
+    // the bigger built-in models, Ollama and cloud providers still do
+    for (const [presetId, model] of [['bundled', 'gemma-4-e4b'], ['bundled', 'gemma-4-12b'], ['ollama', 'qwen3-1.7b']] as const) {
+      const c = scripted([say('Alex Rivera moves from Westbrook High to Oak Hill Christian.')]);
+      c.config = { ...c.config, presetId, model };
+      expect(await narrateResult(c, s, 'You transferred', '', facts), `${presetId}/${model}`).toBe('Alex Rivera moves from Westbrook High to Oak Hill Christian.');
+    }
+  });
+
   it('a random moment shows the engine\'s text at once, then the retelling replaces it', async () => {
     const s = make(3);
     playUntil(s, new RNG(3), (x) => x.career.phase === 'regular' && x.career.week >= 3 && !x.career.lifeEvent);

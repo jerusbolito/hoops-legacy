@@ -12,7 +12,7 @@ A basketball career RPG in TypeScript: a player goes high school → college →
 
 - **Windows 11, Git Bash and PowerShell.** Python is not installed. Source files have **CRLF** line endings (git `autocrlf=true`). The Edit tool copes; hand-rolled Node scripts must normalize `\r\n` → `\n` before matching and restore afterwards.
 - **Bash heredocs containing `$` or template strings are sometimes blocked by a safety check** ("could not be checked for dangerous rm operations"). If that happens, write the script with the Write tool and run it with `node path`. Never chain a delete with a heredoc.
-- Commands: `npm run typecheck` (app + desktop), `npx vitest run` (about 250 tests, ~35 s), `npx vite build`, `npm run dev`. Always run typecheck and the full suite before calling something done.
+- Commands: `npm run typecheck` (app + desktop), `npx vitest run` (about 360 tests, ~40 s), `npx vite build`, `npm run dev`. Always run typecheck and the full suite before calling something done.
 - **Do not commit unless the user asks.** Nothing from the recent work has been committed.
 - Use they/them for anyone whose pronouns are not stated. Avoid gendered pronouns in game text (the player's gender is not chosen).
 - The user wants honesty about what was and was not verified. There is no browser available in the agent environment: UI is checked with server-render tests (`src/ui/screens.test.ts`), not by eye. Say so.
@@ -117,6 +117,16 @@ See the README "Tuning the game" table. The main ones: `lifeChance()` and `DEFS`
 ## Tests that guard the new work
 
 `life.test.ts` (events, money, moves, rival/friend growth), `transactions.test.ts` (league moves, free agency), `recruiting.test.ts`, `screens.test.ts` (UI render via server rendering with a mocked store hook), `smoke.test.ts` (whole careers incl. old-save defaults and roster consistency), `balance.test.ts` (whole-career bounds). `testkit.ts` holds `tick`, which plays one varied step and exercises life events, services, recruiting actions and moves.
+
+## Model tiers, model manager, uninstall (desktop)
+
+- **Four tiers** in `desktop/pins.json` (12B, E4B, E2B, Qwen3 1.7B), each with measured `minVramGB`, `cpuRamGB` and `retell`. `src/desktop/bridge.ts`: `recommendModel(ramGB, gpuGB)`, `fitNote`, `lighterModel`, `repliesAreSlow`. Hardware comes from `LlamaEngine.hardware()` (parses `llama-server --list-devices`; integrated chips that borrow system memory are flagged `integratedOnly` and not counted as a card).
+- **First-run model choice** is a prominent chooser in `DesktopSetup` (`ModelChooser`), not under Advanced. The same screen, opened from the ⚙ button (`openModelManager`), also lists downloaded models with delete (`InstalledList`, IPC `desktop:models` / `desktop:delete-model`; never the model in use or one shipped with the app).
+- **Slow-model nudge**: `SlowModelBanner` on the hub, fed by `replySeconds` in the store (recorded for AI replies only).
+- **Uninstall** removes `%APPDATA%hoops-legacymodels` (`build/installer.nsh`, guarded by `isUpdated` so updates keep models; saves are untouched). Verified with a real NSIS build under a throwaway app id: update kept models, uninstall removed them and kept saves. Zip/mac/linux have no uninstaller.
+- **Quality harness**: `desktop/realQuality.test.ts` (`HOOPS_QUALITY=id,id`, `HOOPS_QUALITY_CPU=1`); results and what each tier gives up in `docs/model-quality.md`. Small-model fixes it drove: `scrubIds` (ids leaking into prose), duplicate-choice repair in `generateScene`, `canRetell` gate (`retell:false` models show the engine's own text).
+- **Traps**: on Windows a just-stopped engine holds its files (the CPU-only harness copies the engine once and reuses it). The user's real 12B model lives in `%APPDATA%hoops-legacymodels`; rename it aside before any uninstall test. An existing install of the real app is on this machine, so test installers must use another `appId`.
+- **Not done**: Intel Mac engine is unpinned; no auto-update check.
 
 ## Traps already hit (do not repeat)
 

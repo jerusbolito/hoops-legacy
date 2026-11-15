@@ -1,4 +1,5 @@
 import { LEVEL_CONFIG, yearLabel } from '../../data/teams';
+import { getDesktop } from '../../desktop/bridge';
 import { userAthlete, userRole, userTeam } from '../../engine/career';
 import { overall } from '../../engine/ratings';
 import { usePrefs } from '../../state/prefs';
@@ -65,6 +66,7 @@ export function GameShell() {
   const setTab = useStore((s) => s.setTab);
   const close = useStore((s) => s.closeCareer);
   const setScreen = useStore((s) => s.setScreen);
+  const openManager = useStore((s) => s.openModelManager);
   const liveActive = useStore((s) => !!s.live);
   const prefs = usePrefs();
   const eventId = useStore((s) => s.eventId);
@@ -130,7 +132,7 @@ export function GameShell() {
             <Button variant="ghost" title={prefs.flashy ? 'Calm mode: turn off big effects' : 'Turn big effects on'} aria-pressed={prefs.flashy} onClick={() => prefs.set({ flashy: !prefs.flashy })}>
               {prefs.flashy ? '✨' : '◻️'}
             </Button>
-            <Button variant="ghost" title="AI settings" onClick={() => setScreen('setup')} disabled={liveActive}>
+            <Button variant="ghost" title={getDesktop() ? 'Story model' : 'AI settings'} onClick={() => (getDesktop() ? openManager() : setScreen('setup'))} disabled={liveActive}>
               ⚙
             </Button>
             <Button variant="ghost" title="Save & quit" onClick={close} disabled={liveActive}>

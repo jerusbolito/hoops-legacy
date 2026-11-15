@@ -1,5 +1,6 @@
 import type { ZodType, ZodTypeDef } from 'zod';
 import { chatWithRetry } from '../llm/client';
+import { modelInfo } from '../desktop/bridge';
 import { LLMError, type ChatMessage, type LLMClient } from '../llm/types';
 import type { GameReport } from '../engine/career';
 import { userAthlete } from '../engine/career';
@@ -64,12 +65,19 @@ function errMsg(e: unknown) {
 
 const isLive = (client: LLMClient | null): client is LLMClient => !!client && client.config.kind !== 'mock';
 
+/** Whether this client's model can be trusted to retell facts without changing them. Everything else (cloud, Ollama) can. */
+export const canRetell = (client: LLMClient): boolean => !(client.config.presetId === 'bundled' && modelInfo(client.config.model)?.retell === false);
+
 /* ───────────────────────── Scenes ───────────────────────── */
 
 export async function generateScene(client: LLMClient | null, state: GameState, plan: ScenePlan, signal?: AbortSignal): Promise<{ setup: SceneSetup } & NarrationMeta> {
   if (!isLive(client)) return { setup: templateScene(state, plan, state.career.week), source: 'template' };
   try {
-    const setup = await askJson(client, sceneSetupPrompt(fullContext(state, plan.castIds), plan.kind, plan.brief), SceneSetupSchema, { signal });
+    const setup = await askJson(client, sceneSetupPrompt(fullContext(state, plan.castIds), plan.kind, plan.brief), SceneSetupSchema, {
+      signal,
+      // a scene that offers the same choice twice is not a decision: give the model one chance to write real alternatives
+      check: (v) => (new Set(v.choices.map((c) => c.text.trim().toLowerCase())).size < v.choices.length ? 'Two of your choices say the same thing. Every choice must be a different action.' : null),
+    });
     setup.choices = setup.choices.slice(0, 4).map((c, i) => ({ ...c, id: String.fromCharCode(97 + i) }));
     return { setup, source: 'ai' };
   } catch (e) {
@@ -227,7 +235,9 @@ export function numbersMatch(text: string, facts: string): boolean {
  */
 export async function narrateResult(client: LLMClient | null, state: GameState, title: string, choice: string, facts: string, focusIds: string[] = []): Promise<string> {
   if (!isLive(client)) return facts;
-  const situation = `${title}.${choice ? ` The player chose: "${choice}".` : ''} What happened (these facts are fixed; keep every name and number exactly and add nothing that changes them): ${facts} Retell it in 2 to 4 sentences, speaking to the player as "you".`;
+  // the smallest models tell the engine's results back wrongly (who did what, who is on which team), so they do not retell
+  if (!canRetell(client)) return facts;
+  const situation = `${title}.${choice ? ` The player chose: "${choice}".` : ''} What happened (these facts are fixed; keep every name and number exactly and add nothing that changes them): ${facts} Retell it in 2 to 4 sentences, speaking to the player as "you". Do not guess anyone's gender: use names, or "they". Do not add scores, records, standings or any fact that is not listed, and keep every person on the team the facts put them on.`;
   const text = await narrateFlavor(client, state, situation, facts, focusIds);
   return numbersMatch(text, facts) ? text : facts;
 }

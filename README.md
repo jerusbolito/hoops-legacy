@@ -73,7 +73,18 @@ The app serves the game from a fixed local address (`http://127.0.0.1:38417`), s
 3. **Start** the engine and wait for the model to load. It tries the graphics-card build (Vulkan: NVIDIA, AMD and Intel) and falls back to the CPU build if that will not start, and shows what the engine said if nothing does.
 4. **Connect**: the game is pointed at the engine's address, and the model is warmed up in the background.
 
-On a first launch it picks the model that fits the computer's memory (12B for 16 GB or more, E4B for 10 GB or more, otherwise E2B).
+**Choosing a model.** The first launch (and any time the model is missing) shows every model up front, not under Advanced: its size, a line on what it will be like on *this* computer, and a "Best for this computer" badge. The game asks the engine for the graphics card (`llama-server --list-devices`) and the OS for memory (`LlamaEngine.hardware()`). A built-in graphics chip that borrows system memory (it can report 16 GB) is not counted as a card. `recommendModel` in `src/desktop/bridge.ts` goes by what the card can hold, because that is what makes replies fast; with no usable card it aims lower, because the processor is several times slower.
+
+| Tier | Model | Download | Picked when |
+| --- | --- | --- | --- |
+| 1 | Gemma 4 12B | 7.0 GB | a graphics card with 9 GB or more |
+| 2 | Gemma 4 E4B | 5.2 GB | a card with 4.5 GB or more |
+| 3 | Gemma 4 E2B | 3.3 GB | a smaller card, or no card and 8 GB of memory |
+| 4 | Qwen3 1.7B | 1.1 GB | very small computers (about 4 GB, no card) |
+
+What each tier gives up, and the measurements behind these numbers, are in [docs/model-quality.md](docs/model-quality.md).
+
+**Managing models.** The ⚙ button in the game opens the same screen with an "On this computer" list: what is downloaded, how much space it takes, and a Delete button (never the model in use, never one that ships inside the app). Partly downloaded files show up too, so a failed download can be cleaned up. If replies are slow (the middle of the last three takes over 25 seconds), the hub offers the next model down with one click ("Switch to Gemma 4 E4B", or "Not now"). Switching restarts the engine with the other model.
 
 ### Security and privacy
 
@@ -110,6 +121,7 @@ Models like Gemma 4 "think" for thousands of tokens before they answer. A game t
 ```bash
 HOOPS_REAL_OLLAMA=1 npx vitest run desktop/realOllama   # real Ollama on a spare port
 HOOPS_REAL_LLAMA=1  npx vitest run desktop/realLlama    # the real engine with the real model (needs build/engine and build/models)
+HOOPS_QUALITY=gemma-4-e2b npx vitest run desktop/realQuality   # story quality, speed and memory of a model with the game's real prompts (add HOOPS_QUALITY_CPU=1 for the processor only)
 node scripts/run-electron.mjs --smoke --smoke-seed=bundled --smoke-chat --smoke-wait=240 --smoke-out=result.json
 ```
 
@@ -127,8 +139,8 @@ To photograph a first-run screen without a real engine: `--smoke-engine=bundled-
 ### Things to know
 
 - **Updating the engine or a model.** Edit `desktop/pins.json` (new tag, file name, size, SHA-256), run `npm run desktop:engine`, and test with `HOOPS_REAL_LLAMA=1`. The engine releases are rolling builds, which is why one is pinned.
-- **Hardware.** A 12B model wants about 12 GB of memory, or a graphics card with 8 GB. The engine fits itself to what is free (`--fit`), but on a computer without a graphics card it will be slow, and the first-run screen warns when memory is short.
-- **Smaller models for slower computers.** The catalog already has E4B (5.2 GB) and E2B (3.3 GB) next to the 12B model, chosen on first launch by memory and switchable under Advanced. Not done yet: picking by graphics-card memory, suggesting a lighter model when replies are slow, and a screen to delete downloaded models. Story quality on E4B and E2B has not been tested with the game's prompts.
+- **Hardware.** The 12B model wants a graphics card with 9 GB or more. The engine fits itself to what is free (`--fit`). On the processor alone, measured on a fast 8-core desktop chip, E4B takes over a minute a scene and E2B about 13 seconds, so the game recommends E2B there. The model chooser says what to expect on each computer, and warns when memory is short.
+- **Smaller models.** Qwen3 1.7B is the fourth tier (it is the one that fits in 4 GB). Models that retell engine text can distort it, so `retell: false` in `pins.json` makes the game show the engine's own text instead (E2B and Qwen3). Add a model by adding it to `pins.json` with measured `minVramGB`, `cpuRamGB` and `retell`, then run `desktop/realQuality` on it. Not pinned yet: Intel Macs (the engine build is Apple Silicon only).
 - **Signing.** Builds are unsigned until you give them a certificate, so Windows SmartScreen and macOS Gatekeeper warn on first run. Windows signing is ready to switch on: see "Code signing" below.
 - **Only Windows has been built and tried.** The macOS and Linux configuration is in place (engine builds are pinned) but untested. Intel Macs are not covered.
 - **If it will not open.** Some editors set `ELECTRON_RUN_AS_NODE`, which makes Electron behave like plain Node. `npm run desktop` clears it. If you launch Electron by hand, clear it first.
@@ -145,7 +157,7 @@ The website's title screen shows a **Download for Windows** card (`src/ui/screen
 
 Players who already have the app must run the new installer themselves. It installs over the old version, and nothing they have is lost: careers live at the app's fixed local address, and the downloaded model sits in its own folder. There is no automatic update check yet.
 
-**Where things are kept on Windows** (`%APPDATA%\hoops-legacy\`): downloaded models in `models\` (about 7 GB for the default), plus the app's saved careers and settings. The uninstaller leaves this folder alone, so delete it by hand to reclaim the space. A model shipped inside the full build lives in the app's own `resources\models` and is preferred over a downloaded copy.
+**Where things are kept on Windows** (`%APPDATA%\hoops-legacy\`): downloaded models in `models\` (about 7 GB for the default), plus the app's saved careers and settings. **Uninstalling removes the downloaded models** (build/installer.nsh, tested by desktop/installer.test.ts) and keeps careers and settings. An update does not: the new installer runs the old uninstaller with an updated flag, and the models stay so nobody downloads 7 GB again. The zip (full build), macOS and Linux have no uninstaller, so there the way to reclaim the space is the in-app Delete button, or deleting the folder by hand (~/Library/Application Support/hoops-legacy/models on a Mac). A model shipped inside the full build lives in the app's own `resources\models` and is preferred over a downloaded copy.
 
 ## Code signing (Windows)
 

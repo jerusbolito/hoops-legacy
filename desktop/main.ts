@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, session, shell, type IpcMainInvokeEvent } from 'electron';
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { isValidSelection, type EngineSelection, type PullProgress, type Provider } from '../src/desktop/bridge';
+import { isValidSelection, modelInfo, type EngineSelection, type PullProgress, type Provider } from '../src/desktop/bridge';
 import { Engine, defaultDeps } from './engine';
 import { LlamaEngine, defaultLlamaDeps } from './llama';
 import { isBundledSimulation, isSimulation, simulatedDeps, simulatedLlamaDeps } from './simulate';
@@ -25,6 +25,7 @@ const simulate = SMOKE ? argValue('--smoke-engine') : undefined;
 let server: StaticServer | null = null;
 let mainWindow: BrowserWindow | null = null;
 let engines: Record<Provider, AIEngine> | null = null;
+let llama: LlamaEngine | null = null;
 
 /** "win-x64", "mac-arm64", "linux-x64": the folder name an engine build is stored under. */
 const platformKey = () => `${{ win32: 'win', darwin: 'mac', linux: 'linux' }[process.platform as 'win32' | 'darwin' | 'linux'] ?? process.platform}-${process.arch}`;
@@ -43,8 +44,9 @@ function createEngines(origin: string): Record<Provider, AIEngine> {
     allowedOrigin: origin,
   });
   const ollamaBase = defaultDeps(packaged ? process.resourcesPath : undefined);
+  llama = new LlamaEngine(isSimulation(simulate) && isBundledSimulation(simulate) ? simulatedLlamaDeps(simulate, llamaBase) : llamaBase);
   return {
-    bundled: new LlamaEngine(isSimulation(simulate) && isBundledSimulation(simulate) ? simulatedLlamaDeps(simulate, llamaBase) : llamaBase),
+    bundled: llama,
     ollama: new Engine(isSimulation(simulate) && !isBundledSimulation(simulate) ? simulatedDeps(simulate, ollamaBase) : ollamaBase),
   };
 }
@@ -77,6 +79,21 @@ function registerIpc() {
     }),
   );
   ipcMain.handle('desktop:warm', guard((_e, sel, engine) => engine.warm(sel.model)));
+  // what this computer can run, and the model files on it: always answered by the built-in engine
+  ipcMain.handle('desktop:hardware', async (e) => {
+    if (!trusted(e)) throw new Error('Not allowed.');
+    return llama!.hardware();
+  });
+  ipcMain.handle('desktop:models', async (e) => {
+    if (!trusted(e)) throw new Error('Not allowed.');
+    return llama!.installed();
+  });
+  ipcMain.handle('desktop:delete-model', async (e, id: unknown) => {
+    if (!trusted(e)) throw new Error('Not allowed.');
+    // only a model in the catalog can be named, so the page cannot point this at any other file
+    if (typeof id !== 'string' || !modelInfo(id)) throw new Error('That is not a model this app can use.');
+    llama!.remove(id);
+  });
   ipcMain.handle('desktop:cancel-pull', async (e) => {
     if (!trusted(e)) throw new Error('Not allowed.');
     for (const engine of Object.values(engines!)) engine.cancelPull();
@@ -245,7 +262,7 @@ async function smokeTest() {
     }
     const shot = argValue('--smoke-shot');
     if (shot) {
-      await new Promise((r) => setTimeout(r, 600));
+      await new Promise((r) => setTimeout(r, 2500));
       const img = await win.webContents.capturePage();
       writeFileSync(shot, img.toPNG());
       result.screenshot = { path: shot, empty: img.isEmpty(), size: img.getSize() };

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { completeScene, createCareer, createUserGameSim, doTraining, finishUserGame, advanceWeek } from '../engine/career';
 import { RNG } from '../engine/rng';
 import type { ChatRequest, LLMClient } from '../llm/types';
-import { extractJson, findStatViolations } from './parse';
+import { extractJson, findStatViolations, scrubIds } from './parse';
 import { generateRecap, generateScene, resolveScene } from './narrator';
 import { pickScene } from './scenes';
 
@@ -30,6 +30,56 @@ describe('extractJson', () => {
   it('handles fences, prose and raw newlines in strings', () => {
     expect(extractJson('```json\n{"a":1}\n```')).toEqual({ a: 1 });
     expect(extractJson('Sure! Here it is: {"a": "line1\nline2",} hope that helps')).toEqual({ a: 'line1\nline2' });
+  });
+});
+
+describe('scrubIds', () => {
+  it('removes internal ids a smaller model prints into a story, however it brackets them', () => {
+    expect(scrubIds('Coach Meilin Rangel (npc_hsvcmq) is speaking while Salvatore Huffman (npc_1l8tdh4) leans back.')).toBe('Coach Meilin Rangel is speaking while Salvatore Huffman leans back.');
+    expect(scrubIds('Coach Rangel [npc_hsvcmq] nods. Then {id: ath_ab12cd} waves.')).toBe('Coach Rangel nods. Then waves.');
+    expect(scrubIds('You talk to npc_8p2ib7 about it.')).toBe('You talk to someone about it.');
+    expect(scrubIds('(id=npc_abc123) Hello.')).toBe('Hello.');
+    // glued to the word before it, and followed by the person's name
+    expect(scrubIds('Salvatore is talking loudly withnpc_1l8tdh4, Salvatore Huffman. He looks tired.')).toBe('Salvatore is talking loudly with Salvatore Huffman. He looks tired.');
+    expect(scrubIds('you noticenpc_1czjgjl and smile')).toBe('you notice someone and smile');
+  });
+  it('leaves ordinary writing alone', () => {
+    const t = 'You stand in the locker room (it smells like tape). The score was 62-77, and the team_spirit was low.';
+    expect(scrubIds(t)).toBe(t);
+    expect(scrubIds('')).toBe('');
+  });
+});
+
+describe('scenes with duplicate choices', () => {
+  it('get one repair round, and the repaired scene is what the player sees', async () => {
+    const s = newGame();
+    const plan = pickScene(s, new RNG(5));
+    const narration = 'Coach Reed gathers the team after practice and asks who wants to lead the next drill today.';
+    const same = JSON.stringify({ title: 'After practice', location: 'Gym', narration, choices: [{ id: 'a', text: 'Shoot the ball myself.', tone: 'bold' }, { id: 'b', text: 'Shoot the ball myself.', tone: 'calm' }] });
+    const fixed = JSON.stringify({ title: 'After practice', location: 'Gym', narration, choices: [{ id: 'a', text: 'Volunteer to lead the drill.', tone: 'bold' }, { id: 'b', text: 'Let a teammate go first.', tone: 'kind' }] });
+    const client = scripted([same, fixed]);
+    const out = await generateScene(client, s, plan);
+    expect(out.source).toBe('ai');
+    expect(client.calls).toHaveLength(2);
+    expect(client.calls[1].messages.map((m) => m.content).join(' ')).toMatch(/say the same thing/);
+    expect(out.setup.choices.map((c) => c.text)).toEqual(['Volunteer to lead the drill.', 'Let a teammate go first.']);
+  });
+});
+
+describe('story text from a model is cleaned before the player sees it', () => {
+  it('scenes, resolutions and recaps never show an internal id', async () => {
+    const s = newGame();
+    const plan = pickScene(s, new RNG(5));
+    const setup = JSON.stringify({ title: 'Locker room (npc_abc123)', location: 'Gym', narration: 'Coach Reed (npc_hsvcmq) talks about the next game with the whole team listening closely.', choices: [{ id: 'a', text: 'Listen to npc_zzzz99 carefully', tone: 'calm' }, { id: 'b', text: 'Speak up', tone: 'bold' }] });
+    const out = await generateScene(scripted([setup]), s, plan);
+    expect(out.source).toBe('ai');
+    expect(JSON.stringify(out.setup)).not.toMatch(/(npc|ath)_[a-z0-9]{4}/);
+    expect(out.setup.narration).toBe('Coach Reed talks about the next game with the whole team listening closely.');
+    expect(out.setup.title).toBe('Locker room');
+    const res = JSON.stringify({ narration: 'You nod at Coach (npc_hsvcmq) and he smiles slightly.', summary: 'You listened to (npc_hsvcmq) today.', effects: [] });
+    const r = await resolveScene(scripted([res]), s, plan, out.setup, out.setup.choices[0]);
+    expect(r.source).toBe('ai');
+    expect(r.narration + r.summary).not.toMatch(/(npc|ath)_[a-z0-9]{4}/);
   });
 });
 
