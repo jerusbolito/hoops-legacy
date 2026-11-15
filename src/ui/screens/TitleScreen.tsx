@@ -9,8 +9,8 @@ import { WhatsNew } from '../components/WhatsNew';
 
 // always the newest release (see electron-builder.config.cjs)
 const DESKTOP_DOWNLOAD_URL = 'https://github.com/jerusbolito/hoops-legacy/releases/latest/download/Hoops-Legacy-Setup.exe';
-// the Mac build (Apple Silicon only) is a .dmg named after its version, so link to the release page that lists it
-const MAC_DOWNLOAD_URL = 'https://github.com/jerusbolito/hoops-legacy/releases/latest';
+// Apple Silicon only (see mac.artifactName in electron-builder.config.cjs)
+const MAC_DOWNLOAD_URL = 'https://github.com/jerusbolito/hoops-legacy/releases/latest/download/Hoops-Legacy-Mac.dmg';
 
 const onMac = () => typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform || navigator.userAgent) && !/iPhone|iPad/i.test(navigator.userAgent);
 
