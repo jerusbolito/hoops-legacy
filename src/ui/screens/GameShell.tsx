@@ -8,10 +8,10 @@ import { motion } from 'framer-motion';
 import { useRef } from 'react';
 import { Avatar, Button, Meter, TeamBadge, cx } from '../components/ui';
 import { MobileNav } from '../components/MobileNav';
-import { TABS } from './tabs';
+import { GROUPS, TABS, groupOf } from './tabs';
 import { RevealOverlay } from '../components/RevealOverlay';
-import { AnalyticsView } from '../views/AnalyticsView';
-import { RecordsView } from '../views/RecordsView';
+import { StatsView } from '../views/StatsView';
+import { HelpView } from '../views/HelpView';
 import { HubView } from '../views/HubView';
 import { MediaView } from '../views/MediaView';
 import { MemoryView } from '../views/MemoryView';
@@ -130,19 +130,42 @@ export function GameShell() {
             </Button>
           </div>
         </div>
-        <nav aria-label="Sections" className="mx-auto hidden max-w-7xl gap-1 overflow-x-auto px-4 scrollbar-thin lg:flex">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={cx('flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors', tab === t.id ? 'border-hoop-500 text-ink-100' : 'border-transparent text-ink-400 hover:text-ink-100')}
-            >
-              <span>{t.icon}</span>
-              {t.label}
-              {t.id === 'paper' && tab !== 'paper' && (game.paper[game.paper.length - 1]?.id ?? 0) > paperSeen && <span className="h-2 w-2 rounded-full bg-hoop-500" aria-label="new edition" />}
-            </button>
-          ))}
-        </nav>
+        {(() => {
+          const open = groupOf(tab);
+          const newIssue = tab !== 'paper' && (game.paper[game.paper.length - 1]?.id ?? 0) > paperSeen;
+          return (
+            <div className="mx-auto hidden max-w-7xl px-4 lg:block">
+              <nav aria-label="Menu" className="flex gap-1 overflow-x-auto scrollbar-thin">
+                {GROUPS.map((g) => (
+                  <button
+                    key={g.id}
+                    onClick={() => setTab(g.tabs.includes(tab) ? tab : g.tabs[0])}
+                    aria-current={open.id === g.id ? 'true' : undefined}
+                    className={cx('flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors', open.id === g.id ? 'border-hoop-500 text-ink-100' : 'border-transparent text-ink-400 hover:text-ink-100')}
+                  >
+                    <span>{g.icon}</span>
+                    {g.label}
+                    {g.tabs.includes('paper') && newIssue && <span className="h-2 w-2 rounded-full bg-hoop-500" aria-label="new edition" />}
+                  </button>
+                ))}
+              </nav>
+              {open.tabs.length > 1 && (
+                <nav aria-label="Sections" className="flex gap-1 border-t border-court-800 py-1.5">
+                  {open.tabs.map((id) => {
+                    const t = TABS.find((x) => x.id === id)!;
+                    return (
+                      <button key={id} onClick={() => setTab(id)} aria-current={tab === id ? 'page' : undefined} className={cx('flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-semibold whitespace-nowrap transition-colors', tab === id ? 'bg-court-700 text-ink-100' : 'text-ink-400 hover:text-ink-100')}>
+                        <span>{t.icon}</span>
+                        {t.label}
+                        {id === 'paper' && newIssue && <span className="h-2 w-2 rounded-full bg-hoop-500" aria-label="new edition" />}
+                      </button>
+                    );
+                  })}
+                </nav>
+              )}
+            </div>
+          );
+        })()}
       </header>
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:py-6 lg:pb-6">
         {tab === 'hub' && <HubView />}
@@ -150,8 +173,8 @@ export function GameShell() {
         {tab === 'relationships' && <RelationshipsView />}
         {tab === 'league' && <LeagueView />}
         {tab === 'paper' && <NewspaperView />}
-        {tab === 'records' && <RecordsView />}
-        {tab === 'analytics' && <AnalyticsView />}
+        {tab === 'stats' && <StatsView />}
+        {tab === 'help' && <HelpView />}
         {tab === 'media' && <MediaView />}
         {tab === 'money' && <MoneyView />}
         {tab === 'recruiting' && <RecruitingView />}

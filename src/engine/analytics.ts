@@ -149,6 +149,16 @@ export interface PlayerRow {
   apg: number;
   spg: number;
   bpg: number;
+  topg: number;
+  /** Shooting, as percentages (0 to 100). */
+  fgPct: number;
+  tpPct: number;
+  ftPct: number;
+  /** True shooting and effective field goal percentage. */
+  tsPct: number;
+  efgPct: number;
+  /** Assists per turnover. */
+  astTov: number;
   /** Per-36 box production (pts + reb + ast + stl + blk), a cheap overall-impact number. */
   impact36: number;
   /** Production relative to rating: positive means outplaying the rating. */
@@ -177,6 +187,13 @@ export function playerRows(state: GameState, minGames = 1): PlayerRow[] {
       apg: s.ast / s.gp,
       spg: s.stl / s.gp,
       bpg: s.blk / s.gp,
+      topg: s.tov / s.gp,
+      fgPct: s.fga > 0 ? (s.fgm / s.fga) * 100 : 0,
+      tpPct: s.tpa > 0 ? (s.tpm / s.tpa) * 100 : 0,
+      ftPct: s.fta > 0 ? (s.ftm / s.fta) * 100 : 0,
+      tsPct: s.fga + 0.44 * s.fta > 0 ? (s.pts / (2 * (s.fga + 0.44 * s.fta))) * 100 : 0,
+      efgPct: s.fga > 0 ? ((s.fgm + 0.5 * s.tpm) / s.fga) * 100 : 0,
+      astTov: s.ast / Math.max(1, s.tov),
       impact36: per36(s.pts + s.reb + s.ast + s.stl + s.blk),
       overPerform: 0,
       isUser: id === state.player.athleteId,

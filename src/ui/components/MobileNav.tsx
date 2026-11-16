@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { getDesktop } from '../../desktop/bridge';
 import { usePrefs } from '../../state/prefs';
 import { useStore, type Tab } from '../../state/store';
-import { PRIMARY_TABS, TABS } from '../screens/tabs';
+import { GROUPS, PRIMARY_TABS, TABS } from '../screens/tabs';
 import { cx } from './ui';
 
 const SHORT: Partial<Record<Tab, string>> = { hub: 'Week', paper: 'Paper' };
@@ -86,15 +86,26 @@ function MoreSheet({ tab, go, close }: { tab: Tab; go: (t: Tab) => void; close: 
     <div className="fixed inset-0 z-[45] flex items-end bg-black/60 backdrop-blur-sm lg:hidden" onClick={close} role="dialog" aria-modal="true" aria-label="More">
       <div className="max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl border-t border-court-600 bg-court-850 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()}>
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-court-600" aria-hidden />
-        <div className="grid grid-cols-3 gap-2">
-          {rest.map((t) => (
-            <button key={t.id} onClick={() => go(t.id)} aria-current={tab === t.id ? 'page' : undefined} className={cx('flex min-h-20 flex-col items-center justify-center gap-1 rounded-xl border text-xs font-semibold', tab === t.id ? 'border-hoop-500 bg-hoop-500/10 text-hoop-400' : 'border-court-700 bg-court-800/50 text-ink-300 active:bg-court-700')}>
-              <span className="text-2xl leading-none" aria-hidden>
-                {t.icon}
-              </span>
-              {t.label}
-            </button>
-          ))}
+        <div className="space-y-3">
+          {GROUPS.map((g) => {
+            const items = rest.filter((t) => g.tabs.includes(t.id));
+            if (!items.length) return null;
+            return (
+              <section key={g.id} aria-label={g.label}>
+                <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-ink-500">{g.label}</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {items.map((t) => (
+                    <button key={t.id} onClick={() => go(t.id)} aria-current={tab === t.id ? 'page' : undefined} className={cx('flex min-h-20 flex-col items-center justify-center gap-1 rounded-xl border text-xs font-semibold', tab === t.id ? 'border-hoop-500 bg-hoop-500/10 text-hoop-400' : 'border-court-700 bg-court-800/50 text-ink-300 active:bg-court-700')}>
+                      <span className="text-2xl leading-none" aria-hidden>
+                        {t.icon}
+                      </span>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
         </div>
         <div className="mt-4 grid gap-2">
           <button className={row} aria-pressed={prefs.sound} onClick={() => prefs.set({ sound: !prefs.sound })}>

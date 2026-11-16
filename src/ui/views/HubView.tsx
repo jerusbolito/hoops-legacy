@@ -7,6 +7,7 @@ import { CoachPanel } from '../components/CoachPanel';
 import { EventsCard } from '../components/EventModal';
 import { PressCard } from '../components/PressCard';
 import { SlowModelBanner } from '../components/SlowModelBanner';
+import { WelcomeCard } from '../components/WelcomeCard';
 import { Panel, TeamBadge, cx } from '../components/ui';
 import { DraftPanel, FreeAgencyPanel, RecruitingPanel, RetiredPanel } from '../panels/CareerPanels';
 import { GamePanel, PreGamePanel } from '../panels/GamePanel';
@@ -47,6 +48,7 @@ export function HubView() {
           </div>
         )}
         <SlowModelBanner />
+        {!live && !post && <WelcomeCard />}
         <PressCard />
         {!live && <EventsCard />}
         {showSteps && (

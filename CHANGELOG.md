@@ -26,8 +26,13 @@ Only the big things: new systems, engine changes, and anything that changes how 
 - **Milestones and streaks.** Career-point and rebound milestones, career nights, first double- and triple-doubles, win and cold streaks, and goals coming into view, each told once the week it happens.
 - **From the archives.** Anniversaries of old titles, and how an heir is doing against the parent's career.
 
+### Menu, stats and a guide
+- **A tidier menu.** The tabs are now in five groups (Play, Career, League, Life, Guide). On desktop a row of groups sits over the pages of the open one; on a phone the More sheet is grouped the same way.
+- **One Stats tab.** Analytics is now Stats: every player in the league (Basic and Advanced views, with shooting percentages, true shooting, eFG% and assist-to-turnover), your own advanced game, teams and the record books.
+- **A guide for new players.** A Guide page explains the week, training, game plans, every tab, ratings, stats terms, goals and legacy, with tips and common questions. A brand-new career opens with a short welcome that links to it.
+
 ### Records
-- **Record books.** A new Records tab keeps the top ten for points, rebounds, assists, steals, blocks and threes in a single game, and for a season (totals, plus points, rebounds and assists per game). Every player in the league counts, not only you. Browse high school, college, pro or all leagues together; your own marks are highlighted.
+- **Record books.** Under Stats, Records keeps the top ten for points, rebounds, assists, steals, blocks and threes in a single game, and for a season (totals, plus points, rebounds and assists per game). Every player in the league counts, not only you. Browse high school, college, pro or all leagues together; your own marks are highlighted.
 - **Career highs.** The Player tab shows your best night and best season in each category, with a badge when one made the record books. Older saves rebuild your marks from your game log.
 
 ## 1.1.0

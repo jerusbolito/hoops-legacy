@@ -19,7 +19,7 @@ const make = () => createCareer({ firstName: 'Rec', lastName: 'Ord', hometown: '
 
 describe('records screens', () => {
   it('a new career shows empty books and no highs without breaking', () => {
-    useStore.setState({ game: make(), screen: 'game', tab: 'records' });
+    useStore.setState({ game: make(), screen: 'game', tab: 'stats' });
     const html = renderToString(h(RecordsView));
     expect(html).toContain('Record books');
     expect(html).toContain('Nothing on the books yet');
@@ -29,7 +29,7 @@ describe('records screens', () => {
   it('after some games, the books list names and the player tab lists career highs', () => {
     const s = make();
     playUntil(s, new RNG(3), (g) => g.career.season >= 3, { moves: true });
-    useStore.setState({ game: s, screen: 'game', tab: 'records' });
+    useStore.setState({ game: s, screen: 'game', tab: 'stats' });
     const html = renderToString(h(RecordsView));
     expect(html).toContain('Single game');
     expect(html).toContain('High school');

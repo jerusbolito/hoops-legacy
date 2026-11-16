@@ -5,20 +5,23 @@ import { fmt1, fmtPct, gameScore, lineSummary } from '../../engine/stats';
 import { useStore } from '../../state/store';
 import { FormChart, PercentileBar } from '../components/charts';
 import { Panel, Stat, TeamBadge, cx } from '../components/ui';
+import { RecordsView } from './RecordsView';
 
-type Sub = 'me' | 'league' | 'teams';
+type Sub = 'league' | 'me' | 'teams' | 'records';
 
 const SUBS: { id: Sub; label: string }[] = [
+  { id: 'league', label: 'Players' },
   { id: 'me', label: 'My game' },
-  { id: 'league', label: 'All players' },
   { id: 'teams', label: 'Teams' },
+  { id: 'records', label: 'Records' },
 ];
 
-export function AnalyticsView() {
-  const [sub, setSub] = useState<Sub>('me');
+/** Every number in the game: all players, your own advanced game, the teams and the record books. */
+export function StatsView() {
+  const [sub, setSub] = useState<Sub>('league');
   return (
     <div className="space-y-5">
-      <div className="flex gap-1 rounded-lg border border-court-700 bg-court-900 p-1 sm:w-fit" role="tablist">
+      <div className="flex gap-1 overflow-x-auto rounded-lg border border-court-700 bg-court-900 p-1 scrollbar-thin sm:w-fit" role="tablist">
         {SUBS.map((s) => (
           <button
             key={s.id}
@@ -34,6 +37,7 @@ export function AnalyticsView() {
       {sub === 'me' && <MyGame />}
       {sub === 'league' && <AllPlayers />}
       {sub === 'teams' && <Teams />}
+      {sub === 'records' && <RecordsView />}
     </div>
   );
 }
@@ -220,25 +224,40 @@ function MyGame() {
 
 /* ───────────────────────── All players ───────────────────────── */
 
-type SortKey = 'ovr' | 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg' | 'mpg' | 'impact36' | 'overPerform' | 'age' | 'potential';
+type SortKey = 'ovr' | 'gp' | 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg' | 'topg' | 'mpg' | 'fgPct' | 'tpPct' | 'ftPct' | 'tsPct' | 'efgPct' | 'astTov' | 'impact36' | 'overPerform' | 'age' | 'potential';
+type Col = { key: SortKey; label: string; digits: number; hint: string };
 
-const COLS: { key: SortKey; label: string; digits: number; hint: string }[] = [
-  { key: 'ovr', label: 'OVR', digits: 0, hint: 'Overall rating' },
-  { key: 'potential', label: 'POT', digits: 0, hint: 'Potential' },
-  { key: 'age', label: 'AGE', digits: 0, hint: 'Age' },
+const BASIC: Col[] = [
+  { key: 'gp', label: 'GP', digits: 0, hint: 'Games played' },
   { key: 'mpg', label: 'MPG', digits: 1, hint: 'Minutes per game' },
   { key: 'ppg', label: 'PPG', digits: 1, hint: 'Points per game' },
   { key: 'rpg', label: 'RPG', digits: 1, hint: 'Rebounds per game' },
   { key: 'apg', label: 'APG', digits: 1, hint: 'Assists per game' },
   { key: 'spg', label: 'SPG', digits: 1, hint: 'Steals per game' },
   { key: 'bpg', label: 'BPG', digits: 1, hint: 'Blocks per game' },
+  { key: 'topg', label: 'TOV', digits: 1, hint: 'Turnovers per game' },
+  { key: 'fgPct', label: 'FG%', digits: 1, hint: 'Field goal percentage' },
+  { key: 'tpPct', label: '3P%', digits: 1, hint: 'Three-point percentage' },
+  { key: 'ftPct', label: 'FT%', digits: 1, hint: 'Free throw percentage' },
+];
+
+const ADVANCED: Col[] = [
+  { key: 'ovr', label: 'OVR', digits: 0, hint: 'Overall rating' },
+  { key: 'potential', label: 'POT', digits: 0, hint: 'Potential' },
+  { key: 'age', label: 'AGE', digits: 0, hint: 'Age' },
+  { key: 'mpg', label: 'MPG', digits: 1, hint: 'Minutes per game' },
+  { key: 'tsPct', label: 'TS%', digits: 1, hint: 'True shooting: points per shooting possession, counting threes and free throws' },
+  { key: 'efgPct', label: 'eFG%', digits: 1, hint: 'Effective field goal percentage: field goal percentage with threes worth more' },
+  { key: 'astTov', label: 'AST/TO', digits: 1, hint: 'Assists per turnover' },
   { key: 'impact36', label: 'IMP/36', digits: 1, hint: 'Points + rebounds + assists + steals + blocks per 36 minutes' },
   { key: 'overPerform', label: 'vs OVR', digits: 1, hint: 'Production above (+) or below (−) what the rating usually produces. Finds breakout players and underachievers.' },
 ];
 
 function AllPlayers() {
   const game = useStore((s) => s.game)!;
-  const [sort, setSort] = useState<SortKey>('impact36');
+  const [view, setView] = useState<'basic' | 'advanced'>('basic');
+  const cols = view === 'basic' ? BASIC : ADVANCED;
+  const [sort, setSort] = useState<SortKey>('ppg');
   const [desc, setDesc] = useState(true);
   const [pos, setPos] = useState('all');
   const [scope, setScope] = useState<'league' | 'team'>('league');
@@ -250,6 +269,11 @@ function AllPlayers() {
     .filter((r) => (pos === 'all' || r.position === pos) && (scope === 'league' || r.teamId === game.career.teamId) && r.name.toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => (desc ? b[sort] - a[sort] : a[sort] - b[sort]));
 
+  const pickView = (v: 'basic' | 'advanced') => {
+    setView(v);
+    setSort(v === 'basic' ? 'ppg' : 'impact36');
+    setDesc(true);
+  };
   const setSortKey = (k: SortKey) => {
     if (k === sort) setDesc(!desc);
     else {
@@ -262,9 +286,16 @@ function AllPlayers() {
 
   return (
     <Panel
-      title={`Player explorer · ${all.length} players`}
+      title={`Every player · ${all.length}`}
       right={
         <div className="flex flex-wrap items-center gap-2">
+          <div className="flex rounded-md border border-court-600 p-0.5" role="tablist" aria-label="Stat set">
+            {(['basic', 'advanced'] as const).map((v) => (
+              <button key={v} role="tab" aria-selected={view === v} onClick={() => pickView(v)} className={cx('rounded px-2 py-1 text-xs font-semibold', view === v ? 'bg-court-700 text-ink-100' : 'text-ink-400')}>
+                {v === 'basic' ? 'Basic' : 'Advanced'}
+              </button>
+            ))}
+          </div>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" aria-label="Search players" className="w-28 rounded-md border border-court-600 bg-court-900 px-2 py-1 text-xs text-ink-100 placeholder:text-ink-500" />
           <select value={pos} onChange={(e) => setPos(e.target.value)} aria-label="Position" className="rounded-md border border-court-600 bg-court-900 px-2 py-1 text-xs text-ink-100">
             {['all', 'PG', 'SG', 'SF', 'PF', 'C'].map((p) => (
@@ -281,13 +312,13 @@ function AllPlayers() {
       }
     >
       <div className="overflow-x-auto scrollbar-thin">
-        <table className="w-full min-w-[860px] text-sm">
+        <table className="w-full min-w-[780px] text-sm">
           <thead className="text-[10px] uppercase tracking-wider text-ink-500">
             <tr className="border-b border-court-700 text-right">
               <th className="py-2 text-left">Player</th>
               <th className="text-left">Team</th>
               <th>POS</th>
-              {COLS.map((c) => (
+              {cols.map((c) => (
                 <th key={c.key} title={c.hint} aria-sort={sort === c.key ? (desc ? 'descending' : 'ascending') : 'none'}>
                   <button onClick={() => setSortKey(c.key)} className={cx('px-1.5 py-1 font-semibold uppercase tracking-wider hover:text-ink-100', sort === c.key && 'text-hoop-400')}>
                     {c.label}
@@ -299,7 +330,7 @@ function AllPlayers() {
           </thead>
           <tbody className="font-mono">
             {rows.slice(0, limit).map((r) => (
-              <Row key={r.id} r={r} teamAbbrev={r.teamId ? game.teams[r.teamId]?.abbrev : '—'} />
+              <Row key={r.id} r={r} cols={cols} teamAbbrev={r.teamId ? game.teams[r.teamId]?.abbrev : '—'} />
             ))}
           </tbody>
         </table>
@@ -314,13 +345,13 @@ function AllPlayers() {
   );
 }
 
-function Row({ r, teamAbbrev }: { r: PlayerRow; teamAbbrev?: string }) {
+function Row({ r, cols, teamAbbrev }: { r: PlayerRow; cols: Col[]; teamAbbrev?: string }) {
   return (
     <tr className={cx('border-b border-court-800 text-right', r.isUser && 'bg-hoop-500/10 text-hoop-400')}>
       <td className="py-1.5 text-left font-sans">{r.name}</td>
       <td className="text-left font-sans text-xs text-ink-400">{teamAbbrev}</td>
       <td className="text-ink-400">{r.position}</td>
-      {COLS.map((c) => (
+      {cols.map((c) => (
         <td key={c.key} className={cx(c.key === 'overPerform' && (r[c.key] > 1 ? 'text-win' : r[c.key] < -1 ? 'text-loss' : ''))}>
           {c.key === 'overPerform' && r[c.key] > 0 ? '+' : ''}
           {r[c.key].toFixed(c.digits)}
