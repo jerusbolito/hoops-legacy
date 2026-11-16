@@ -59,7 +59,7 @@ describe('smoke: whole careers with every system in play', () => {
       expect(s.career.phase).toBe('retired');
       // and the save is still valid after all of that
       expect(() => GameStateSchema.parse(JSON.parse(JSON.stringify(s)))).not.toThrow();
-    });
+    }, 30_000); // a whole career takes about 2s alone, but the full suite runs in parallel and can double that
   }
 });
 

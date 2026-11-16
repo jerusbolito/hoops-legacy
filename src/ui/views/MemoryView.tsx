@@ -8,6 +8,9 @@ const approxTokens = (text: string) => Math.ceil(text.length / 4);
 
 const SEGMENT_COLORS = ['#f97316', '#38bdf8', '#fbbf24', '#22c55e', '#a78bfa', '#f472b6', '#2dd4bf', '#94a3b8', '#fb7185', '#84cc16'];
 
+/** Bookkeeping the engine keeps in the same place as story facts: ids, counters and told-once markers, not things the narrator was told. */
+const INTERNAL = /^(declared|retiring$|allstars_|ms_|peak_|story_athletes|growth_n$|tour_)/;
+
 export function MemoryView() {
   const game = useStore((s) => s.game)!;
   const [selected, setSelected] = useState<string | null>(null);
@@ -161,9 +164,9 @@ export function MemoryView() {
                 {Object.keys(st.flags).length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {Object.entries(st.flags)
-                      .filter(([k]) => !k.startsWith('declared') && k !== 'retiring')
+                      .filter(([k, v]) => !INTERNAL.test(k) && !(typeof v === 'string' && /ath_/i.test(v)))
                       .map(([k, v]) => (
-                        <Pill key={k}>
+                        <Pill key={k} className="max-w-full whitespace-normal break-words">
                           {k.replace(/_/g, ' ')}: {String(v)}
                         </Pill>
                       ))}

@@ -167,3 +167,46 @@ describe('honors page', () => {
     expect(groupOf('honors').id).toBe('league');
   });
 });
+
+describe('ages and the memory list', () => {
+  it('a player card always shows the age, in school and as a pro', async () => {
+    const { athleteCard } = await import('../engine/athleteCard');
+    const s = make();
+    const id = s.player.athleteId;
+    const card = athleteCard(s, id)!;
+    expect(card.ageText).toBe(`Age ${s.athletes[id].age}`);
+    expect(card.classText).toMatch(/Freshman|Sophomore|Junior|Senior/);
+    s.career.level = 'pro';
+    const pro = athleteCard(s, id)!;
+    expect(pro.ageText).toBe(`Age ${s.athletes[id].age}`);
+    expect(pro.classText).toBe('');
+  });
+
+  it('the trading card and the Bio both show your age', async () => {
+    const { cardData, PlayerCardSvg } = await import('./components/PlayerCard');
+    const { ProfileView } = await import('./views/ProfileView');
+    const s = make();
+    const age = s.athletes[s.player.athleteId].age;
+    expect(renderToString(h(PlayerCardSvg, { d: cardData(s) })).replace(/<!-- -->/g, '')).toContain(`AGE ${age}`);
+    useStore.setState({ game: s, screen: 'game', tab: 'profile' });
+    const html = renderToString(h(ProfileView)).replace(/<!-- -->/g, '');
+    expect(html).toContain(`<dt class="text-ink-400">Age</dt><dd>${age}</dd>`);
+  });
+
+  it('the memory page hides engine bookkeeping and lets long facts wrap', async () => {
+    const { MemoryView } = await import('./views/MemoryView');
+    const s = make();
+    s.story.flags.allstars_1 = 'ath_aaaaaaaaaaaaaa,ath_bbbbbbbbbbbbbbbb,ath_cccccccccccccccc';
+    s.story.flags.ms_pts_500 = true;
+    s.story.flags.peak_ovr = 51;
+    s.story.flags.fabian_call_made = true;
+    useStore.setState({ game: s, screen: 'game', tab: 'memory' });
+    const html = renderToString(h(MemoryView));
+    expect(html).toContain('fabian call made');
+    expect(html).not.toContain('allstars');
+    expect(html).not.toContain('ath_aaaa');
+    expect(html).not.toContain('ms pts');
+    expect(html).not.toContain('peak ovr');
+    expect(html).toContain('break-words');
+  });
+});

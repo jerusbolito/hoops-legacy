@@ -32,6 +32,7 @@ interface CardData {
   position: string;
   archetype: string;
   ovr: number;
+  age: number;
   teamAbbrev: string;
   teamName: string;
   colors: [string, string];
@@ -52,6 +53,7 @@ export function cardData(game: GameState): CardData {
     position: a.position,
     archetype: ARCHETYPE_INFO[a.archetype].label,
     ovr: overall(a.ratings),
+    age: a.age,
     teamAbbrev: team.abbrev,
     teamName: `${team.name} ${team.mascot}`,
     colors: team.colors,
@@ -97,6 +99,9 @@ export function PlayerCardSvg({ d }: { d: CardData }) {
       <rect x={W - 62} y="38" width="38" height="28" rx="6" fill={d.colors[0]} stroke={d.colors[1]} strokeWidth="2" />
       <text x={W - 43} y="57" textAnchor="middle" fontSize="12" fontWeight="800" fill={d.colors[1]} fontFamily="system-ui, sans-serif">
         {d.teamAbbrev}
+      </text>
+      <text x={W - 24} y="80" textAnchor="end" fontSize="9" fontWeight="800" fill={t.ink} letterSpacing="2" fontFamily="system-ui, sans-serif">
+        AGE {d.age}
       </text>
       <svg x={W / 2 - 62} y="24" width="124" height="124" viewBox="0 0 124 124">
         <Portrait name={d.name} size={124} colors={d.colors} mood="happy" ring={t.ink} />

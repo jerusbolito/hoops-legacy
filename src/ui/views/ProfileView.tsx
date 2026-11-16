@@ -60,6 +60,8 @@ export function ProfileView() {
             <dd>
               {a.position} · {ARCHETYPE_INFO[a.archetype].label}
             </dd>
+            <dt className="text-ink-400">Age</dt>
+            <dd>{a.age}</dd>
             <dt className="text-ink-400">Height</dt>
             <dd>{formatHeight(a.heightIn)}</dd>
             <dt className="text-ink-400">Hometown</dt>

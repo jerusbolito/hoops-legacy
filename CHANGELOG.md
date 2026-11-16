@@ -37,6 +37,10 @@ Only the big things: new systems, engine changes, and anything that changes how 
 - **Record books.** Under Stats, Records keeps the top ten for points, rebounds, assists, steals, blocks and threes in a single game, and for a season (totals, plus points, rebounds and assists per game). Every player in the league counts, not only you. Browse high school, college, pro or all leagues together; your own marks are highlighted.
 - **Career highs.** The Player tab shows your best night and best season in each category, with a badge when one made the record books. Older saves rebuild your marks from your game log.
 
+### Fixes
+- **Age on every card.** A player's age now shows on their card (school players showed only their class), on your trading card, and in your Bio on the Player tab.
+- **Memory page.** Long facts wrap inside their box instead of running out of it, and the engine's own bookkeeping (like the All-Star id lists) no longer shows up as things the narrator was told.
+
 ## 1.1.0
 
 ### A living league

@@ -38,9 +38,9 @@ function Body({ card }: { card: AthleteCard }) {
             ))}
           </div>
           <div className="text-sm text-ink-300">
-            {card.position} · {card.archetype} · {card.height} · {card.classText}
+            {[card.position, card.archetype, card.height, card.ageText, card.classText].filter(Boolean).join(' · ')}
           </div>
-          <div className="mt-1 flex items-center gap-2 text-sm text-ink-400">
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-ink-400">
             {card.team ? (
               <>
                 <TeamBadge team={card.team} size={22} />

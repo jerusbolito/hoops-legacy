@@ -37,6 +37,9 @@ export interface AthleteCard {
   position: string;
   archetype: string;
   age: number;
+  /** "Age 17", always shown. */
+  ageText: string;
+  /** School class ("Sophomore"); empty for pros, who have no class. */
   classText: string;
   height: string;
   ovr: number;
@@ -105,7 +108,8 @@ export function athleteCard(state: GameState, id: string): AthleteCard | null {
     position: a.position,
     archetype: ARCHETYPE_INFO[a.archetype].label,
     age: a.age,
-    classText: level === 'pro' ? `${a.age} years old` : classLabel(level, a.age),
+    ageText: `Age ${a.age}`,
+    classText: level === 'pro' ? '' : classLabel(level, a.age),
     height: formatHeight(a.heightIn),
     ovr: overall(a.ratings),
     pot: a.potential,
