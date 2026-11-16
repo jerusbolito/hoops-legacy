@@ -32,7 +32,7 @@ export function RecruitingView() {
   const suitors = [...r.suitors].sort((a, b) => b.interest - a.interest);
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_380px]">
       <div className="space-y-5">
         <Panel title={level === 'pro' ? 'Free agents you want' : 'Players you want'} right={<Points n={r.points} />}>
           <p className="mb-3 text-sm text-ink-400">
@@ -63,7 +63,7 @@ export function RecruitingView() {
                       {risk && <Pill color={risk.color}>{risk.label}</Pill>}
                     </div>
                     {risk && <p className="mt-1 text-xs text-ink-500">{risk.note}</p>}
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <Meter label="Sold on you" value={t.pull} color="var(--color-win)" />
                       <div className="space-y-1.5">
                         {t.rivals.map((rv) => (
@@ -75,7 +75,7 @@ export function RecruitingView() {
                         ))}
                       </div>
                     </div>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-4">
                       {RECRUIT_ACTIONS.map((x) => {
                         const blocked = !open || r.points < 1 || (x.id === 'perks' && game.player.money < price) || (x.id === 'hype' && game.player.followers < 100) || (x.id === 'visit' && game.player.energy < 12);
                         return (

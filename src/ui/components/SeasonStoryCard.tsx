@@ -19,7 +19,7 @@ export function SeasonStoryCard({ story, colors, player }: { story: SeasonStory;
         {story.shot.total > 0 && (
           <section>
             <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-ink-400 uppercase">Where you scored</h3>
-            <div className="grid items-start gap-4 sm:grid-cols-[1fr_1fr]">
+            <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-[1fr_1fr]">
               <div>
                 <ShotChart zones={story.shot.zones} total={story.shot.total} />
                 <div className="mt-2">

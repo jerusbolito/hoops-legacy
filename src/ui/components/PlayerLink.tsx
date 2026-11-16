@@ -6,7 +6,7 @@ import { cx } from './ui';
 export function PlayerLink({ id, children, className }: { id: string; children: React.ReactNode; className?: string }) {
   const open = useStore((s) => s.openCard);
   return (
-    <button type="button" onClick={() => open(id)} className={cx('cursor-pointer underline decoration-dotted underline-offset-2 hover:decoration-solid', className)}>
+    <button type="button" onClick={() => open(id)} className={cx("relative cursor-pointer underline decoration-dotted underline-offset-2 before:absolute before:-inset-x-1 before:-inset-y-2 before:content-[''] hover:decoration-solid", className)}>
       {children}
     </button>
   );

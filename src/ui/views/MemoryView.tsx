@@ -73,7 +73,7 @@ export function MemoryView() {
         {showPrompt && <pre className="mt-3 max-h-96 overflow-auto rounded-lg bg-court-950 p-3 text-xs leading-relaxed whitespace-pre-wrap text-ink-300 scrollbar-thin">{fullContext(game, [])}</pre>}
       </Panel>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <div className="space-y-5">
           <Panel title="Long-term memory" right={<Pill color="#22c55e">never forgotten</Pill>}>
             <div className="space-y-5">

@@ -38,7 +38,7 @@ export function RecruitingPanel() {
       {!offers ? (
         <Spinner label="Coaches are calling…" />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {offers.map((o, i) => (
             <motion.div key={o.name} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} className="rounded-xl border border-court-600 bg-court-800/50 p-4">
               <div className="flex items-center gap-3">
@@ -114,7 +114,7 @@ export function FreeAgencyPanel() {
       {!offers ? (
         <Spinner />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {offers.map((o) => (
             <div key={o.teamName} className="rounded-xl border border-court-600 bg-court-800/50 p-4">
               <div className="font-display text-lg font-semibold">
@@ -213,7 +213,7 @@ export function RetiredPanel() {
         {game.player.awards.length === 0 ? (
           <p className="text-sm text-ink-500">No hardware, but you made it.</p>
         ) : (
-          <ul className="grid gap-2 sm:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {game.player.awards.map((x, i) => (
               <li key={i} className="flex items-center gap-2 text-sm">
                 🏆 <span>{x.name}</span>

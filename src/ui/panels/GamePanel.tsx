@@ -240,14 +240,17 @@ function LiveGame() {
     <div className="space-y-4">
       {/* Scoreboard */}
       <motion.div animate={intro ? { x: [0, -8, 8, -6, 6, -3, 0] } : { x: 0 }} transition={{ duration: 0.5 }} className="hardwood overflow-hidden rounded-xl border border-court-700 bg-court-950">
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 py-4">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-3 sm:px-4 sm:py-4">
           {[away, home].map((t, i) => (
-            <div key={t.id} className={cx('flex items-center gap-3', i === 1 && 'order-3 flex-row-reverse text-right')}>
+            <div key={t.id} className={cx('flex min-w-0 items-center gap-2 sm:gap-3', i === 1 && 'order-3 flex-row-reverse text-right')}>
               <TeamBadge team={t} size={48} />
               <div>
-                <div className="font-display text-sm text-ink-400">{t.name}</div>
+                <div className="font-display text-sm text-ink-400">
+                  <span className="sm:hidden">{t.abbrev}</span>
+                  <span className="hidden sm:inline">{t.name}</span>
+                </div>
                 <div className="relative w-fit">
-                  <motion.div key={i === 0 ? sc.away : sc.home} initial={{ scale: 1.25, color: '#fb923c' }} animate={{ scale: 1, color: '#eef2f8' }} className="font-mono text-4xl font-semibold">
+                  <motion.div key={i === 0 ? sc.away : sc.home} initial={{ scale: 1.25, color: '#fb923c' }} animate={{ scale: 1, color: '#eef2f8' }} className="font-mono text-3xl font-semibold sm:text-4xl">
                     {i === 0 ? sc.away : sc.home}
                   </motion.div>
                   <ScorePop score={i === 0 ? sc.away : sc.home} side={i === 0 ? 'left' : 'right'} />
@@ -255,26 +258,27 @@ function LiveGame() {
               </div>
             </div>
           ))}
-          <div className="order-2 rounded-lg border border-court-700 bg-black/50 px-4 py-2 text-center">
+          <div className="order-2 rounded-lg border border-court-700 bg-black/50 px-3 py-2 text-center sm:px-4">
             <div className="font-display text-xs tracking-widest text-hoop-400">{sim.final ? 'FINAL' : sc.quarter > 4 ? `OT${sc.quarter - 4}` : `Q${sc.quarter}`}</div>
             <div className="font-mono text-2xl text-amber-300">{formatClock(sc.clock)}</div>
           </div>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-court-800 px-4 py-2 text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-3 border-t border-court-800 px-3 py-2 text-xs sm:px-4">
           <span className="font-mono text-ink-300">
             {ul ? `YOU: ${ul.pts} PTS · ${ul.orb + ul.drb} REB · ${ul.ast} AST · ${ul.fgm}-${ul.fga} FG · ${Math.round(ul.sec / 60)} MIN` : 'You are not playing.'}
             {sim.userOnCourt() ? <span className="ml-2 text-win">● on court</span> : <span className="ml-2 text-ink-500">● bench</span>}
             {streak === 'hot' && <span className="ml-2 rounded-full bg-hoop-500/20 px-2 py-0.5 font-sans font-semibold text-hoop-400">🔥 heating up: 3 straight makes</span>}
             {streak === 'cold' && <span className="ml-2 rounded-full bg-sky-500/20 px-2 py-0.5 font-sans font-semibold text-sky-400">🧊 cold: 4 straight misses</span>}
           </span>
-          <div className="flex gap-1">
+          <div className="flex gap-1.5 sm:gap-1">
             {SPEEDS.map((s, i) => (
-              <button key={i} onClick={() => setSpeed(i)} className={cx('rounded px-2 py-0.5', i === speed ? 'bg-hoop-500 text-white' : 'text-ink-400 hover:bg-court-700')}>
+              <button key={i} onClick={() => setSpeed(i)} className={cx('min-w-10 rounded px-3 py-2.5 sm:min-w-0 sm:px-2 sm:py-0.5', i === speed ? 'bg-hoop-500 text-white' : 'bg-court-800/60 text-ink-300 hover:bg-court-700 sm:bg-transparent sm:text-ink-400')}>
                 {s.label}
               </button>
             ))}
-            <button onClick={skip} className="rounded px-2 py-0.5 text-ink-400 hover:bg-court-700" disabled={!!moment || final}>
-              Skip to next moment
+            <button onClick={skip} className="rounded bg-court-800/60 px-3 py-2.5 text-ink-300 hover:bg-court-700 disabled:opacity-40 sm:bg-transparent sm:px-2 sm:py-0.5 sm:text-ink-400" disabled={!!moment || final}>
+              <span className="sm:hidden">Skip ⏭</span>
+              <span className="hidden sm:inline">Skip to next moment</span>
             </button>
           </div>
         </div>
@@ -329,8 +333,8 @@ function LiveGame() {
         </div>
       </motion.div>
 
-      <div className="grid gap-4 md:grid-cols-[1fr_300px]">
-        <div ref={feedRef} className="h-[300px] overflow-y-auto rounded-xl border border-court-700 bg-court-850/80 p-3 font-mono text-xs scrollbar-thin">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_300px]">
+        <div ref={feedRef} className="h-[170px] overflow-y-auto rounded-xl border border-court-700 bg-court-850/80 p-3 font-mono text-xs scrollbar-thin md:h-[300px]">
           {sim.feed.slice(-120).map((e, i) => (
             <div key={i} className={cx('flex gap-2 py-0.5', e.user ? 'text-hoop-400' : e.scoring ? 'text-ink-100' : 'text-ink-400', /End of|Final|overtime/.test(e.text) && 'my-1 border-y border-court-700 py-1 text-center text-ink-300')}>
               <span className="w-14 shrink-0 text-ink-500">
@@ -345,7 +349,7 @@ function LiveGame() {
             </div>
           ))}
         </div>
-        <div className="relative">
+        <div className="relative order-first mx-auto w-full max-w-[300px] md:order-none md:max-w-none">
           <Court events={sim.feed} color={userTeamColor} animate={speed < 2} />
           <AnimatePresence>
             {callout && (
@@ -384,8 +388,8 @@ function MomentCard({ moment, onPick }: { moment: KeyMoment; onPick: (id: string
   // on phones the report starts collapsed so the choices stay in view; on larger screens it sits beside them
   const wide = typeof window !== 'undefined' && window.matchMedia?.('(min-width: 768px)').matches;
   return (
-    <motion.div initial={{ opacity: 0, y: 20, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }} className="fixed inset-0 z-40 flex items-end justify-center overflow-y-auto bg-black/60 p-3 backdrop-blur-sm sm:items-center sm:p-4">
-      <div className={cx('my-auto w-full rounded-2xl border bg-court-850 p-5 shadow-2xl', moment.intel ? 'max-w-4xl' : 'max-w-xl', moment.clutch ? 'border-gold/60 shadow-gold/10' : 'border-hoop-500/50')}>
+    <motion.div initial={{ opacity: 0, y: 20, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }} className="fixed inset-0 z-40 flex items-end justify-center overflow-y-auto bg-black/60 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:items-center sm:p-4">
+      <div className={cx('mt-auto w-full rounded-2xl border bg-court-850 p-4 shadow-2xl sm:my-auto sm:p-5', moment.intel ? 'max-w-4xl' : 'max-w-xl', moment.clutch ? 'border-gold/60 shadow-gold/10' : 'border-hoop-500/50')}>
         <div className="mb-1 flex items-center gap-2">
           <Pill color={moment.clutch ? '#fbbf24' : '#f97316'}>{moment.clutch ? 'Clutch moment' : 'Key moment'}</Pill>
           {moment.isRival && <Pill color="#ef4444">Rival</Pill>}
@@ -546,7 +550,7 @@ function PostGame() {
       <AfterGame report={report} />
       {post.highlight && (
         <Panel title="Play of the game" right={<Pill color="#fbbf24">{post.highlight.tag}</Pill>}>
-          <div className="grid items-center gap-4 sm:grid-cols-[1fr_230px]">
+          <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-[1fr_230px]">
             <div>
               <div className="font-mono text-xs text-ink-400">
                 {post.highlight.quarter > 4 ? `OT${post.highlight.quarter - 4}` : `Q${post.highlight.quarter}`} {formatClock(post.highlight.clock)} · {post.highlight.away}-{post.highlight.home}

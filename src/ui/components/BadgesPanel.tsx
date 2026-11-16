@@ -12,7 +12,7 @@ export function BadgesPanel() {
       <p className="mb-3 text-xs text-ink-400">
         {earned} of {all.length} earned. Badges come from your ratings plus what you have actually done on the court. Some add a signature move to key moments.
       </p>
-      <ul className="grid gap-3 sm:grid-cols-2">
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {all.map(({ def, reqs, progress, unlocked, ready }) => (
           <li key={def.id} className={cx('rounded-lg border p-3', unlocked ? 'border-gold/50 bg-gold/5' : 'border-court-700 bg-court-850/60')}>
             <div className="flex items-center gap-2">

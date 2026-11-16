@@ -23,12 +23,12 @@ export function LeagueView() {
   const myGames = game.league.schedule.filter((g) => !g.playoffRound && (g.homeId === game.career.teamId || g.awayId === game.career.teamId));
 
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
       <Panel title="Around the league" className="lg:col-span-2" right={<span className="text-xs text-ink-500">{game.transactions.length} moves logged</span>}>
         {game.transactions.length === 0 ? (
           <p className="text-sm text-ink-500">Nobody has moved yet. Transfers and trades happen as seasons turn.</p>
         ) : (
-          <ul className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
             {[...game.transactions].reverse().slice(0, 10).map((t, i) => (
               <li key={i} className="border-l-2 border-court-600 pl-2 text-ink-300">
                 <span className="mr-1.5 font-mono text-[10px] text-ink-500">S{t.season}W{t.week}</span>

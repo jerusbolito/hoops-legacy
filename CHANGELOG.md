@@ -16,6 +16,12 @@ Only the big things: new systems, engine changes, and anything that changes how 
 - **Look and build.** Choose your skin tone, hair, jersey number and build. Your face is yours everywhere in the game, and a lean or strong build moves a few ratings around.
 - **Every choice has a price**, shown on the card before you pick it, with a running summary of what your mix does. Sixteen new moments and the story itself are built around who you chose to be.
 
+### Made for your phone
+- **A bottom tab bar** with the four tabs you use most and a More sheet for the rest (People, Money, Recruiting and so on), plus sound, calm mode, AI settings and save and quit. The wide-screen tab strip is unchanged.
+- **A much shorter header** on a phone, and it scrolls away instead of following you down the page.
+- **The live game fits the screen.** A compact scoreboard, real-size speed and skip buttons, the court first and the play-by-play under it, and nothing else on the page. Key moments and life events now come up from the bottom, where your thumb is.
+- **Fixed pages that scrolled sideways** (the People tab was wider than the screen), bigger tap targets for names, buttons and the look pickers, back issues of the paper as a swipeable strip, and room for the notch and home bar.
+
 ### The paper remembers
 - **Milestones and streaks.** Career-point and rebound milestones, career nights, first double- and triple-doubles, win and cold streaks, and goals coming into view, each told once the week it happens.
 - **From the archives.** Anniversaries of old titles, and how an heir is doing against the parent's career.

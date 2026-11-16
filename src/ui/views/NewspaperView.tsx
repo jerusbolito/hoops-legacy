@@ -48,7 +48,7 @@ function Paper({ issue }: { issue: Issue }) {
         <>
           <Rule />
           <h4 className="mb-2 text-center text-xs font-bold tracking-[0.25em] uppercase">Scoreboard</h4>
-          <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
             {issue.scoreboard.map((g, i) => (
               <div key={i} className={cx('border border-[#1c1a17]/40 px-2 py-1.5', g.you && 'bg-[#e9dfc2] font-semibold')}>
                 {g.round && <div className="text-[10px] uppercase tracking-widest text-[#6b6455]">{g.round}</div>}
@@ -67,7 +67,7 @@ function Paper({ issue }: { issue: Issue }) {
       )}
 
       <Rule />
-      <div className="grid gap-8 lg:grid-cols-[1.4fr_1fr]">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.4fr_1fr]">
         <div className="space-y-5">
           {left.map((s) => (
             <section key={s.id}>
@@ -154,11 +154,22 @@ export function NewspaperView() {
   const current = issues.find((i) => i.id === pick) ?? issues[issues.length - 1];
   const archive = [...issues].reverse();
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_220px]">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_220px]">
       <Paper issue={current} />
-      <aside className="space-y-2">
+      <aside className="order-first min-w-0 space-y-2 lg:order-none">
         <h3 className="text-[11px] font-semibold tracking-widest text-ink-500 uppercase">Back issues</h3>
-        <ul className="max-h-[70vh] space-y-1 overflow-y-auto pr-1">
+        <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-thin lg:hidden" aria-label="Back issues">
+          {archive.map((i) => (
+            <li key={i.id} className="shrink-0">
+              <button onClick={() => setPick(i.id)} aria-current={i.id === current.id ? 'true' : undefined} className={cx('flex min-h-11 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold whitespace-nowrap', i.id === current.id ? 'border-hoop-500 bg-hoop-500/10 text-ink-100' : 'border-court-700 text-ink-400')}>
+                <span aria-hidden>{KIND[i.kind].icon}</span>
+                {i.kind === 'weekly' ? `Wk ${i.week}` : KIND[i.kind].label}
+                <span className="font-mono text-[10px] text-ink-500">S{i.season}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+        <ul className="hidden max-h-[70vh] space-y-1 overflow-y-auto pr-1 lg:block">
           {archive.map((i) => (
             <li key={i.id}>
               <button onClick={() => setPick(i.id)} className={cx('w-full rounded-md border px-2 py-1.5 text-left text-xs transition-colors', i.id === current.id ? 'border-hoop-500 bg-hoop-500/10' : 'border-court-700 hover:border-court-500')}>

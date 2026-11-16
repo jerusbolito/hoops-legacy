@@ -23,7 +23,7 @@ export function MediaView() {
   const dealIncome = p.deals.reduce((a, d) => a + d.perSeason * (1 - d.commission), 0);
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_380px]">
       <Panel title="Your feed" right={<span className="text-xs text-ink-400">{p.followers.toLocaleString()} followers</span>}>
         {feed.length === 0 ? (
           <p className="text-sm text-ink-500">Nothing yet. Play some games and people will start talking.</p>

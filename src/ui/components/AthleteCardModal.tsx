@@ -94,7 +94,7 @@ function Body({ card }: { card: AthleteCard }) {
 
       <section>
         <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-ink-500 uppercase">Ratings{card.isYou ? '' : ' (compared with yours)'}</h3>
-        <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
           {card.ratings.map((x) => (
             <div key={x.key} className="flex items-center gap-2">
               <div className="flex-1">
@@ -145,7 +145,7 @@ function Shell({ card, onClose }: { card: AthleteCard; onClose: () => void }) {
     <motion.div role="dialog" aria-modal="true" aria-label={card.name} className="fixed inset-0 z-[54] flex items-start justify-center overflow-y-auto bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
       <motion.div initial={{ y: 24, scale: 0.97 }} animate={{ y: 0, scale: 1 }} onClick={(e) => e.stopPropagation()} className="my-auto w-full max-w-3xl rounded-2xl border border-court-600 bg-court-850 p-5 shadow-2xl">
         <div className="mb-3 flex justify-end">
-          <button onClick={onClose} className="rounded-md px-2 py-1 text-ink-400 hover:bg-court-700 hover:text-ink-100" aria-label="Close">
+          <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-md text-ink-400 hover:bg-court-700 hover:text-ink-100" aria-label="Close">
             ✕
           </button>
         </div>

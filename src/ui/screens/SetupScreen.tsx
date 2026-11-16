@@ -155,7 +155,7 @@ export function SetupScreen() {
           )}
 
           {preset.kind !== 'mock' && presetId !== 'bundled' && (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Base URL">
                 <input className={inputCls} value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://…/v1" />
               </Field>

@@ -44,7 +44,7 @@ export function RelationshipsView() {
   const sel = selected ? game.npcs[selected] : npcs[0];
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_380px]">
       <Panel
         title="Your people"
         right={
@@ -53,7 +53,7 @@ export function RelationshipsView() {
           </label>
         }
       >
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {npcs.map((n) => (
             <button
               key={n.id}

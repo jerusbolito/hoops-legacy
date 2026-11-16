@@ -32,7 +32,7 @@ export function Button({ variant = 'primary', className, children, ...rest }: Bu
   };
   return (
     <button
-      className={cx('inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed', styles[variant], className)}
+      className={cx('inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed sm:min-h-0', styles[variant], className)}
       {...rest}
     >
       {children}

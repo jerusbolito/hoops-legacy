@@ -169,7 +169,7 @@ function ContractPanel() {
         </div>
       )}
       {st.can && st.counter === null && (
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
           {(Object.keys(STANCE) as Stance[]).map((s) => (
             <button key={s} disabled={live} onClick={() => ask(s)} className="rounded-lg border border-court-600 bg-court-800/50 p-3 text-left hover:border-hoop-500">
               <div className="text-sm font-semibold">{STANCE[s].label}</div>
@@ -201,7 +201,7 @@ export function MoneyView() {
   const regular = game.career.phase === 'regular';
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_400px]">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_400px]">
       <div className="space-y-5">
         <Panel title="Your money">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -227,7 +227,7 @@ export function MoneyView() {
           {!regular && <p className="mt-2 text-xs text-ink-500">Pay only comes in during the regular season.</p>}
         </Panel>
 
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <Panel title={`Season ${game.career.season}`}>
             <Ledger title="So far" line={f} />
           </Panel>

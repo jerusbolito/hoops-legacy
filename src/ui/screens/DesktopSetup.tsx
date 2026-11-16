@@ -473,7 +473,7 @@ export function DesktopSetup() {
           {advanced && (
             <Panel className="text-left">
               <div className="space-y-4">
-                <div role="radiogroup" aria-label="Where the stories come from" className="grid gap-2 sm:grid-cols-2">
+                <div role="radiogroup" aria-label="Where the stories come from" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {(
                     [
                       ['bundled', 'Built-in model', 'The game runs its own model. Nothing else to install.'],

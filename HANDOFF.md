@@ -15,7 +15,7 @@ A basketball career RPG in TypeScript: a player goes high school → college →
 - Commands: `npm run typecheck` (app + desktop), `npx vitest run` (about 360 tests, ~40 s), `npx vite build`, `npm run dev`. Always run typecheck and the full suite before calling something done.
 - **Do not commit unless the user asks.** Nothing from the recent work has been committed.
 - Use they/them for anyone whose pronouns are not stated. Avoid gendered pronouns in game text (the player's gender is not chosen).
-- The user wants honesty about what was and was not verified. There is no browser available in the agent environment: UI is checked with server-render tests (`src/ui/screens.test.ts`), not by eye. Say so.
+- The user wants honesty about what was and was not verified. Most UI is checked with server-render tests (`src/ui/screens.test.ts`). A real browser CAN be driven here: Edge is installed, and `puppeteer-core` (in a scratch folder, not the repo) can screenshot the app at phone size; see "Mobile layout". Say which of the two you used.
 
 ## Architecture in one page
 
@@ -79,7 +79,19 @@ Uncommitted, tested (about 375 tests) and typechecks. Added after the roadmap:
 - **Release note:** the 1.2.0 entry is in `CHANGELOG.md` (shown in-app as "What's new") and `package.json` is at 1.2.0. `changelog.test.ts` requires the two to match, so bump them together.
 - **Not done / ideas:** a daily-seed challenge and leaderboard (needs a backend); coaching career after retirement; sharing a legend as an image; a "retired number" trophy room in the world; the Hall of Fame is local to the device (no export), so it does not follow a player between the website and the desktop app. The UI was render-tested only, never viewed in a browser.
 
-## Character origin (newest)
+## Mobile layout (newest)
+
+Uncommitted, tested (about 395 tests) and typechecks. Below the `lg` breakpoint (1024px, so phones AND tablets) the game uses a phone layout; wide screens are unchanged.
+
+- **Navigation:** `components/MobileNav.tsx` is a fixed bottom bar (Week, Player, League, Paper, More) with a bottom sheet for the other tabs and the settings buttons. The tab list is shared in `screens/tabs.ts` (`TABS`, `PRIMARY_TABS`). The top tab strip and the icon buttons are `hidden lg:flex`. The bar hides itself during a live game (`store.live`). The More button keeps a constant label on purpose (an earlier version showed the current tab's name and made More hard to find).
+- **Header:** `GameShell.tsx` reorders with `order-*` classes on phones (avatar and money, then team, then meters) and is only sticky at `lg`.
+- **Live game:** `HubView` hides the whole sidebar while `live` or `post` on phones (the page went from about 3,200px tall to under 1,000px). `GamePanel.tsx`: abbreviations in the scoreboard, 40px speed and skip buttons, court above a short play-by-play. Decision pop-ups (`MomentCard`, `LifeEventModal`, `EventModal`) use `mt-auto sm:my-auto` so they sit at the bottom of the screen. Do not put `my-auto` back: auto margins override `items-end`.
+- **The overflow bug:** a grid like `grid lg:grid-cols-[1fr_380px]` has an auto-sized single column below `lg`, and one long unbreakable line widened the whole page (the People tab was 509px wide on a 390px phone). Every such grid now has `grid-cols-1`; `mobile.test.ts` scans every `.tsx` so a new one cannot slip in.
+- **Global CSS** (`index.css`, `index.html`): `viewport-fit=cover`, safe-area padding on the bar and sheets, 16px form fields on phones (stops iOS zooming on focus), `touch-action: manipulation`, no fixed background on small screens, `overscroll-behavior-y: contain`. `Button` is `min-h-11` below `sm`. `PlayerLink` has an invisible `before:` pseudo-element that enlarges its tap area, so an audit that measures element boxes still reports those links as small; they are fine.
+- **How it was checked (repeatable):** a headless Edge at 390x844 with touch, driven by `puppeteer-core` installed in a scratch folder OUTSIDE the repo (Edge is at `C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe`). Recipe: run `vite --port 5199`; set `localStorage['hoops.llm']` to `{presetId:'mock',kind:'mock',baseUrl:'',apiKey:'',model:'mock'}` before load (the offline mock provider skips AI setup); write saves from the engine with `playUntil` (a throwaway vitest file, like the one used for the Hall of Fame) and upload them through the title screen's `input[type=file]`; then tap through the app, take screenshots and measure `scrollWidth` against the viewport. Key moments fire within about 2s of tip-off, so hide `.fixed.inset-0.z-40` with an injected style to photograph the scoreboard behind one.
+- **Not done / ideas:** a sticky mini score strip while a key moment is open; collapsing the long hub sidebar into accordions between games; landscape-specific layout for the live game; a swipe between tabs; the title screen's save list still draws faces from names.
+
+## Character origin
 
 Uncommitted, tested (about 390 tests) and typechecks.
 
@@ -166,7 +178,7 @@ See the README "Tuning the game" table. The main ones: `lifeChance()` and `DEFS`
 
 ## Known limitations and honest gaps
 
-- UI was never viewed in a real browser by the agent; only render-tested.
+- Most UI is only render-tested. The phone layout was also checked in a real headless Edge at 390px (see "Mobile layout"); other screens and widths were not.
 - League trades and signings are simple one-for-one swaps and pool picks.
 - Numbers (pay, event frequency, odds) are untuned.
 - LLM narration of the new engine-written systems is not yet wired (see roadmap I).

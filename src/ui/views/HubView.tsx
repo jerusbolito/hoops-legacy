@@ -39,7 +39,7 @@ export function HubView() {
   const showSteps = ['regular', 'playoffs'].includes(c.phase) && !live && !post;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
       <div className="min-w-0 space-y-4">
         {academics.applies && (!academics.eligible || academics.warning) && ['regular', 'playoffs', 'offseason', 'preseason'].includes(c.phase) && (
           <div role="alert" className={cx('rounded-lg border px-4 py-2.5 text-sm', academics.eligible ? 'border-gold/40 bg-gold/10 text-gold' : 'border-loss/50 bg-loss/10 text-loss')}>
@@ -64,7 +64,10 @@ export function HubView() {
         {lastTraining && c.step === 'scene' && !live && !post && c.phase !== 'recruiting' && <TrainingResultCard result={lastTraining} ratings={userAthlete(game).ratings} />}
         {main}
       </div>
-      <Sidebar />
+      {/* the standings, headlines and goals are for between games: during one, a phone shows only the game */}
+      <div className={cx('min-w-0', (live || post) && 'hidden lg:block')}>
+        <Sidebar />
+      </div>
     </div>
   );
 }

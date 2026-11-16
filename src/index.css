@@ -30,6 +30,39 @@ body,
   height: 100%;
 }
 
+html {
+  /* a phone must not resize text on its own when it turns sideways */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Phones and tablets: no double-tap zoom delay or grey flash on tap, no pull-to-refresh in the middle of a game, no zoom when a field is focused */
+button,
+a,
+summary,
+select,
+label,
+[role='button'] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  overscroll-behavior-y: contain;
+}
+@media (max-width: 1023px) {
+  /* a fixed background repaints on every scroll on a phone, and iOS ignores it anyway */
+  body {
+    background-attachment: scroll;
+  }
+}
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 body {
   background:
     radial-gradient(1200px 600px at 50% -10%, rgba(249, 115, 22, 0.08), transparent 60%),

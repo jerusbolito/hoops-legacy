@@ -8,8 +8,8 @@ const STYLES: Style[] = ['safe', 'balanced', 'risky'];
 
 function Shell({ title, icon, onClose, children }: { title: string; icon: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <motion.div role="dialog" aria-modal="true" aria-label={title} className="fixed inset-0 z-[55] flex items-start justify-center overflow-y-auto bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-      <motion.div initial={{ y: 24, scale: 0.97 }} animate={{ y: 0, scale: 1 }} className="my-auto w-full max-w-2xl rounded-2xl border border-court-600 bg-court-850 shadow-2xl">
+    <motion.div role="dialog" aria-modal="true" aria-label={title} className="fixed inset-0 z-[55] flex items-end justify-center overflow-y-auto bg-black/70 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:items-center sm:p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <motion.div initial={{ y: 24, scale: 0.97 }} animate={{ y: 0, scale: 1 }} className="mt-auto w-full max-w-2xl rounded-2xl border border-court-600 bg-court-850 shadow-2xl sm:my-auto">
         <div className="flex items-center gap-3 border-b border-court-700 px-5 py-3">
           <span className="text-2xl">{icon}</span>
           <h2 className="flex-1 font-display text-lg font-semibold">{title}</h2>
@@ -96,7 +96,7 @@ function ContestFlow({ c, mean }: { c: ContestState; mean: number }) {
             <p className="mb-3 text-xs text-ink-400">
               You are rated {me.rating} (the rest of the field averages {fieldAvg}). {advice}
             </p>
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {STYLES.map((s) => (
                 <button key={s} onClick={() => play(s)} className="rounded-lg border border-court-600 bg-court-800/50 p-3 text-left transition-colors hover:border-hoop-500">
                   <div className="font-semibold">{style[s].name}</div>
@@ -131,7 +131,7 @@ function CombineFlow({ res }: { res: CombineResult | null }) {
       {!res ? (
         <div className="space-y-4">
           <p className="text-sm text-ink-300">Every front office is in the building. Five stations: a sprint, a vertical, a shooting drill, lane agility, and team interviews. How do you want to approach it?</p>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <button onClick={() => run('steady')} className="rounded-lg border border-court-600 bg-court-800/50 p-3 text-left hover:border-hoop-500">
               <div className="font-semibold">Steady</div>
               <div className="mt-1 text-xs text-ink-400">Show who you are. Consistent results, no big swings.</div>

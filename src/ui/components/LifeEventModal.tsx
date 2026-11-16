@@ -23,8 +23,8 @@ function Moment({ view, outcome }: { view: LifeEventView | null; outcome: LifeOu
   if (!shown) return null;
   const tone = view ? TONE[view.tone] : TONE.odd;
   return (
-    <motion.div role="dialog" aria-modal="true" aria-label={shown.title} className="fixed inset-0 z-[52] flex items-start justify-center overflow-y-auto bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-      <motion.div initial={{ y: 24, scale: 0.97 }} animate={{ y: 0, scale: 1 }} className={cx('my-auto w-full max-w-xl rounded-2xl border bg-court-850 shadow-2xl', outcome ? 'border-court-600' : tone.border)}>
+    <motion.div role="dialog" aria-modal="true" aria-label={shown.title} className="fixed inset-0 z-[52] flex items-end justify-center overflow-y-auto bg-black/70 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:items-center sm:p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <motion.div initial={{ y: 24, scale: 0.97 }} animate={{ y: 0, scale: 1 }} className={cx('mt-auto w-full max-w-xl rounded-2xl border bg-court-850 shadow-2xl sm:my-auto', outcome ? 'border-court-600' : tone.border)}>
         <div className="flex items-center gap-3 border-b border-court-700 px-5 py-3">
           <span className="text-2xl">{shown.icon}</span>
           <h2 className="flex-1 font-display text-lg font-semibold">{shown.title}</h2>

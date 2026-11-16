@@ -3,10 +3,12 @@ import { getDesktop } from '../../desktop/bridge';
 import { userAthlete, userRole, userTeam } from '../../engine/career';
 import { overall } from '../../engine/ratings';
 import { usePrefs } from '../../state/prefs';
-import { useStore, type Tab } from '../../state/store';
+import { useStore } from '../../state/store';
 import { motion } from 'framer-motion';
 import { useRef } from 'react';
 import { Avatar, Button, Meter, TeamBadge, cx } from '../components/ui';
+import { MobileNav } from '../components/MobileNav';
+import { TABS } from './tabs';
 import { RevealOverlay } from '../components/RevealOverlay';
 import { AnalyticsView } from '../views/AnalyticsView';
 import { HubView } from '../views/HubView';
@@ -23,20 +25,6 @@ import { LeagueView } from '../views/LeagueView';
 import { ProfileView } from '../views/ProfileView';
 import { RelationshipsView } from '../views/RelationshipsView';
 import { StoryView } from '../views/StoryView';
-
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'hub', label: 'This Week', icon: '📅' },
-  { id: 'profile', label: 'Player', icon: '⛹️' },
-  { id: 'relationships', label: 'People', icon: '🤝' },
-  { id: 'league', label: 'League', icon: '🏆' },
-  { id: 'paper', label: 'Newspaper', icon: '📰' },
-  { id: 'analytics', label: 'Analytics', icon: '📊' },
-  { id: 'media', label: 'Media', icon: '📱' },
-  { id: 'money', label: 'Money', icon: '💰' },
-  { id: 'recruiting', label: 'Recruiting', icon: '🎯' },
-  { id: 'story', label: 'Story', icon: '📖' },
-  { id: 'memory', label: 'Memory', icon: '🧠' },
-];
 
 /** Short money for the header: $850, $12K, $3.2M. */
 const shortMoney = (n: number) => (n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e4 ? `$${(n / 1e3).toFixed(0)}K` : `$${Math.round(n).toLocaleString()}`);
@@ -92,9 +80,9 @@ export function GameShell() {
 
   return (
     <div className="flex min-h-full flex-col">
-      <header className="hardwood sticky top-0 z-30 border-b border-court-700 bg-court-900/90 backdrop-blur" style={{ boxShadow: `inset 0 -2px 0 ${team.colors[0]}` }}>
+      <header className="hardwood top-0 z-30 border-b border-court-700 bg-court-900/90 backdrop-blur lg:sticky" style={{ boxShadow: `inset 0 -2px 0 ${team.colors[0]}` }}>
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-5 gap-y-2 px-4 py-2.5">
-          <div className="flex items-center gap-3">
+          <div className="order-1 flex min-w-0 flex-1 items-center gap-3 lg:order-none lg:flex-none">
             <Avatar name={`${a.firstName} ${a.lastName}`} size={44} ring={team.colors[0]} colors={team.colors} mood="happy" />
             <div>
               <div className="font-display text-lg leading-tight font-semibold">
@@ -106,7 +94,7 @@ export function GameShell() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="order-3 flex w-full items-center gap-2 lg:order-none lg:w-auto">
             <TeamBadge team={team} size={32} />
             <div className="text-xs leading-tight">
               <div className="font-semibold text-ink-100">
@@ -117,16 +105,16 @@ export function GameShell() {
               </div>
             </div>
           </div>
-          <div className="flex min-w-[260px] flex-1 items-center gap-4">
+          <div className="order-4 flex w-full items-center gap-3 lg:order-none lg:w-auto lg:min-w-[260px] lg:flex-1 lg:gap-4">
             <Meter className="flex-1" label="Energy" value={p.energy} color={p.energy < 35 ? 'var(--color-loss)' : '#38bdf8'} />
             <Meter className="flex-1" label="Morale" value={p.morale} color={p.morale < 35 ? 'var(--color-loss)' : 'var(--color-win)'} />
             <Meter className="flex-1" label="Rep" value={p.reputation} color="var(--color-gold)" />
           </div>
-          <button onClick={() => setTab('money')} title="Your money. Open the Money tab." className="rounded-md border border-court-700 px-2 py-1 font-mono text-xs text-gold hover:border-gold/60">
+          <button onClick={() => setTab('money')} title="Your money. Open the Money tab." className="order-2 min-h-10 rounded-md border border-court-700 px-3 font-mono text-xs text-gold hover:border-gold/60 lg:order-none lg:min-h-0 lg:px-2 lg:py-1">
             💰 {shortMoney(p.money)}
           </button>
-          {p.injury && <span className="rounded-md bg-loss/15 px-2 py-1 text-xs font-semibold text-loss">🩹 {p.injury.desc} · {p.injury.weeks}w</span>}
-          <div className="ml-auto flex gap-1">
+          {p.injury && <span className="order-5 rounded-md bg-loss/15 px-2 py-1 text-xs font-semibold text-loss lg:order-none">🩹 {p.injury.desc} · {p.injury.weeks}w</span>}
+          <div className="ml-auto hidden gap-1 lg:flex">
             <Button variant="ghost" title={prefs.sound ? 'Mute sound' : 'Turn sound on'} aria-pressed={prefs.sound} onClick={() => prefs.set({ sound: !prefs.sound })}>
               {prefs.sound ? '🔊' : '🔇'}
             </Button>
@@ -141,7 +129,7 @@ export function GameShell() {
             </Button>
           </div>
         </div>
-        <nav className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 scrollbar-thin">
+        <nav aria-label="Sections" className="mx-auto hidden max-w-7xl gap-1 overflow-x-auto px-4 scrollbar-thin lg:flex">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -155,7 +143,7 @@ export function GameShell() {
           ))}
         </nav>
       </header>
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:py-6 lg:pb-6">
         {tab === 'hub' && <HubView />}
         {tab === 'profile' && <ProfileView />}
         {tab === 'relationships' && <RelationshipsView />}
@@ -168,6 +156,7 @@ export function GameShell() {
         {tab === 'story' && <StoryView />}
         {tab === 'memory' && <MemoryView />}
       </main>
+      <MobileNav />
       {/* A pop-up that breaks closes itself and the game carries on, instead of taking the whole page down with it */}
       <ErrorBoundary resetKey={eventId} fallback={() => null} onError={() => closeBroken('event')}>
         <EventModal />

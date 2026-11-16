@@ -20,7 +20,7 @@ export function PressCard() {
             <span className="text-xs text-ink-500">{press.context}</span>
           </div>
           <p className="font-display text-lg leading-snug">"{press.question}"</p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
             {PRESS_OPTIONS.map((o) => (
               <button key={o.id} onClick={() => answer(o.id)} className="rounded-lg border border-court-600 bg-court-800/50 p-3 text-left transition-colors hover:border-hoop-500">
                 <div className="text-sm font-semibold">{o.label}</div>

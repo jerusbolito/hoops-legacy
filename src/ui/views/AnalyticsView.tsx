@@ -60,7 +60,7 @@ function MyGame() {
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]">
       <div className="min-w-0 space-y-5">
         <Panel
           title="Advanced stats"
@@ -115,7 +115,7 @@ function MyGame() {
         </Panel>
 
         <Panel title="Shot chart" right={<span className="text-xs text-ink-500">{shotData.total} shots</span>}>
-          <div className="grid items-start gap-4 sm:grid-cols-[1fr_240px]">
+          <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-[1fr_240px]">
             <div>
               <ShotChart zones={shotData.zones} total={shotData.total} />
               {shotData.total > 0 && (

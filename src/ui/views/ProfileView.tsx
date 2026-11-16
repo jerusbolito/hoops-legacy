@@ -28,7 +28,7 @@ export function ProfileView() {
       <CareerTimeline />
     </Panel>
     <FamilyTree game={game} />
-    <div className="grid gap-5 lg:grid-cols-[340px_1fr]">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[340px_1fr]">
       <div className="space-y-5">
         <Panel title="Ratings">
           <div className="flex justify-center">

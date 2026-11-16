@@ -88,7 +88,7 @@ export function GamePrep() {
       </Panel>
 
       <Panel title="Game plan" right={<span className="text-xs text-ink-500">free</span>}>
-        <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Game plan">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Game plan">
           {PLANS.map((p) => {
             const active = picked === p.id;
             const rec = scout.recommended === p.id;

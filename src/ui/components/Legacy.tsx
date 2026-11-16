@@ -202,7 +202,7 @@ export function HeirCard() {
   return (
     <Panel title="The next generation" className="border-hoop-500/40">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-[1_1_16rem]">
           <div className="font-display text-2xl font-bold">
             {a.firstName} {a.lastName}
           </div>
@@ -228,7 +228,7 @@ export function HeirCard() {
           </p>
         </div>
         <Button
-          className={cx('px-6 py-3 text-base')}
+          className={cx('w-full px-6 py-3 text-base sm:w-auto')}
           disabled={busy}
           onClick={async () => {
             setBusy(true);

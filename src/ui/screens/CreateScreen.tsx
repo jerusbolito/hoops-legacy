@@ -72,7 +72,7 @@ function Swatches({ colors, value, onPick, label }: { colors: string[]; value: n
           aria-checked={value === i}
           aria-label={`${label} ${i + 1}`}
           onClick={() => onPick(i)}
-          className={cx('h-7 w-7 rounded-full border-2', value === i ? 'border-hoop-400 ring-2 ring-hoop-500/40' : 'border-court-600')}
+          className={cx('h-10 w-10 rounded-full border-2 sm:h-7 sm:w-7', value === i ? 'border-hoop-400 ring-2 ring-hoop-500/40' : 'border-court-600')}
           style={{ background: c }}
         />
       ))}
@@ -180,10 +180,10 @@ export function CreateScreen() {
         </Button>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_320px]">
         <div className="space-y-5">
           <Section title="Identity">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="First name">
                 <input className={inputCls} value={first} onChange={(e) => setFirst(e.target.value)} placeholder="Jalen" maxLength={20} />
               </Field>
@@ -204,7 +204,7 @@ export function CreateScreen() {
           </Section>
 
           <Section title="Where you come from" hint="Your family decides what you start with, who is in your corner, and what keeps coming up at home. Every background has a price.">
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {BACKGROUNDS.map((b) => (
                 <ChoiceCard key={b.id} c={b} on={b.id === background} pick={setBackground} />
               ))}
@@ -212,7 +212,7 @@ export function CreateScreen() {
           </Section>
 
           <Section title="Why you play" hint="This is your story's driving force. It sets your first long-term goal, and it decides which moments come looking for you.">
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {PICKABLE_MOTIVES.map((b) => (
                 <ChoiceCard key={b.id} c={b} on={b.id === motive} pick={setMotive} />
               ))}
@@ -220,7 +220,7 @@ export function CreateScreen() {
           </Section>
 
           <Section title="How you carry yourself" hint="Temperament is how you handle pressure and people. It shapes how coaches, teammates and the press react to you.">
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {TEMPERAMENTS.map((b) => (
                 <ChoiceCard key={b.id} c={b} on={b.id === temperament} pick={setTemperament} />
               ))}
@@ -242,7 +242,7 @@ export function CreateScreen() {
             </div>
             <div className="mt-3 flex gap-2">
               {ARCHETYPE_INFO[archetype].positions.map((p) => (
-                <button key={p} onClick={() => pickPosition(p)} className={cx('rounded-md border px-3 py-1 font-mono text-sm', p === position ? 'border-hoop-500 text-hoop-400' : 'border-court-600 text-ink-400')}>
+                <button key={p} onClick={() => pickPosition(p)} className={cx('rounded-md border px-4 py-2 font-mono text-sm sm:px-3 sm:py-1', p === position ? 'border-hoop-500 text-hoop-400' : 'border-court-600 text-ink-400')}>
                   {p}
                 </button>
               ))}
@@ -250,7 +250,7 @@ export function CreateScreen() {
           </Section>
 
           <Section title="Look and build" hint="Your build shifts a few ratings around (it never adds any). The look is yours alone: it is the face in the paper, on your card and on the court.">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Skin tone">
                 <Swatches colors={SKIN_TONES} value={skin} onPick={setSkin} label="Skin tone" />
               </Field>
@@ -260,7 +260,7 @@ export function CreateScreen() {
               <Field label="Hair style">
                 <div className="flex flex-wrap gap-1.5">
                   {HAIR_STYLES.map((h) => (
-                    <button key={h.id} onClick={() => setStyle(h.id)} aria-pressed={style === h.id} className={cx('rounded-md border px-2.5 py-1 text-xs', style === h.id ? 'border-hoop-500 text-hoop-400' : 'border-court-600 text-ink-400')}>
+                    <button key={h.id} onClick={() => setStyle(h.id)} aria-pressed={style === h.id} className={cx('rounded-md border px-3 py-2 text-xs sm:px-2.5 sm:py-1', style === h.id ? 'border-hoop-500 text-hoop-400' : 'border-court-600 text-ink-400')}>
                       {h.label}
                     </button>
                   ))}
@@ -270,7 +270,7 @@ export function CreateScreen() {
                 <input type="number" min={0} max={99} className={inputCls} value={number} onChange={(e) => setNumber(Math.max(0, Math.min(99, Math.floor(Number(e.target.value) || 0))))} />
               </Field>
             </div>
-            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
               {BUILDS.map((b) => (
                 <ChoiceCard key={b.id} c={b} on={b.id === build} pick={setBuild} />
               ))}
