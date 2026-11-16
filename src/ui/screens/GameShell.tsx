@@ -135,13 +135,13 @@ export function GameShell() {
           const newIssue = tab !== 'paper' && (game.paper[game.paper.length - 1]?.id ?? 0) > paperSeen;
           return (
             <div className="mx-auto hidden max-w-7xl px-4 lg:block">
-              <nav aria-label="Menu" className="flex gap-1 overflow-x-auto scrollbar-thin">
+              <nav aria-label="Menu" className="flex overflow-x-auto scrollbar-thin">
                 {GROUPS.map((g) => (
                   <button
                     key={g.id}
                     onClick={() => setTab(g.tabs.includes(tab) ? tab : g.tabs[0])}
                     aria-current={open.id === g.id ? 'true' : undefined}
-                    className={cx('flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors', open.id === g.id ? 'border-hoop-500 text-ink-100' : 'border-transparent text-ink-400 hover:text-ink-100')}
+                    className={cx('flex flex-1 items-center justify-center gap-2 border-b-2 px-4 py-3 text-base font-semibold whitespace-nowrap transition-colors', open.id === g.id ? 'border-hoop-500 text-ink-100' : 'border-transparent text-ink-400 hover:text-ink-100')}
                   >
                     <span>{g.icon}</span>
                     {g.label}
@@ -150,11 +150,11 @@ export function GameShell() {
                 ))}
               </nav>
               {open.tabs.length > 1 && (
-                <nav aria-label="Sections" className="flex gap-1 border-t border-court-800 py-1.5">
+                <nav aria-label="Sections" className="flex gap-2 border-t border-court-800 py-2">
                   {open.tabs.map((id) => {
                     const t = TABS.find((x) => x.id === id)!;
                     return (
-                      <button key={id} onClick={() => setTab(id)} aria-current={tab === id ? 'page' : undefined} className={cx('flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-semibold whitespace-nowrap transition-colors', tab === id ? 'bg-court-700 text-ink-100' : 'text-ink-400 hover:text-ink-100')}>
+                      <button key={id} onClick={() => setTab(id)} aria-current={tab === id ? 'page' : undefined} className={cx('flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-semibold whitespace-nowrap transition-colors', tab === id ? 'bg-court-700 text-ink-100' : 'text-ink-400 hover:text-ink-100')}>
                         <span>{t.icon}</span>
                         {t.label}
                         {id === 'paper' && newIssue && <span className="h-2 w-2 rounded-full bg-hoop-500" aria-label="new edition" />}
