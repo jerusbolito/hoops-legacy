@@ -1,6 +1,7 @@
 import type { Athlete, GameState, Player, RatingKey } from '../state/schemas';
 import { RATING_KEYS, RATING_LABELS } from '../state/schemas';
 import { hasService } from './finance';
+import { modsOf } from './origin';
 import { RNG, clamp } from './rng';
 
 export type TrainingFocus = RatingKey | 'rest' | 'study' | 'rehab';
@@ -209,7 +210,9 @@ export function weeklyRecovery(state: GameState) {
   const p = state.player;
   const ath = state.athletes[p.athleteId];
   const extra = (hasService(state, 'nutrition') ? 5 : 0) + (hasService(state, 'recovery') ? 3 : 0);
-  p.energy = clamp(p.energy + 10 + extra + Math.round(ath.ratings.stamina / 12), 0, 100);
+  // an after-school job takes its toll all season long
+  const job = state.career.level === 'hs' && state.career.phase === 'regular' ? modsOf(state).jobEnergy : 0;
+  p.energy = clamp(p.energy + 10 + extra + Math.round(ath.ratings.stamina / 12) - job, 0, 100);
   if (p.injury) {
     p.injury.total ??= p.injury.weeks;
     p.injury.weeks -= hasService(state, 'recovery') ? 2 : 1;

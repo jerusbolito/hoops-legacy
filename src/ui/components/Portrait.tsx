@@ -1,21 +1,11 @@
 import { memo, useId, useMemo } from 'react';
 import { FEMALE_FIRST } from '../../data/names';
 import { RNG } from '../../engine/rng';
+import { HAIR_COLORS as HAIR, SKIN_TONES as SKIN, isHairStyle, lookOverride, type HairStyle } from '../../data/looks';
 import { alpha, hashStr, safeId, shade } from './color';
 
 export type Mood = 'happy' | 'neutral' | 'angry' | 'sad';
-type HairStyle = 'buzz' | 'short' | 'waves' | 'afro' | 'bald' | 'braids' | 'bun' | 'long' | 'ponytail' | 'cap';
 
-const SKIN = ['#f6d7b8', '#eac29a', '#d9a273', '#c18454', '#a2673d', '#7b4a2a', '#5a3420', '#3f2417'];
-const HAIR = [
-  { c: '#14100e', w: 5 },
-  { c: '#2a1a10', w: 4 },
-  { c: '#4a2e1b', w: 3 },
-  { c: '#7a4a25', w: 2 },
-  { c: '#b9803c', w: 1.2 },
-  { c: '#d9b36a', w: 0.8 },
-  { c: '#9a9a9a', w: 0.4 },
-];
 const STYLES_A: HairStyle[] = ['buzz', 'short', 'short', 'waves', 'afro', 'bald', 'braids', 'cap', 'short'];
 const STYLES_B: HairStyle[] = ['long', 'long', 'bun', 'ponytail', 'short', 'afro', 'braids', 'waves'];
 
@@ -33,7 +23,7 @@ export function lookFor(name: string): Look {
   const rng = new RNG(hashStr(name));
   const first = name.split(' ')[0];
   const styles = FEMALE_FIRST.includes(first) ? STYLES_B : STYLES_A;
-  return {
+  const look: Look = {
     skin: rng.pick(SKIN),
     hair: rng.weighted(HAIR, (h) => h.w).c,
     style: rng.pick(styles),
@@ -41,6 +31,15 @@ export function lookFor(name: string): Look {
     hue: rng.int(0, 359),
     bgHue: rng.int(0, 359),
   };
+  // the player's own look, if they chose one. The random draws above still happen so nothing else about the face moves.
+  const mine = lookOverride(name);
+  if (mine) {
+    look.skin = SKIN[mine.skin] ?? look.skin;
+    look.hair = HAIR[mine.hair]?.c ?? look.hair;
+    if (isHairStyle(mine.style)) look.style = mine.style;
+    look.number = String(mine.number);
+  }
+  return look;
 }
 
 function HairBack({ style, color }: { style: HairStyle; color: string }) {

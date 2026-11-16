@@ -1,12 +1,15 @@
 import { motion } from 'framer-motion';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { LEVEL_CONFIG } from '../../data/teams';
 import { draftStock, marketValue, projectedPick, recruitingStars, userAthlete } from '../../engine/career';
 import { boardRank, draftBoard } from '../../engine/draft';
 import { overall } from '../../engine/ratings';
 import { averages, fmt1, seasonRows, totals } from '../../engine/stats';
 import { marketPreview } from '../../engine/transactions';
+import { legendOf } from '../../engine/legacyScore';
+import { listLegends, saveLegend } from '../../state/persistence';
 import { useStore } from '../../state/store';
+import { FamilyTree, HeirCard, TierChip, TierProgress } from '../components/Legacy';
 import { PlayerLink } from '../components/PlayerLink';
 import { Typewriter } from '../components/Typewriter';
 import { Button, Panel, Spinner, Stat, TeamBadge } from '../components/ui';
@@ -156,6 +159,19 @@ export function RetiredPanel() {
   const pro = averages(totals(game.gameLog.filter((g) => g.level === 'pro')));
   const champs = game.player.awards.filter((x) => x.name.endsWith('Champion'));
   const mvps = game.player.awards.filter((x) => x.name.includes('MVP'));
+  // the career goes into the Hall of Fame (filing it twice only ever writes one row), and we see where it ranks
+  const legend = useMemo(() => legendOf(game), [game]);
+  const [place, setPlace] = useState<{ pos: number; total: number } | null>(null);
+  useEffect(() => {
+    let live = true;
+    saveLegend(legend)
+      .then(() => listLegends())
+      .then((all) => live && setPlace({ pos: all.findIndex((l) => l.id === legend.id) + 1, total: all.length }))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [legend]);
   return (
     <div className="space-y-4">
       <Panel>
@@ -177,6 +193,22 @@ export function RetiredPanel() {
         </div>
         <p className="mt-4 text-sm text-ink-400">All-level career: {career.gp} games, {fmt1(career.ppg)} ppg.</p>
       </Panel>
+      <Panel title="Hall of Fame verdict">
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+          <div>
+            <TierChip tier={legend.tier} label={legend.tierLabel} />
+            <div className="mt-1 font-display text-4xl font-bold">{Math.round(legend.score)}</div>
+            <div className="text-xs text-ink-400">career points{place && place.pos > 0 ? ` · #${place.pos} of ${place.total} in your Hall of Fame` : ''}</div>
+          </div>
+          <div className="min-w-[200px] flex-1">
+            <TierProgress score={legend.score} tier={legend.tier} />
+          </div>
+        </div>
+        <p className="mt-3 text-sm text-ink-300">{legend.summary}</p>
+        {legend.tier >= 3 && game.player.origin.chosen && <p className="mt-2 text-sm text-gold">Number {game.player.origin.look.number} is retired to the rafters.</p>}
+      </Panel>
+      <HeirCard />
+      <FamilyTree game={game} />
       <Panel title="Trophy case">
         {game.player.awards.length === 0 ? (
           <p className="text-sm text-ink-500">No hardware, but you made it.</p>

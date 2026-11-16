@@ -30,6 +30,8 @@ export interface SimOptions {
   rivalIds?: string[];
   /** Traits of the user (e.g. "clutch") that shade key-moment odds. */
   userTraits?: string[];
+  /** Extra odds on clutch moments from temperament. */
+  userClutch?: number;
   /** Game plan, badges and coach standing for the user. */
   userMods?: UserMods;
 }
@@ -661,7 +663,7 @@ export class GameSim {
     const rival = oppFive.find((a) => this.opts.rivalIds?.includes(a.id));
     const mods = this.opts.userMods ?? NO_MODS;
     // trait and Closer badge both help in clutch time; film study (`mods.all`) is already inside shotOdds for shots
-    const clutchBonus = clutch ? (this.opts.userTraits?.includes('clutch') ? 0.05 : 0) + mods.clutch : 0;
+    const clutchBonus = clutch ? (this.opts.userTraits?.includes('clutch') ? 0.05 : 0) + (this.opts.userClutch ?? 0) + mods.clutch : 0;
     const id = `m${++this.momentSeq}`;
     const ourScore = this.sides[us].score;
     const theirScore = this.sides[them].score;

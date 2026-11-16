@@ -1,5 +1,6 @@
 import type { GameState, Npc } from '../state/schemas';
 import { addNews } from './news';
+import { modsOf } from './origin';
 import { clamp } from './rng';
 
 /**
@@ -36,7 +37,7 @@ export function recordRivalryGame(state: GameState, oppTeamId: string, won: bool
   if (won) n.h2h.w++;
   else n.h2h.l++;
   const p = state.player;
-  p.morale = clamp(p.morale + (won ? 3 : -3), 0, 100);
+  p.morale = clamp(p.morale + Math.round((won ? 3 : -3) * modsOf(state).rivalMul), 0, 100);
   p.reputation = clamp(p.reputation + (won ? 1 : 0), 0, 100);
   n.relationship.rivalry = clamp(n.relationship.rivalry + 2, 0, 100);
   const after = n.h2h.w - n.h2h.l;

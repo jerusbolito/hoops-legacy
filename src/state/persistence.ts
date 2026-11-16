@@ -1,7 +1,8 @@
 import Dexie, { type Table } from 'dexie';
 import type { LLMConfig } from '../llm/types';
 import { upgradeSave } from '../engine/storyAthletes';
-import { GameStateSchema, type GameState } from './schemas';
+import { ensureGoals } from '../engine/goals';
+import { GameStateSchema, LegendSchema, type GameState, type Legend } from './schemas';
 import { LEVEL_CONFIG, yearLabel } from '../data/teams';
 
 export interface SaveRow {
@@ -14,9 +15,12 @@ export interface SaveRow {
 
 class HoopsDB extends Dexie {
   saves!: Table<SaveRow, string>;
+  /** The Hall of Fame: one row per finished career, across every save. */
+  legends!: Table<Legend, string>;
   constructor() {
     super('hoops-legacy');
     this.version(1).stores({ saves: 'id, updatedAt' });
+    this.version(2).stores({ saves: 'id, updatedAt', legends: 'id, score, retiredAt' });
   }
 }
 
@@ -29,7 +33,7 @@ function describe(state: GameState): { name: string; subtitle: string } {
   const c = state.career;
   return {
     name: `${a.firstName} ${a.lastName}`,
-    subtitle: `${LEVEL_CONFIG[c.level].label} · ${yearLabel(c.level, c.year)} · ${team?.name ?? ''} · Season ${c.season}${c.phase === 'retired' ? ' · Retired' : ''}`,
+    subtitle: `${state.legacy.generation > 1 ? `Generation ${state.legacy.generation} · ` : ''}${LEVEL_CONFIG[c.level].label} · ${yearLabel(c.level, c.year)} · ${team?.name ?? ''} · Season ${c.season}${c.phase === 'retired' ? ' · Retired' : ''}`,
   };
 }
 
@@ -47,7 +51,32 @@ export async function loadGame(id: string): Promise<GameState | null> {
   if (!row) return null;
   const state = GameStateSchema.parse(row.state);
   upgradeSave(state);
+  ensureGoals(state); // saves from before goals existed get theirs here
   return state;
+}
+
+/* ── Hall of Fame ── */
+
+/** Files a finished career. Filing the same career twice only ever writes one row. */
+export async function saveLegend(legend: Legend): Promise<void> {
+  const prev = await db().legends.get(legend.id);
+  // keep the first filing's date, so reopening a retired save does not reshuffle the order
+  await db().legends.put({ ...legend, retiredAt: prev?.retiredAt || legend.retiredAt });
+}
+
+/** Every legend, best first. A row that no longer fits the format is skipped rather than breaking the screen. */
+export async function listLegends(): Promise<Legend[]> {
+  const rows = await db().legends.orderBy('score').reverse().toArray();
+  const out: Legend[] = [];
+  for (const r of rows) {
+    const p = LegendSchema.safeParse(r);
+    if (p.success) out.push(p.data);
+  }
+  return out;
+}
+
+export async function deleteLegend(id: string): Promise<void> {
+  await db().legends.delete(id);
 }
 
 export async function deleteSave(id: string): Promise<void> {
@@ -62,6 +91,7 @@ export function exportSave(state: GameState): string {
 export function importSave(json: string): GameState {
   const parsed = GameStateSchema.parse(JSON.parse(json));
   upgradeSave(parsed);
+  ensureGoals(parsed);
   return { ...parsed, updatedAt: Date.now() };
 }
 

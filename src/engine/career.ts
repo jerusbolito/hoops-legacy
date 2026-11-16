@@ -11,8 +11,11 @@ import type {
   ScheduledGame,
   Team,
 } from '../state/schemas';
-import { SAVE_VERSION, type PlanId } from '../state/schemas';
+import { OriginSchema, SAVE_VERSION, type Origin, type PlanId } from '../state/schemas';
+import { applyOriginStart, modsOf } from './origin';
 import { checkBadgeUnlocks } from './badges';
+import { ensureGoals } from './goals';
+import { notePeak } from './legacyScore';
 import { coachReacts, coachStanding, practiceEffort, type CoachChange } from './coach';
 import { AGGRAVATE_CHANCE, MIN_GPA, WEEKLY_GPA_DRIFT, activateDueRipples, canPlayHurt, isPlayingHurt, updateEstrangement } from './consequences';
 import { hasService, payWeek, rollFinanceSeason } from './finance';
@@ -78,6 +81,8 @@ export interface NewCareerInput {
   schoolIndex: number;
   traits: string[];
   seed?: number;
+  /** Where the player comes from and why they play. Leave out for the classic start with no effects. */
+  origin?: Partial<Origin>;
 }
 
 export const TRAITS: { id: string; label: string; desc: string }[] = [
@@ -88,6 +93,121 @@ export const TRAITS: { id: string; label: string; desc: string }[] = [
   { id: 'scholar', label: 'Scholar', desc: 'Starts with a higher GPA; studying is easier.' },
   { id: 'showman', label: 'Showman', desc: 'Followers grow faster; the media loves you.' },
 ];
+
+/** Put an athlete on a roster by cutting the weakest player at the same position, so the roster size stays fixed. */
+function seatAthlete(athletes: Athlete[], team: Team, user: Athlete): Athlete[] {
+  const roster = athletes.filter((a) => a.teamId === team.id);
+  const samePos = roster.filter((a) => a.position === user.position).sort((a, b) => overall(a.ratings) - overall(b.ratings));
+  const cut = samePos[0] ?? roster.sort((a, b) => overall(a.ratings) - overall(b.ratings))[0];
+  const all = athletes.filter((a) => a.id !== cut.id);
+  team.rosterIds = team.rosterIds.filter((id) => id !== cut.id).concat(user.id);
+  all.push(user);
+  return all;
+}
+
+function newPlayer(athleteId: string, hometown: string, traits: string[], o: { season: number; money?: number; reputation?: number; followers?: number; origin?: Partial<Origin> }): GameState['player'] {
+  return {
+    athleteId,
+    hometown,
+    traits: traits.slice(0, 2),
+    morale: 65,
+    energy: 85,
+    academics: traits.includes('scholar') ? 3.6 : 3.0,
+    money: o.money ?? 0,
+    reputation: o.reputation ?? 5,
+    followers: (o.followers ?? 150) + (traits.includes('showman') ? 650 : 0),
+    injury: null,
+    progress: {},
+    contract: null,
+    awards: [],
+    draftPick: null,
+    collegeId: null,
+    badges: [],
+    deals: [],
+    injuryHistory: 0,
+    clutchWins: 0,
+    draftBoost: 0,
+    eventsDone: [],
+    services: [],
+    finance: { season: o.season, earned: 0, endorse: 0, taxes: 0, living: 0, services: 0, spent: 0, gifts: 0, prev: null },
+    origin: OriginSchema.parse(o.origin ?? {}),
+  };
+}
+
+function newCareerState(teamId: string, season: number, calendarYear: number): GameState['career'] {
+  return {
+    level: 'hs',
+    year: 1,
+    season,
+    phase: 'preseason',
+    week: 0,
+    step: 'scene',
+    teamId,
+    calendarYear,
+    plan: null,
+    playHurt: false,
+    press: null,
+    gamesSincePress: 0,
+    lifeEvent: null,
+    recentLife: [],
+    weeksSinceLife: 0,
+    moveSeason: 0,
+    pendingMove: null,
+    chemistry: 55,
+  };
+}
+
+export interface GenerationSetup {
+  /** Index into the new high school league's teams. */
+  schoolIndex: number;
+  hometown: string;
+  traits: string[];
+  money: number;
+  reputation: number;
+  followers: number;
+  /** Calendar years that pass between the last career and this one. */
+  yearsLater: number;
+  origin: Origin;
+}
+
+/**
+ * Starts the next player in the same save: a fresh high school league, a fresh cast around the new player, and a clean
+ * record. The save keeps its id, its season counter and its family record (legacy). The caller archives the old career
+ * (stats, awards, relationships) before this runs; everything about it is cleared here.
+ */
+export function beginGeneration(state: GameState, rng: RNG, heir: Athlete, o: GenerationSetup): Team {
+  const names = new NameBook();
+  names.reserve(heir.firstName, heir.lastName);
+  const { teams, athletes } = generateLeagueTeams(rng, 'hs', names);
+  const team = teams[clamp(o.schoolIndex, 0, teams.length - 1)];
+  heir.teamId = team.id;
+  heir.persistent = true;
+  const all = seatAthlete(athletes, team, heir);
+
+  const season = state.career.season + 1;
+  state.athletes = Object.fromEntries(all.map((a) => [a.id, a]));
+  state.teams = Object.fromEntries(teams.map((t) => [t.id, t]));
+  state.league = createLeague(rng, 'hs', teams.map((t) => t.id));
+  state.npcs = {};
+  state.player = newPlayer(heir.id, o.hometown, o.traits, { season, money: o.money, reputation: o.reputation, followers: o.followers, origin: o.origin });
+  state.career = newCareerState(team.id, season, state.career.calendarYear + o.yearsLater);
+  state.gameLog = [];
+  state.leagueStats = {};
+  state.lastBox = null;
+  state.story = { log: [], seasonSummaries: [], flags: { story_athletes_v2: true }, arcs: [], careerSummary: '', defining: [], threads: [], ripples: [] };
+  state.news = [];
+  state.effectLog = [];
+  state.feed = [];
+  state.offers = [];
+  state.weekLog = { lines: [] };
+  state.paper = [];
+  state.recruiting = { points: 2, suitors: [], targets: [], history: [] };
+  state.transactions = [];
+  state.goals = [];
+  seedHighSchoolCast(state, rng, team, teams);
+  applyOriginStart(state, { ratings: false }); // the heir's ratings already carry the head start and build (see planHeir)
+  return team;
+}
 
 export function createCareer(input: NewCareerInput): GameState {
   const seed = input.seed ?? Math.floor(Math.random() * 2 ** 31);
@@ -114,13 +234,7 @@ export function createCareer(input: NewCareerInput): GameState {
     persistent: true,
   };
 
-  // replace the weakest same-position player so roster size stays fixed
-  const roster = athletes.filter((a) => a.teamId === team.id);
-  const samePos = roster.filter((a) => a.position === input.position).sort((a, b) => overall(a.ratings) - overall(b.ratings));
-  const cut = samePos[0] ?? roster.sort((a, b) => overall(a.ratings) - overall(b.ratings))[0];
-  const allAthletes = athletes.filter((a) => a.id !== cut.id);
-  team.rosterIds = team.rosterIds.filter((id) => id !== cut.id).concat(user.id);
-  allAthletes.push(user);
+  const allAthletes = seatAthlete(athletes, team, user);
 
   const state: GameState = {
     version: SAVE_VERSION,
@@ -128,55 +242,12 @@ export function createCareer(input: NewCareerInput): GameState {
     createdAt: Date.now(),
     updatedAt: Date.now(),
     rngState: 0,
-    player: {
-      athleteId: user.id,
-      hometown: input.hometown,
-      traits: input.traits.slice(0, 2),
-      morale: 65,
-      energy: 85,
-      academics: input.traits.includes('scholar') ? 3.6 : 3.0,
-      money: 0,
-      reputation: 5,
-      followers: input.traits.includes('showman') ? 800 : 150,
-      injury: null,
-      progress: {},
-      contract: null,
-      awards: [],
-      draftPick: null,
-      collegeId: null,
-      badges: [],
-      deals: [],
-      injuryHistory: 0,
-      clutchWins: 0,
-      draftBoost: 0,
-      eventsDone: [],
-      services: [],
-      finance: { season: 1, earned: 0, endorse: 0, taxes: 0, living: 0, services: 0, spent: 0, gifts: 0, prev: null },
-    },
+    player: newPlayer(user.id, input.hometown, input.traits, { season: 1, origin: input.origin ? { ...input.origin, chosen: true } : undefined }),
     athletes: Object.fromEntries(allAthletes.map((a) => [a.id, a])),
     npcs: {},
     teams: Object.fromEntries(teams.map((t) => [t.id, t])),
     league: createLeague(rng, level, teams.map((t) => t.id)),
-    career: {
-      level,
-      year: 1,
-      season: 1,
-      phase: 'preseason',
-      week: 0,
-      step: 'scene',
-      teamId: team.id,
-      calendarYear: new Date().getFullYear(),
-      plan: null,
-      playHurt: false,
-      press: null,
-      gamesSincePress: 0,
-      lifeEvent: null,
-      recentLife: [],
-      weeksSinceLife: 0,
-      moveSeason: 0,
-      pendingMove: null,
-      chemistry: 55,
-    },
+    career: newCareerState(team.id, 1, new Date().getFullYear()),
     gameLog: [],
     leagueStats: {},
     lastBox: null,
@@ -189,10 +260,14 @@ export function createCareer(input: NewCareerInput): GameState {
     recruiting: { points: 2, suitors: [], targets: [], history: [] },
     weekLog: { lines: [] },
     paper: [],
+    legacy: { generation: 1, family: '', inherited: 0, relation: 'none', parent: '', lineage: [] },
+    goals: [],
   };
 
   seedHighSchoolCast(state, rng, team, teams);
+  applyOriginStart(state);
   state.rngState = rng.state;
+  ensureGoals(state);
   addNews(state, `${user.firstName} ${user.lastName} joins ${team.name} as a freshman.`);
   return state;
 }
@@ -316,8 +391,8 @@ export function userRole(state: GameState): { rank: number; label: string } {
 
 export function doTraining(state: GameState, focus: TrainingFocus): TrainingResult {
   return withRng(state, (rng) => {
-    const intensity = state.player.traits.includes('gym_rat') ? 1.15 : 1;
-    const r = train(state, rng, focus, state.player.traits.includes('scholar') && focus === 'study' ? 1.3 : intensity);
+    const intensity = (state.player.traits.includes('gym_rat') ? 1.15 : 1) * modsOf(state).trainingMul;
+    const r = train(state, rng, focus, state.player.traits.includes('scholar') && focus === 'study' ? 1.3 * modsOf(state).trainingMul : intensity);
     practiceEffort(state, focus);
     checkBadgeUnlocks(state);
     state.career.step = 'scene';
@@ -434,9 +509,12 @@ export function finishUserGame(state: GameState, sim: GameSim, game: ScheduledGa
   p.clutchWins += sim.momentResults.filter((m) => m.clutch && m.success).length;
   const coach = coachReacts(state, { line, won, playoff: !!g.playoffRound, playedHurt });
   if (wear.aggravated) addNews(state, `${userAthlete(state).lastName} aggravated the ${p.injury?.desc ?? 'injury'} playing through it.`);
-  p.morale = clamp(p.morale + (won ? 4 : -4) + (gs > 18 ? 3 : gs < 4 && line && line.sec > 600 ? -3 : 0), 0, 100);
-  p.reputation = clamp(p.reputation + (gs > 22 ? 2 : gs > 15 ? 1 : 0) + (won && g.playoffRound ? 1 : 0), 0, 100);
-  const followerGain = Math.round((gs > 0 ? gs : 0) * (p.traits.includes('showman') ? 12 : 6) * (1 + p.reputation / 25));
+  // who the player is changes how a result lands: a steady head takes a loss better, a famous name feels it more
+  const om = modsOf(state);
+  const moraleSwing = (won ? 4 : -4) + (gs > 18 ? 3 : gs < 4 && line && line.sec > 600 ? -3 : 0);
+  p.morale = clamp(p.morale + Math.round(moraleSwing * (moraleSwing >= 0 ? om.moraleGainMul : om.moraleLossMul)), 0, 100);
+  p.reputation = clamp(p.reputation + Math.round(((gs > 22 ? 2 : gs > 15 ? 1 : 0) + (won && g.playoffRound ? 1 : 0)) * om.repGain), 0, 100);
+  const followerGain = Math.round((gs > 0 ? gs : 0) * (p.traits.includes('showman') ? 12 : 6) * (1 + p.reputation / 25) * om.followerMul);
   p.followers += followerGain;
 
   const opp = state.teams[theirBox.teamId];
@@ -551,7 +629,7 @@ function advanceWeekCore(state: GameState): WeekAdvance {
   // grades slip when you do not keep up with school
   if (state.career.level !== 'pro') {
     const before = state.player.academics;
-    state.player.academics = clamp(Math.round((before - WEEKLY_GPA_DRIFT * (hasService(state, 'tutor') ? 0 : 1)) * 1000) / 1000, 0, 4);
+    state.player.academics = clamp(Math.round((before - WEEKLY_GPA_DRIFT * modsOf(state).gpaDrift * (hasService(state, 'tutor') ? 0 : 1)) * 1000) / 1000, 0, 4);
     if (before >= MIN_GPA && state.player.academics < MIN_GPA) addNews(state, `${userAthlete(state).lastName} is now academically ineligible.`);
   }
   for (const msg of updateEstrangement(state)) addNews(state, msg);
@@ -741,6 +819,7 @@ function turnoverRosters(state: GameState, rng: RNG) {
 }
 
 function newSeasonCommon(state: GameState, rng: RNG) {
+  notePeak(state);
   state.career.season++;
   state.career.calendarYear++;
   state.career.phase = 'preseason';

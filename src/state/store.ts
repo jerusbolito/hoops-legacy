@@ -40,6 +40,9 @@ import type { GameSim } from '../engine/gameSim';
 import { pickHighlight, type Highlight } from '../engine/highlights';
 import { overall, ratingTier, shortName } from '../engine/ratings';
 import { seasonStory } from '../engine/analytics';
+import { checkGoals } from '../engine/goals';
+import { canContinueLegacy, startNextGeneration } from '../engine/legacy';
+import { legendOf } from '../engine/legacyScore';
 import { buildSeasonReview } from '../engine/seasonReview';
 import type { TrainingFocus, TrainingResult } from '../engine/progression';
 import { RNG } from '../engine/rng';
@@ -50,7 +53,8 @@ import type { LLMClient, LLMConfig } from '../llm/types';
 import { generateRecap, generateScene, generateSeasonSummary, narrateFlavor, narrateResult, resolveScene, type Recap, type SceneResolution } from '../narrative/narrator';
 import type { SceneSetup } from '../narrative/parse';
 import { pickScene, type ScenePlan } from '../narrative/scenes';
-import { loadGame, loadLLMConfig, saveGame, storeLLMConfig } from './persistence';
+import { setLookOverride } from '../data/looks';
+import { loadGame, loadLLMConfig, saveGame, saveLegend, storeLLMConfig } from './persistence';
 import type { Reveal, RevealData } from './reveals';
 import { RATING_KEYS, RATING_LABELS, type GameState, type PlanId, type RatingKey, type Ratings, type ScheduledGame, type ServiceId } from './schemas';
 
@@ -144,6 +148,8 @@ interface Store {
   loadCareer(id: string): Promise<void>;
   openCareer(state: GameState): Promise<void>;
   closeCareer(): void;
+  /** After retirement: file the career in the Hall of Fame and carry the save on with the next generation. */
+  continueLegacy(): Promise<void>;
 
   train(focus: TrainingFocus): void;
   summerTrain(focuses: RatingKey[]): void;
@@ -203,10 +209,15 @@ export const useStore = create<Store>((set, get) => {
     const out = fn(draft);
     // a badge can be earned by a game, training, or even a story effect on ratings
     checkBadgeUnlocks(draft);
+    // so can a long-term goal
+    const goalsDone = checkGoals(draft);
     draft.updatedAt = Date.now();
     set({ game: draft });
     void saveGame(draft).catch((e) => get().toast(`Autosave failed: ${(e as Error).message}`, 'bad'));
     for (const id of draft.player.badges.slice(badgesBefore)) get().toast(`Badge earned: ${BADGE_BY_ID[id]?.name ?? id}!`, 'award');
+    for (const g of goalsDone) get().toast(`Goal reached: ${g.title}!`, 'award');
+    // the moment a career ends it goes into the Hall of Fame
+    if (draft.career.phase === 'retired' && cur.career.phase !== 'retired') void saveLegend(legendOf(draft)).catch(() => undefined);
     return out;
   }
 
@@ -319,8 +330,22 @@ export const useStore = create<Store>((set, get) => {
     },
 
     async openCareer(state) {
+      // the player's own look (a save from before looks existed keeps the face its name gives it)
+      const me = state.athletes[state.player.athleteId];
+      if (me) setLookOverride(`${me.firstName} ${me.lastName}`, state.player.origin.chosen ? state.player.origin.look : null);
       set({ game: state, screen: 'game', tab: 'hub', scene: null, live: null, post: null, offers: {}, draft: null, phaseNarration: null, lastTraining: null, pressOutcome: null, eventId: null, contest: null, combine: null, lifeOutcome: null, lastMove: null, cardId: null, paperSeen: state.paper[state.paper.length - 1]?.id ?? 0 });
       await saveGame(state);
+    },
+
+    async continueLegacy() {
+      const cur = get().game;
+      if (!cur || !canContinueLegacy(cur)) return;
+      const next = structuredClone(cur);
+      const { legend, plan } = startNextGeneration(next);
+      // a failure to write the Hall of Fame must not stop the story
+      await saveLegend(legend).catch(() => undefined);
+      await get().openCareer(next);
+      get().toast(`${plan.athlete.firstName} ${plan.athlete.lastName} begins the next chapter of the ${plan.athlete.lastName} story.`, 'award');
     },
 
     closeCareer: () => set({ game: null, screen: 'title', scene: null, live: null, post: null, reveals: [], pressOutcome: null, eventId: null, contest: null, combine: null, lifeOutcome: null, lastMove: null }),

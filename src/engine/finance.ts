@@ -1,4 +1,5 @@
 import type { FinanceLine, GameState, Level, ServiceId } from '../state/schemas';
+import { modsOf } from './origin';
 
 /**
  * Money that makes sense: it arrives every week of the season (salary, a stipend, endorsements), taxes and living costs
@@ -111,7 +112,8 @@ export function weeklyPay(state: GameState): WeeklyPay {
   const lvl = state.career.level;
   const weeks = Math.max(1, state.league.regularWeeks);
   const salary = lvl === 'pro' && state.player.contract ? state.player.contract.salary / weeks : 0;
-  const allowance = WEEKLY_ALLOWANCE[lvl];
+  // a family with money (or without) shows up in what you have to spend as an amateur
+  const allowance = WEEKLY_ALLOWANCE[lvl] * modsOf(state).allowance;
   const endorse = state.player.deals.reduce((a, d) => a + d.perSeason * (1 - d.commission), 0) / weeks;
   const taxable = lvl === 'pro' ? salary + endorse : 0;
   const taxes = taxable * PRO_TAX_RATE;

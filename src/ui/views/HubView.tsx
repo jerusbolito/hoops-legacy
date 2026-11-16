@@ -2,6 +2,7 @@ import { nextOpponent, standingsRows } from '../../engine/career';
 import { useStore } from '../../state/store';
 import { MIN_GPA, academicStatus } from '../../engine/consequences';
 import { ChemistryCard } from '../components/ChemistryCard';
+import { GoalsCard } from '../components/Legacy';
 import { CoachPanel } from '../components/CoachPanel';
 import { EventsCard } from '../components/EventModal';
 import { PressCard } from '../components/PressCard';
@@ -93,6 +94,7 @@ function Sidebar() {
           </div>
         </Panel>
       )}
+      <GoalsCard />
       <CoachPanel />
       <ChemistryCard />
       <Panel title={game.league.name}>

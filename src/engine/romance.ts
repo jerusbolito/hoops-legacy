@@ -1,5 +1,6 @@
 import type { GameState, Npc } from '../state/schemas';
 import { addNews } from './news';
+import { modsOf } from './origin';
 import { clamp } from './rng';
 
 /**
@@ -47,11 +48,11 @@ export function weeklyRomance(state: GameState) {
   const stage = stageOf(state);
   // seeing someone regularly lets a spark grow on its own, up to the point where it takes a conversation to go further
   if (n && !n.estranged && !state.story.flags.love_far && (stage === 'none' || stage === 'crush') && n.relationship.affinity >= 0 && n.relationship.romance < 50) {
-    n.relationship.romance = Math.min(50, n.relationship.romance + 1);
+    n.relationship.romance = Math.min(50, n.relationship.romance + modsOf(state).romanceMul);
   }
   if (n && ORDER.indexOf(stage) >= ORDER.indexOf('dating')) {
     // time together keeps it going; distance does not
-    if (stage !== 'married' && !longDistance(state) && n.relationship.affinity >= 0 && n.relationship.romance < 75) n.relationship.romance = Math.min(75, n.relationship.romance + 0.45);
+    if (stage !== 'married' && !longDistance(state) && n.relationship.affinity >= 0 && n.relationship.romance < 75) n.relationship.romance = Math.min(75, n.relationship.romance + 0.45 * modsOf(state).romanceMul);
     n.relationship.romance = clamp(n.relationship.romance - (stage === 'married' ? 0.15 : stage === 'dating' ? 0.25 : 0.2), 0, 100);
     if (stage !== 'married' && n.relationship.romance < 15) {
       setStage(state, 'none');

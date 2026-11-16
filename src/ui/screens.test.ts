@@ -22,6 +22,13 @@ import { LeagueView } from './views/LeagueView';
 import { MoneyView } from './views/MoneyView';
 import { RecruitingView } from './views/RecruitingView';
 import { RelationshipsView } from './views/RelationshipsView';
+import { startNextGeneration } from '../engine/legacy';
+import { FamilyTree, GoalsCard, HallOfFame } from './components/Legacy';
+import { RetiredPanel } from './panels/CareerPanels';
+import { CreateScreen } from './screens/CreateScreen';
+import { ProfileView } from './views/ProfileView';
+import { saveLegend } from '../state/persistence';
+import { legendOf } from '../engine/legacyScore';
 
 // Server rendering reads a store's initial snapshot, so the screens get a hook that reads the live state instead.
 vi.mock('../state/store', async (orig) => {
@@ -246,5 +253,66 @@ describe('the new screens draw without breaking', () => {
     expect(html).toContain(rival.name);
     expect(html).toContain('Senior');
     expect(html).not.toContain('Freshman phenom');
+  });
+
+  it('the goals card shows three goals with progress, and a retired career offers the next generation', () => {
+    const s = make(31);
+    const html = show(s, h(GoalsCard));
+    expect(html).toContain('Goals');
+    expect((html.match(/font-mono text-xs text-ink-400">\d+%/g) ?? []).length).toBe(3);
+    expect(html).not.toMatch(/NaN|undefined|\[object/);
+
+    s.story.flags.kids = 1;
+    playUntil(s, new RNG(31), () => false);
+    expect(s.career.phase).toBe('retired');
+    const done = show(s, h(RetiredPanel));
+    expect(done).toContain('Hall of Fame verdict');
+    expect(done).toContain(legendOf(s).tierLabel);
+    expect(done).toContain('The next generation');
+    expect(done).toContain('Continue the legacy');
+    expect(done).not.toMatch(/NaN|undefined|\[object/);
+
+    // after the hand-off the family tree shows who came before and the header says which generation this is
+    const parent = legendOf(s).name;
+    startNextGeneration(s);
+    const tree = show(s, h(FamilyTree, { game: s }));
+    expect(tree).toContain(parent);
+    expect(tree).toContain('family');
+    expect(show(s, h(GoalsCard))).toContain('Out-achieve');
+  }, 240_000);
+
+  it('character creation shows every choice with its price and a running summary', () => {
+    const html = show(make(1), h(CreateScreen));
+    for (const t of ['Where you come from', 'Why you play', 'How you carry yourself', 'Look and build', 'Your story so far', 'Starting money', 'Tight money', 'Well off', 'Prove them wrong', 'Lone wolf', 'Lean and quick']) expect(html, t).toContain(t);
+    // the chosen option spells out what it gives and what it costs
+    expect(html).toContain('Teammates relate to you');
+    expect(html).toContain('No head start of any kind');
+    // "carry the name" belongs to heirs, not to a new player
+    expect(html).not.toContain('Carry the name');
+    expect(html).not.toMatch(/NaN|undefined|\[object/);
+  });
+
+  it('the profile shows where a chosen player comes from, and an older save does not', () => {
+    const s = createCareer({ firstName: 'Ro', lastName: 'Ots', hometown: 'Akron, OH', archetype: 'slasher', position: 'SG', heightIn: 76, schoolIndex: 0, traits: [], seed: 5, origin: { background: 'struggling', motive: 'prove', temperament: 'fiery', look: { skin: 4, hair: 1, style: 'braids', build: 'lean', number: 23 } } });
+    const html = show(s, h(ProfileView));
+    expect(html).toContain('Tight money');
+    expect(html).toContain('Prove them wrong');
+    expect(html).toContain('Fiery');
+    expect(html).toContain('#23');
+    const old = show(make(5), h(ProfileView));
+    expect(old).not.toContain('Plays to');
+  });
+
+  it('the Hall of Fame lists finished careers best first', async () => {
+    const mk = (id: string, name: string, score: number) => ({ ...legendOf(make(40)), id, name, firstName: name.split(' ')[0], lastName: name.split(' ')[1], score, tier: 2, tierLabel: 'Fan Favorite' });
+    await saveLegend(mk('t:1', 'Low Score', 40));
+    await saveLegend(mk('t:2', 'High Score', 140));
+    const { listLegends } = await import('../state/persistence');
+    const rows = await listLegends();
+    expect(rows.map((r) => r.name).slice(0, 2)).toEqual(['High Score', 'Low Score']);
+    // filing the same career twice writes one row
+    await saveLegend(mk('t:2', 'High Score', 140));
+    expect((await listLegends()).filter((r) => r.id === 't:2')).toHaveLength(1);
+    expect(typeof HallOfFame).toBe('function');
   });
 });

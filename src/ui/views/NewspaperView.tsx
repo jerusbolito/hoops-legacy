@@ -16,7 +16,7 @@ function Rule() {
 }
 
 function Paper({ issue }: { issue: Issue }) {
-  const left = issue.sections.filter((s) => ['performers', 'story', 'around', 'recruiting', 'awards', 'power', 'watch', 'yours', 'stars'].includes(s.id));
+  const left = issue.sections.filter((s) => ['milestones', 'archive', 'performers', 'story', 'around', 'recruiting', 'awards', 'power', 'watch', 'yours', 'stars'].includes(s.id));
   const right = issue.sections.filter((s) => !left.includes(s));
   return (
     <article className="mx-auto max-w-5xl rounded-md border border-[#cfc6b0] bg-[#f4efe4] p-5 font-serif text-[#1c1a17] shadow-xl sm:p-8" aria-label={issue.masthead}>

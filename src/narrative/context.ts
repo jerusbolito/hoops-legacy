@@ -6,6 +6,7 @@ import { MIN_GPA, academicStatus, isInjuryProne } from '../engine/consequences';
 import { nextOpponent, standingsRows, userAthlete, userRole, userTeam } from '../engine/career';
 import { SERVICE_BY_ID } from '../engine/finance';
 import { recruitingBlock } from '../engine/recruiting';
+import { originBlock } from '../engine/origin';
 import { loveBlock } from '../engine/romance';
 import { athleteStatus, statusText } from '../engine/storyAthletes';
 import { ARCHETYPE_INFO, formatHeight, overall } from '../engine/ratings';
@@ -30,6 +31,12 @@ export function playerBlock(state: GameState): string {
     `Status: morale ${p.morale}/100, energy ${p.energy}/100${c.level !== 'pro' ? `, GPA ${p.academics.toFixed(2)}` : ''}, reputation ${p.reputation}/100, ${p.followers.toLocaleString()} followers${p.money ? `, $${p.money.toLocaleString()} in the bank` : ''}${p.contract ? `, contract $${(p.contract.salary / 1e6).toFixed(1)}M/yr (${p.contract.yearsLeft} yrs left)` : ''}.`,
     `Injury: ${p.injury ? `${p.injury.desc} (${p.injury.weeks} wk)` : 'healthy'}. Traits: ${p.traits.join(', ') || 'none'}.`,
   ];
+  if (state.legacy.generation > 1 && state.legacy.parent) {
+    const par = state.legacy.lineage[state.legacy.lineage.length - 1];
+    lines.push(`FAMILY: the player is the ${state.legacy.relation === 'child' ? 'child' : 'protégé'} of ${state.legacy.parent}${par ? `, a retired ${par.tierLabel} with ${par.titles} title${par.titles === 1 ? '' : 's'}` : ''}. People compare them to that legacy; the pressure and the pride are both real.`);
+  }
+  const who = originBlock(state);
+  if (who) lines.push(who);
   if (p.awards.length) lines.push(`Awards: ${p.awards.map((x) => `${x.name} (S${x.season})`).join('; ')}.`);
   const coach = coachStanding(state);
   if (coach.hasCoach) lines.push(`Coach ${coach.coachName}: trust ${Math.round(coach.trust)}/100, respect ${Math.round(coach.respect)}/100. ${coach.reason} Depth chart: ${coach.label} (#${coach.rank}), about ${coach.minutes} minutes a game.`);

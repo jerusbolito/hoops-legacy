@@ -62,13 +62,19 @@ export function pickScene(state: GameState, rng: RNG): ScenePlan {
   const lastKinds = state.story.log.slice(-3).map((e) => e.kind);
 
   if (c.phase === 'preseason') {
+    // the very first day of a career, at the bottom of the ladder: the first player's, or an heir's
+    const opening = c.level === 'hs' && c.year === 1;
+    const heirOpening = opening && state.legacy.generation > 1;
+    const who = state.player.origin.chosen ? ' Let who the player is show (see WHO THE PLAYER IS): their family situation, what drives them and how they carry themselves, through concrete details rather than a summary.' : '';
     const brief =
-      c.season === 1
-        ? 'Opening scene of the whole story: your first day at high school tryouts/practice. Introduce your best friend, the coach, and the senior who plays your position. Mention the cross-town rival.'
+      opening
+        ? (heirOpening
+            ? `Opening scene of a new generation: your first day at high school tryouts. You are ${state.legacy.relation === 'child' ? 'the child' : 'the protege'} of ${state.legacy.parent}, a retired legend, and everyone in the gym knows it. Introduce your best friend, the coach, and the senior who plays your position. Mention the cross-town rival.`
+            : 'Opening scene of the whole story: your first day at high school tryouts/practice. Introduce your best friend, the coach, and the senior who plays your position. Mention the cross-town rival.') + who
         : c.year === 1
           ? `First day at a new level (${c.level === 'college' ? 'college' : 'the pros'}). Meet the coach and the team leader. Establish the new stakes.`
           : 'First practice of a new season. Expectations have changed since last year. Last year\'s departed teammates (see NO LONGER PART OF YOUR DAILY LIFE) are gone and the roster has new faces; acknowledge the empty spot they left rather than pretending they are still here.';
-    return { kind: 'season_opener', brief, castIds: castFor(state, rng, c.season === 1 ? ['coach', 'friend', 'teammate'] : ['coach', 'teammate', 'friend']) };
+    return { kind: 'season_opener', brief, castIds: castFor(state, rng, opening ? ['coach', 'friend', 'teammate'] : ['coach', 'teammate', 'friend']) };
   }
 
   if (c.phase === 'offseason') {

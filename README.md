@@ -411,6 +411,11 @@ What the tests guarantee:
 | Pay, taxes, living costs, service prices | `src/engine/finance.ts` (`PRO_TAX_RATE`, `PRO_LIVING_RATE`, `WEEKLY_ALLOWANCE`, `LEVEL_SCALE`, `SERVICES`) |
 | How often random moments happen, and what they are | `lifeChance()` and `DEFS` in `src/engine/lifeEvents.ts` |
 | Salary cap, extension odds, holdout length | `salaryCap()`, `ceilingFor()`, `STANCE`, `weeklyHoldout()` in `src/engine/contracts.ts` |
+| What a career is worth in the Hall of Fame, and the tiers | `legacyScore()`, `TIER_MIN` in `src/engine/legacyScore.ts` |
+| Which long-term goals exist and how big | `DEFS` in `src/engine/goals.ts` |
+| Who the heir is and what fame gives them | `planHeir()`, `RATING_BONUS`, `POTENTIAL_BONUS` in `src/engine/legacy.ts` |
+| Which milestones and streaks the paper prints | `milestoneNotes()`, `archiveNotes()` in `src/engine/milestones.ts` |
+| What each family background, motive and temperament gives and costs | `BACKGROUND`, `MOTIVE`, `TEMPERAMENT` and `BUILD_SHIFT` in `src/engine/origin.ts` (and the matching text in `BACKGROUNDS`, `MOTIVES`, `TEMPERAMENTS`) |
 | How fast a relationship grows or cools | `weeklyRomance()` in `src/engine/romance.ts` |
 | What chemistry is worth, and what moves it | `chemistryMod()`, `chemistryAfterGame()`, `weeklyChemistry()` in `src/engine/chemistry.ts` |
 | Who wants you, trade odds, signing packages | `buildOffers()`, `tradeOdds()`, `nilBonus()` in `src/engine/moves.ts` |

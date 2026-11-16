@@ -7,6 +7,7 @@ import { overall } from './ratings';
 import { RNG } from './rng';
 import { rivalryGame, seriesText } from './rivalry';
 import { LEVEL_CONFIG, yearLabel } from '../data/teams';
+import { archiveNotes, milestoneNotes } from './milestones';
 
 /**
  * The weekly paper: what happened to you, to your people and to everyone else. Built only from the week's real box
@@ -233,7 +234,14 @@ function weekly(state: GameState, prev: Issue | undefined): Issue {
   const cs = coachStanding(state);
   if (cs.hasCoach) next.push(x.item(`${me.lastName}'s role: ${cs.label.toLowerCase()}, about ${cs.minutes} minutes a game.`, me.id));
 
+  // milestones and streaks: the biggest one leads the paper, the rest get a column
+  const notes = milestoneNotes(state);
+  const bigNote = notes.find((n) => n.big);
+  if (bigNote) lead.unshift(x.item(bigNote.text, me.id));
+  const milestones = notes.map((n) => x.item(n.text, me.id));
+
   const sections = [
+    { id: 'milestones', title: 'Milestones and Streaks', items: milestones },
     { id: 'performers', title: 'Players of the Week', items: performers },
     { id: 'story', title: 'Your World', items: mineLines },
     { id: 'standings', title: playoff ? 'The Bracket' : 'Standings Watch', items: standNotes },
@@ -297,6 +305,7 @@ function preview(state: GameState): Issue {
     { id: 'yours', title: 'Your Team', items: yours },
     { id: 'story', title: 'Your World', items: people },
     { id: 'around', title: 'Offseason Moves', items: newcomers },
+    { id: 'archive', title: 'From the Archives', items: archiveNotes(state, 'preview').map((n) => x.item(n.text, me.id)) },
   ].filter((s) => s.items.length);
   return {
     id: 0,
@@ -362,6 +371,7 @@ function recap(state: GameState): Issue {
     { id: 'awards', title: 'The Awards', items: awardsItems },
     { id: 'story', title: 'Your World', items: people },
     { id: 'around', title: 'The Year in Moves', items: yearMoves.length ? [x.item(`${yearMoves.join(', ')} around the league this season.`)] : [] },
+    { id: 'archive', title: 'From the Archives', items: archiveNotes(state, 'recap').map((n) => x.item(n.text, me.id)) },
     { id: 'stars', title: 'All-Stars', items: stars.length ? [x.item(`${stars.length} players made the midseason All-Star team${state.player.awards.some((a) => a.name === 'All-Star' && a.season === c.season) ? `, including you` : ''}.`)] : [] },
   ].filter((s) => s.items.length);
   return {

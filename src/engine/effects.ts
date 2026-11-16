@@ -2,6 +2,7 @@ import type { Effect, GameState, RelField } from '../state/schemas';
 import { RATING_LABELS } from '../state/schemas';
 import { trimCast } from './cast';
 import { addRipple } from './consequences';
+import { relGainOf } from './origin';
 import { makeNpc } from './generate';
 import { RNG, clamp } from './rng';
 
@@ -83,7 +84,7 @@ export function applyEffects(state: GameState, effects: Effect[], source: string
         }
         const key = `${id}:${e.field}`;
         const sofar = used.rel.get(key) ?? 0;
-        const d = Math.round(capDelta(e.delta, caps.relPerField - Math.abs(sofar)));
+        const d = Math.round(capDelta(relGainOf(state, e.delta), caps.relPerField - Math.abs(sofar)));
         if (d === 0) break;
         used.rel.set(key, sofar + d);
         const rel = state.npcs[id].relationship;

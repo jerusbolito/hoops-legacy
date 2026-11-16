@@ -99,6 +99,7 @@ export function GameShell() {
             <div>
               <div className="font-display text-lg leading-tight font-semibold">
                 {a.firstName} {a.lastName} <OverallBadge value={overall(a.ratings)} />
+                {game.legacy.generation > 1 && <span className="ml-2 rounded border border-gold/40 px-1 py-px align-middle text-[10px] font-semibold uppercase tracking-widest text-gold">Gen {game.legacy.generation}</span>}
               </div>
               <div className="text-xs text-ink-400">
                 {a.position} · {userRole(game).label}

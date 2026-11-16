@@ -1,6 +1,7 @@
 import type { Deal, GameState, Offer, Press } from '../state/schemas';
 import { coachOf } from './coach';
 import { hasService } from './finance';
+import { modsOf } from './origin';
 import { addNews } from './news';
 import { overall } from './ratings';
 import { RNG, clamp } from './rng';
@@ -132,7 +133,7 @@ export function offerChance(state: GameState): number {
   if (!dealsAllowed(state)) return 0;
   if (state.offers.length >= 3 || state.player.deals.length >= MAX_DEALS) return 0;
   const p = state.player;
-  const base = clamp(0.02 + p.reputation / 800 + Math.min(0.06, p.followers / 400_000), 0, 0.14);
+  const base = clamp(0.02 + p.reputation / 800 + Math.min(0.06, p.followers / 400_000), 0, 0.14) * modsOf(state).endorseMul;
   return hasService(state, 'agency') ? Math.min(0.2, base * 1.5) : base;
 }
 
@@ -147,7 +148,7 @@ export function maybeOffer(state: GameState, rng: RNG): Offer | null {
   const step = state.career.level === 'college' ? 100 : 50_000;
   // each deal you already have makes the next one worth less: there is only so much attention to sell
   const crowded = 0.8 ** state.player.deals.length;
-  const perSeason = Math.max(step, roundTo(nameValue(state) * crowded * rng.range(0.55, 1.2) * (sketchy ? 1.45 : 1) * (hasService(state, 'agency') ? 1.1 : 1), step));
+  const perSeason = Math.max(step, roundTo(nameValue(state) * crowded * rng.range(0.55, 1.2) * (sketchy ? 1.45 : 1) * (hasService(state, 'agency') ? 1.1 : 1) * Math.sqrt(modsOf(state).endorseMul), step));
   const years = rng.int(1, 3);
   const agent = state.career.level === 'pro' ? agentOf(state) : null;
   const commission = agent ? 0.1 : 0;

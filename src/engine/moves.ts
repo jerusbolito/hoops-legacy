@@ -6,6 +6,7 @@ import { receive } from './finance';
 import { makeNpc } from './generate';
 import { teamRoster } from './league';
 import { NameBook } from './nameBook';
+import { modsOf } from './origin';
 import { addNews } from './news';
 import { logTransaction } from './news';
 import { overall } from './ratings';
@@ -74,7 +75,7 @@ const roundTo = (n: number, step: number) => Math.round(n / step) * step;
 export function nilBonus(state: GameState, prestige: number): number {
   if (state.career.level !== 'college') return 0;
   const p = state.player;
-  return Math.max(500, roundTo(1000 + p.reputation * 70 + Math.min(40_000, p.followers * 0.12) + Math.max(0, prestige - 50) * 120, 100));
+  return Math.max(500, roundTo((1000 + p.reputation * 70 + Math.min(40_000, p.followers * 0.12) + Math.max(0, prestige - 50) * 120) * modsOf(state).nilMul, 100));
 }
 
 function pitchFor(state: GameState, prestige: number, rank: number, mine: number): string {
@@ -290,7 +291,8 @@ export function moveUser(state: GameState, rng: RNG, teamId: string, kind: MoveK
     receive(state, opts.nil);
     lines.push(`Signing package +$${opts.nil.toLocaleString()}`);
   }
-  const morale = opts.forced ? -4 : kind === 'transfer' ? 4 : 3;
+  // someone loyal feels it when they walk away from a team (but not when the league sends them away)
+  const morale = (opts.forced ? -4 : kind === 'transfer' ? 4 : 3) + (opts.forced ? 0 : modsOf(state).leaveMorale);
   p.morale = clamp(p.morale + morale, 0, 100);
   lines.push(`Morale ${morale > 0 ? '+' : '−'}${Math.abs(morale)}`);
   if (kind === 'transfer') {

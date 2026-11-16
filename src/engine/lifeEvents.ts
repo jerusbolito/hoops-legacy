@@ -3,6 +3,8 @@ import type { GameState, Level, LifeEventPending, Npc, RatingKey, RelField } fro
 import { RATING_LABELS } from '../state/schemas';
 import { bumpChemistry, isCaptain } from './chemistry';
 import { coachOf } from './coach';
+import { addRipple } from './consequences';
+import { modsOf, originWeight } from './origin';
 import { receive, spend } from './finance';
 import { tradeDeadlineWeek, forceTrade, replaceCoach } from './moves';
 import { addNews } from './news';
@@ -117,6 +119,8 @@ export class Fx {
   }
   rel(npc: Npc | undefined, field: RelField, n: number) {
     if (!npc) return;
+    // a loyal person builds trust faster, a loner slower (only good changes are scaled, never damage)
+    if (n > 0 && (field === 'affinity' || field === 'trust' || field === 'respect')) n = Math.max(1, Math.round(n * modsOf(this.s).relGain));
     const r = npc.relationship;
     const [lo, hi] = field === 'affinity' ? [-100, 100] : [0, 100];
     const d = clamp(r[field] + n, lo, hi) - r[field];
@@ -233,6 +237,8 @@ const first = (n?: Npc) => (n ? n.name.split(' ')[0] : 'Someone');
 const opt = (id: string, label: string, run: Opt['run'], extra: { hint?: string; cost?: number } = {}): Opt => ({ id, label, run, ...extra });
 const inSeason = (c: Ctx) => c.s.career.phase === 'regular' || c.s.career.phase === 'playoffs' || c.s.career.phase === 'preseason';
 const healthy = (c: Ctx) => !c.s.player.injury;
+/** True if the player chose this family background (always false for saves from before origins). */
+const isBg = (c: Ctx, bg: string) => c.s.player.origin.chosen && c.s.player.origin.background === bg;
 
 const DEFS: Def[] = [
   {
@@ -1777,6 +1783,481 @@ const DEFS: Def[] = [
       }),
     ],
   },
+  /* ───────────── Moments that come from who you are ───────────── */
+  {
+    id: 'rent_notice',
+    icon: '📬',
+    title: 'The landlord\'s notice',
+    tone: 'money',
+    levels: AMATEUR,
+    weight: 1,
+    need: ['family'],
+    when: (c) => isBg(c, 'struggling'),
+    text: (c) => `${first(c.family)} leaves the envelope face down on the table, which is how you know what it says. Two weeks behind on rent. They have not asked you for a thing, and they are working the same double shifts as ever.`,
+    options: (c) => [
+      opt('pay', 'Hand over what you have', (f) => {
+        f.rel(c.family, 'affinity', 8);
+        f.rel(c.family, 'trust', 6);
+        f.morale(3);
+        f.memory(c.family, 'You covered the rent when it got bad.');
+        addRipple(f.s, { text: 'Your family got through a bad stretch because you stepped in. They have not forgotten, and neither have you.', seasons: 2, npcId: c.family?.id });
+        return `${first(c.family)} cannot look at you for a second, then holds on a little too long. Nothing more is said about it.`;
+      }, { cost: c.$(70, 900, 45000) }),
+      opt('shifts', 'Pick up extra shifts', (f) => {
+        f.energy(-8);
+        f.money(c.$(90, 1100, 55000));
+        f.rel(c.family, 'affinity', 3);
+        f.coach(-1);
+        return 'You work the weekend and miss a film session. The rent gets paid, and you are dead on your feet by Monday.';
+      }),
+      opt('coach', 'Ask Coach for help', (f) => {
+        const trusted = (c.coach?.relationship.trust ?? 0) >= 40;
+        if (trusted) {
+          f.money(c.$(100, 1200, 60000));
+          f.coach(4, 2);
+          f.memory(c.coach, 'You trusted them enough to ask for help when your family was in trouble.');
+          return `${first(c.coach)} does not make you explain. A booster fund appears and the notice goes away. You owe the man more than money now.`;
+        }
+        f.coach(-2, -1);
+        f.morale(-3);
+        return `${first(c.coach)} listens, says they will see what they can do, and nothing comes of it. Asking cost you something you did not get back.`;
+      }),
+    ],
+  },
+  {
+    id: 'second_job',
+    icon: '🧰',
+    title: 'A weekend job',
+    tone: 'money',
+    levels: HS,
+    weight: 0.9,
+    when: (c) => isBg(c, 'struggling'),
+    text: () => 'The hardware store down the road needs someone Saturdays and Sundays. The pay is steady and they would work around practice. It would also eat every free hour you have.',
+    options: (c) => [
+      opt('take', 'Take the job', (f) => {
+        f.money(c.$(160, 0, 0));
+        f.energy(-10);
+        f.gpa(-0.03);
+        return 'The first check feels bigger than it is. By March your legs feel it in the fourth quarter.';
+      }),
+      opt('pass', 'Keep the weekends for the gym', (f) => {
+        f.progress('stamina', 0.7);
+        f.progress('shooting', 0.5);
+        f.morale(-1);
+        return 'You work on your game instead. It feels like the right call until the grocery run.';
+      }),
+    ],
+  },
+  {
+    id: 'rich_kid_label',
+    icon: '💸',
+    title: '"Rich kid"',
+    tone: 'odd',
+    levels: AMATEUR,
+    weight: 1,
+    need: ['teammate'],
+    when: (c) => isBg(c, 'wealthy'),
+    text: (c) => `Someone left a plastic crown in your locker. ${first(c.teammate)} laughs the loudest. Under the joke is a real question: has anyone here seen you earn anything?`,
+    options: (c) => [
+      opt('food', 'Buy the team food', (f) => {
+        f.chem(4);
+        f.rel(c.teammate, 'affinity', 6);
+        f.morale(2);
+        return 'It is exactly what they expected, and it still works. Nobody mentions the crown again, mostly because their mouths are full.';
+      }, { cost: c.$(140, 1400, 60000) }),
+      opt('own', 'Wear the crown to practice', (f) => {
+        f.chem(1);
+        f.rep(1);
+        f.morale(1);
+        return 'You put it on and run the first drill in it. They love it, and so do the phones that were out.';
+      }),
+      opt('grind', 'Stay late and prove it', (f) => {
+        f.energy(-6);
+        f.progress('defense', 0.6);
+        f.progress('stamina', 0.5);
+        f.coach(1.5, 2);
+        return `You are the last one out of the gym three nights running. ${first(c.teammate)} notices, and stops laughing.`;
+      }),
+    ],
+  },
+  {
+    id: 'private_gym_offer',
+    icon: '🏋️',
+    title: 'A gym of your own',
+    tone: 'odd',
+    levels: AMATEUR,
+    weight: 1,
+    when: (c) => isBg(c, 'wealthy'),
+    text: () => 'Your parents offer to build you a private gym with a trainer on call. No waiting for open lanes, no sharing a ball rack. Nobody on the team has anything like it.',
+    options: () => [
+      opt('accept', 'Say yes', (f) => {
+        f.progress('shooting', 0.9);
+        f.progress('handles', 0.8);
+        f.chem(-3);
+        return 'The work is better than anything you did in the public gym. So is the distance between you and the guys who still run there.';
+      }),
+      opt('team', 'Open it to the team', (f) => {
+        f.chem(3);
+        f.progress('shooting', 0.4);
+        f.rep(1);
+        return 'The first night, half the roster is there. It is loud, crowded and exactly what a locker room needs.';
+      }),
+      opt('no', 'Turn it down', (f) => {
+        f.coach(1, 2);
+        f.chem(1);
+        f.morale(-1);
+        return 'You tell them you will earn the gym time like everyone else. They look more worried than proud.';
+      }),
+    ],
+  },
+  {
+    id: 'parent_film_session',
+    icon: '🎞️',
+    title: 'Film with the pro',
+    tone: 'good',
+    levels: AMATEUR,
+    weight: 1,
+    need: ['family'],
+    when: (c) => isBg(c, 'athletic'),
+    text: (c) => `${first(c.family)} cues up your last game and starts pointing at things you did not know you were doing. They played this game at a level you have not seen yet, and they are not wrong about much.`,
+    options: (c) => [
+      opt('listen', 'Take notes', (f) => {
+        f.progress('iq', 1);
+        f.progress('shooting', 0.5);
+        f.energy(-4);
+        f.rel(c.family, 'trust', 3);
+        return 'Two hours later your head hurts and your game makes more sense. It is the best coaching you have ever had, and it comes with dinner.';
+      }),
+      opt('push', 'Tell them you have got it', (f) => {
+        f.rel(c.family, 'respect', -3);
+        f.rel(c.family, 'affinity', -2);
+        f.morale(1);
+        return 'You say it more sharply than you meant. They nod and shut the laptop, and the quiet that follows is worse than a lecture.';
+      }),
+      opt('coach', 'Bring Coach in', (f) => {
+        f.coach(2, 2);
+        f.progress('iq', 0.5);
+        return `${first(c.coach)} and ${first(c.family)} spend an hour comparing notes like old friends. You mostly watch them argue about you.`;
+      }),
+    ],
+  },
+  {
+    id: 'family_comparison',
+    icon: '🗞️',
+    title: '"Just like their parent"',
+    tone: 'odd',
+    levels: ALL,
+    weight: 0.9,
+    when: (c) => (isBg(c, 'athletic') || c.s.player.origin.motive === 'legacy') && c.s.gameLog.length > 3,
+    text: (c) => `A columnist has written a long piece comparing you to ${c.s.legacy.parent || 'your parent'}, game by game. Some of it is flattering. Most of it is about what you are not yet.`,
+    options: () => [
+      opt('proud', 'Say you are proud of the name', (f) => {
+        f.rep(1);
+        f.followers(0.04);
+        f.morale(-1);
+        return 'It is a gracious answer and everyone repeats it. You also hear the comparison in every interview afterward.';
+      }),
+      opt('own', 'Say you are your own player', (f) => {
+        f.rep(2);
+        f.followers(0.06);
+        f.coach(0, -1);
+        return 'The quote travels. Some of it admires the nerve, and some of it asks who you think you are.';
+      }),
+      opt('quiet', 'Say nothing', (f) => {
+        f.morale(2);
+        return 'You let the games answer. It takes longer than words would have.';
+      }),
+    ],
+  },
+  {
+    id: 'college_fund_talk',
+    icon: '🎓',
+    title: 'The college talk',
+    tone: 'odd',
+    levels: HS,
+    weight: 1,
+    need: ['family'],
+    when: (c) => isBg(c, 'comfortable'),
+    text: (c) => `${first(c.family)} sits you down with a folder of brochures and a spreadsheet. "Basketball is wonderful. So is a degree. I want to see both in the plan."`,
+    options: (c) => [
+      opt('study', 'Promise the grades come first', (f) => {
+        f.gpa(0.12);
+        f.rel(c.family, 'trust', 5);
+        f.energy(-4);
+        return 'They relax for the first time in weeks. You spend the next month proving it, mostly at the kitchen table.';
+      }),
+      opt('hoops', '"I am going to play pro"', (f) => {
+        f.rel(c.family, 'affinity', -4);
+        f.morale(2);
+        f.progress('shooting', 0.4);
+        return 'The words land like a dropped plate. They do not argue; they just put the folder away and stop mentioning it, which is its own kind of pressure.';
+      }),
+      opt('both', 'Show them a plan for both', (f) => {
+        f.gpa(0.05);
+        f.rel(c.family, 'respect', 4);
+        f.morale(1);
+        return 'You have not thought it through, but you talk like you have. They almost believe you, and so do you by the end.';
+      }),
+    ],
+  },
+  {
+    id: 'doubter',
+    icon: '📝',
+    title: 'Written off',
+    tone: 'bad',
+    levels: AMATEUR,
+    weight: 1,
+    when: (c) => c.s.player.origin.chosen && c.s.player.origin.motive === 'prove',
+    text: (c) => `A recruiting site has your name and one line: "Role player at best. Ceiling reached." Someone sent it to the whole team group chat${c.rival ? `, and ${first(c.rival)} has already reacted with a laughing face` : ''}.`,
+    options: (c) => [
+      opt('court', 'Answer it on the court', (f) => {
+        f.energy(-6);
+        f.progress('shooting', 0.6);
+        f.progress('defense', 0.5);
+        addRipple(f.s, { text: 'The people who wrote you off are watching now. Everyone who ever doubted you wants to see what happens next.', seasons: 2, npcId: c.rival?.id });
+        return 'You write the line on a sticky note and put it on your locker. You are the first one in the gym for a month.';
+      }),
+      opt('reply', 'Post a reply', (f) => {
+        if (f.rng.chance(0.55)) {
+          f.followers(0.1);
+          f.rep(1);
+          return 'Short, sharp and funny. It gets quoted far beyond the group chat.';
+        }
+        f.followers(0.02);
+        f.rep(-1);
+        f.morale(-2);
+        return 'It comes off as bitter, and the replies pile on. You delete it and feel worse than before.';
+      }),
+      opt('fuel', 'Keep it and say nothing', (f) => {
+        f.morale(3);
+        f.flag('doubter_fuel', true);
+        return 'You screenshot it and tell nobody. Some people run on being told they cannot.';
+      }),
+    ],
+  },
+  {
+    id: 'provide_ask',
+    icon: '📞',
+    title: 'A call from home',
+    tone: 'money',
+    levels: ALL,
+    weight: 1,
+    need: ['family'],
+    when: (c) => c.s.player.origin.chosen && c.s.player.origin.motive === 'provide',
+    text: (c) => `${first(c.family)} calls and talks about everything except the reason. Eventually it comes out: a relative is in trouble, and there is nobody else to ask.`,
+    options: (c) => [
+      opt('all', 'Cover all of it', (f) => {
+        f.rel(c.family, 'affinity', 6);
+        f.rel(c.family, 'trust', 4);
+        f.morale(2);
+        f.memory(c.family, 'You did not hesitate when someone in the family needed money.');
+        return 'You hang up feeling lighter than you should, given the number. This is exactly why you play.';
+      }, { cost: c.$(160, 2000, 140000) }),
+      opt('half', 'Send what you can', (f) => {
+        f.rel(c.family, 'affinity', 3);
+        f.morale(0);
+        return 'It is not everything, and everyone knows it. They thank you the way people do when they will have to ask again.';
+      }, { cost: c.$(80, 1000, 70000) }),
+      opt('no', 'Say you cannot right now', (f) => {
+        f.rel(c.family, 'trust', -5);
+        f.rel(c.family, 'affinity', -3);
+        f.morale(-4);
+        return 'It is the truth, and it still tastes like a lie. You think about it through every free throw for a week.';
+      }),
+    ],
+  },
+  {
+    id: 'family_set',
+    icon: '🏡',
+    title: '"We are set"',
+    tone: 'good',
+    levels: PRO,
+    weight: 3,
+    need: ['family'],
+    when: (c) => c.s.player.origin.chosen && c.s.player.origin.motive === 'provide' && c.s.player.money >= 3_000_000 && c.s.story.flags.family_set_done !== true,
+    text: (c) => `You sit at the table with ${first(c.family)} and an envelope that is not a bill. Years of rent notices, borrowed rides and double shifts end here, with a number on a page.`,
+    options: (c) => [
+      opt('house', 'Buy them the house', (f) => {
+        f.morale(12);
+        f.rel(c.family, 'affinity', 15);
+        f.rel(c.family, 'trust', 10);
+        f.rep(2);
+        f.flag('family_set_done', true);
+        f.memory(c.family, 'You bought the house. It was the whole reason.');
+        return 'Nobody says much. They walk through the empty rooms, touching the walls. That is the moment you have been playing for since you were fourteen.';
+      }, { cost: c.$(0, 0, 1_500_000) }),
+      opt('trust', 'Set up a fund they can lean on', (f) => {
+        f.morale(8);
+        f.rel(c.family, 'affinity', 8);
+        f.rel(c.family, 'respect', 6);
+        f.flag('family_set_done', true);
+        return 'It is quieter, and it lasts. They stop checking the account every night, and you notice how long it has been since you have heard them laugh.';
+      }, { cost: c.$(0, 0, 400_000) }),
+    ],
+  },
+  {
+    id: 'old_court',
+    icon: '🏀',
+    title: 'The old court',
+    tone: 'good',
+    levels: ALL,
+    weight: 1,
+    when: (c) => c.s.player.origin.chosen && c.s.player.origin.motive === 'love',
+    text: (c) => `You drive past the park where it started. The rim is bent and the net is gone and there is a game going, nobody keeping score. ${c.friend ? `${first(c.friend)} is already out there.` : 'Nobody is asking you for anything.'}`,
+    options: (c) => [
+      opt('play', 'Get out and play', (f) => {
+        f.morale(7);
+        f.energy(-3);
+        f.progress('handles', 0.5);
+        if (c.friend) f.rel(c.friend, 'affinity', 5);
+        return 'No plans, no film, no one watching. For two hours it is the only thing it has ever been about.';
+      }),
+      opt('watch', 'Sit and watch', (f) => {
+        f.morale(4);
+        f.progress('iq', 0.4);
+        return 'You see a kid make a pass you would never have tried. You file it away and drive home smiling.';
+      }),
+    ],
+  },
+  {
+    id: 'fame_dm',
+    icon: '💬',
+    title: 'A message from a brand',
+    tone: 'odd',
+    levels: ALL,
+    weight: 1,
+    when: (c) => c.s.player.origin.chosen && c.s.player.origin.motive === 'fame' && c.s.player.followers >= 300,
+    text: (c) => `A brand with a lot of followers has slid into your messages: free gear if you post it, "no strings." You know there are strings. Your follower count is ${c.s.player.followers.toLocaleString()}.`,
+    options: (c) => [
+      opt('post', 'Post it, eagerly', (f) => {
+        f.followers(0.08);
+        f.rep(1);
+        f.coach(0, -1);
+        return 'The post does well and so does the gear. A few teammates take it as you chasing the spotlight again.';
+      }),
+      opt('deal', 'Ask for real money', (f) => {
+        if (f.rng.chance(0.6)) {
+          f.money(c.$(0, 700, 45000));
+          f.followers(0.03);
+          return 'They blink and then pay. You have just learned your name is worth something.';
+        }
+        f.followers(-0.01);
+        return 'They move on to someone cheaper. You tell yourself it was the principle.';
+      }),
+      opt('ignore', 'Leave it on read', (f) => {
+        f.coach(1, 1.5);
+        f.morale(1);
+        return 'You close the app and go to practice. It feels like growing up, a little.';
+      }),
+    ],
+  },
+  {
+    id: 'temper_flare',
+    icon: '🔥',
+    title: 'A technical foul',
+    tone: 'bad',
+    levels: ALL,
+    weight: 1,
+    when: (c) => c.s.player.origin.chosen && c.s.player.origin.temperament === 'fiery' && c.s.gameLog.length > 1,
+    text: (c) => `You got a technical in the last game for yelling at the ref after a no-call. It was a fair thing to say and a bad time to say it. ${c.coach ? `Coach ${first(c.coach)} has not spoken to you since.` : 'The whole bench saw it.'}`,
+    options: () => [
+      opt('apologize', 'Own it in front of the team', (f) => {
+        f.coach(2, 3);
+        f.chem(2);
+        f.morale(-2);
+        return 'You say it plainly, no excuses. It costs your pride more than it costs your standing, and the room is warmer for it.';
+      }),
+      opt('double', 'Say you meant it', (f) => {
+        f.followers(0.05);
+        f.coach(-3, -2);
+        f.chem(-2);
+        f.morale(2);
+        return 'You do not back down, and the clip does numbers. The coach does not find it funny.';
+      }),
+      opt('laugh', 'Laugh it off', (f) => {
+        f.morale(1);
+        f.coach(-1);
+        return 'You turn it into a joke and some people laugh. You do not get the sense everyone did.';
+      }),
+    ],
+  },
+  {
+    id: 'loyal_call',
+    icon: '📲',
+    title: 'Someone needs you',
+    tone: 'odd',
+    levels: ALL,
+    weight: 1,
+    need: ['friend'],
+    when: (c) => c.s.player.origin.chosen && c.s.player.origin.temperament === 'loyal',
+    text: (c) => `${first(c.friend)} calls late, in the voice you only hear when something is really wrong. They need a ride, a place to stay and someone who will not ask too many questions tonight.`,
+    options: (c) => [
+      opt('go', 'Drop everything', (f) => {
+        f.energy(-7);
+        f.rel(c.friend, 'affinity', 8);
+        f.rel(c.friend, 'trust', 6);
+        f.memory(c.friend, 'You showed up in the middle of the night without asking why.');
+        f.coach(-1);
+        return 'You are late to shootaround and running on fumes. Neither matters in the way it would have yesterday.';
+      }),
+      opt('send', 'Send help and stay put', (f) => {
+        f.rel(c.friend, 'affinity', 3);
+        f.morale(-3);
+        return 'You send someone you trust, and you do not sleep. The guilt does not care that it was the sensible choice.';
+      }),
+    ],
+  },
+  {
+    id: 'charm_offensive',
+    icon: '🎤',
+    title: 'A room to win',
+    tone: 'good',
+    levels: ALL,
+    weight: 1,
+    when: (c) => c.s.player.origin.chosen && c.s.player.origin.temperament === 'charming' && c.s.gameLog.length > 1,
+    text: () => 'A reporter, a booster and two agents are all in the same hallway after the game. Anyone who walked in with a smile could leave with something. You have always known how to walk in.',
+    options: () => [
+      opt('work', 'Work the room', (f) => {
+        f.followers(0.07);
+        f.rep(1);
+        f.coach(0, -1);
+        return 'You leave with three phone numbers and an invitation. A teammate makes a comment about politicians.';
+      }),
+      opt('humble', 'Keep it about the team', (f) => {
+        f.coach(1, 2);
+        f.chem(2);
+        f.followers(0.02);
+        return 'It is not what they came for, and it works better than what they came for. The coach hears about it before you reach the bus.';
+      }),
+    ],
+  },
+  {
+    id: 'lone_wolf_night',
+    icon: '🌙',
+    title: 'The team dinner',
+    tone: 'odd',
+    levels: ALL,
+    weight: 1,
+    need: ['teammate'],
+    when: (c) => c.s.player.origin.chosen && c.s.player.origin.temperament === 'loner',
+    text: (c) => `${first(c.teammate)} puts it on the group chat: everyone eats together tonight. You had the gym booked in your head for later. You always have the gym booked in your head.`,
+    options: (c) => [
+      opt('go', 'Go and stay for dessert', (f) => {
+        f.chem(4);
+        f.rel(c.teammate, 'affinity', 5);
+        f.energy(-3);
+        f.morale(2);
+        return 'It is louder than you like and you have a better time than you expected. Nobody makes a big deal when you stay.';
+      }),
+      opt('gym', 'Stick to the plan', (f) => {
+        f.progress('shooting', 0.8);
+        f.progress('handles', 0.5);
+        f.chem(-3);
+        f.rel(c.teammate, 'affinity', -3);
+        return 'The gym is empty and perfect. On the way out you see the photos online and feel something you cannot name.';
+      }),
+    ],
+  },
 ];
 
 const BY_ID = Object.fromEntries(DEFS.map((d) => [d.id, d])) as Record<string, Def>;
@@ -1876,7 +2357,7 @@ export function rollLifeEvent(state: GameState, rng: RNG): boolean {
   const probe = buildCtx(state, refs, 1);
   const pool = DEFS.filter((d) => d.levels.includes(c.level) && (d.need ?? []).every((r) => refs[r]) && (!d.when || d.when(probe)));
   if (!pool.length) return false;
-  const def = rng.weighted(pool, (d) => d.weight * (c.recentLife.includes(d.id) ? 0.05 : 1));
+  const def = rng.weighted(pool, (d) => d.weight * originWeight(state, d.id) * (c.recentLife.includes(d.id) ? 0.05 : 1));
   const used: Record<string, string> = {};
   for (const r of ['coach', 'friend', 'rival', 'teammate', 'family', 'love'] as Role[]) if (refs[r]) used[r] = refs[r];
   c.lifeEvent = { id: def.id, seed: rng.int(1, 2 ** 30), refs: used };

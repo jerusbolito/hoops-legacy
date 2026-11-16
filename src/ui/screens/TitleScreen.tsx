@@ -6,6 +6,7 @@ import { useStore } from '../../state/store';
 import { Avatar, Button, Panel } from '../components/ui';
 import { getDesktop } from '../../desktop/bridge';
 import { WhatsNew } from '../components/WhatsNew';
+import { HallOfFame } from '../components/Legacy';
 
 // always the newest release (see electron-builder.config.cjs)
 const DESKTOP_DOWNLOAD_URL = 'https://github.com/jerusbolito/hoops-legacy/releases/latest/download/Hoops-Legacy-Setup.exe';
@@ -130,6 +131,7 @@ export function TitleScreen() {
           </ul>
         </Panel>
       )}
+      <HallOfFame />
     </div>
   );
 }

@@ -1,11 +1,13 @@
 import { LEVEL_CONFIG, yearLabel } from '../../data/teams';
 import { userAthlete, userRole } from '../../engine/career';
+import { LABELS } from '../../engine/origin';
 import { ARCHETYPE_INFO, formatHeight, overall } from '../../engine/ratings';
 import { averages, fmt1, fmtPct, lineSummary, seasonRows, totals } from '../../engine/stats';
 import { RATING_KEYS, RATING_LABELS } from '../../state/schemas';
 import { useStore } from '../../state/store';
 import { BadgesPanel } from '../components/BadgesPanel';
 import { CareerTimeline } from '../components/CareerTimeline';
+import { FamilyTree } from '../components/Legacy';
 import { PlayerCardPanel } from '../components/PlayerCard';
 import { RatingsRadar } from '../components/RatingsRadar';
 import { Meter, Panel, Pill, Stat, cx } from '../components/ui';
@@ -25,6 +27,7 @@ export function ProfileView() {
     <Panel title="Career timeline">
       <CareerTimeline />
     </Panel>
+    <FamilyTree game={game} />
     <div className="grid gap-5 lg:grid-cols-[340px_1fr]">
       <div className="space-y-5">
         <Panel title="Ratings">
@@ -60,6 +63,18 @@ export function ProfileView() {
             <dd>{formatHeight(a.heightIn)}</dd>
             <dt className="text-ink-400">Hometown</dt>
             <dd>{p.hometown}</dd>
+            {p.origin.chosen && (
+              <>
+                <dt className="text-ink-400">Family</dt>
+                <dd>{LABELS.background[p.origin.background]}</dd>
+                <dt className="text-ink-400">Plays to</dt>
+                <dd>{p.origin.motive === 'legacy' ? 'Carry the name' : LABELS.motive[p.origin.motive]}</dd>
+                <dt className="text-ink-400">Temperament</dt>
+                <dd>{LABELS.temperament[p.origin.temperament]}</dd>
+                <dt className="text-ink-400">Number</dt>
+                <dd>#{p.origin.look.number}</dd>
+              </>
+            )}
             <dt className="text-ink-400">Level</dt>
             <dd>
               {LEVEL_CONFIG[game.career.level].label}, {yearLabel(game.career.level, game.career.year)}

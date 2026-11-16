@@ -6,6 +6,7 @@ import { RNG } from './rng';
 import { chemistryMod } from './chemistry';
 import { gameScore } from './stats';
 import { buildUserMods } from './userMods';
+import { modsOf } from './origin';
 
 /** Circle-method single round robin. Returns weeks of [home, away] pairs. */
 export function roundRobin(rng: RNG, teamIds: string[]): [string, string][][] {
@@ -90,6 +91,7 @@ export function simOptions(state: GameState, keyMoments: boolean): SimOptions {
     ratingMods: { ...Object.fromEntries((state.teams[state.career.teamId]?.rosterIds ?? []).map((id) => [id, chemistryMod(state)])), [p.athleteId]: mod + chemistryMod(state) },
     rivalIds,
     userTraits: p.traits,
+    userClutch: modsOf(state).clutch,
     userMods: buildUserMods(state),
   };
 }

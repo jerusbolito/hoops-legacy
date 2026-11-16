@@ -324,6 +324,35 @@ export const PressSchema = z.object({
 });
 export type Press = z.infer<typeof PressSchema>;
 
+/* Where the player comes from and why they play. Chosen at creation; it shapes money, training, relationships, events and the story. */
+export const BackgroundSchema = z.enum(['struggling', 'working', 'comfortable', 'athletic', 'wealthy']);
+export type Background = z.infer<typeof BackgroundSchema>;
+export const MotiveSchema = z.enum(['prove', 'provide', 'love', 'fame', 'legacy']);
+export type Motive = z.infer<typeof MotiveSchema>;
+export const TemperamentSchema = z.enum(['steady', 'fiery', 'loyal', 'charming', 'loner']);
+export type Temperament = z.infer<typeof TemperamentSchema>;
+export const BuildSchema = z.enum(['lean', 'balanced', 'strong']);
+export type Build = z.infer<typeof BuildSchema>;
+
+export const OriginSchema = z.object({
+  /** False for saves from before this existed: they play exactly as they always did. */
+  chosen: z.boolean().default(false),
+  background: BackgroundSchema.default('working'),
+  motive: MotiveSchema.default('love'),
+  temperament: TemperamentSchema.default('steady'),
+  /** How the player looks. Skin and hair are indexes into the portrait palettes. */
+  look: z
+    .object({
+      skin: z.number().default(3),
+      hair: z.number().default(0),
+      style: z.string().default('short'),
+      build: BuildSchema.default('balanced'),
+      number: z.number().default(1),
+    })
+    .default({}),
+});
+export type Origin = z.infer<typeof OriginSchema>;
+
 export const PlayerSchema = z.object({
   athleteId: z.string(),
   hometown: z.string(),
@@ -355,6 +384,7 @@ export const PlayerSchema = z.object({
   /** Paid-for help (trainer, recovery team...). Each works through the end of season `until`. */
   services: z.array(z.object({ id: ServiceIdSchema, until: z.number() })).default([]),
   finance: FinanceSchema.default({}),
+  origin: OriginSchema.default({}),
 });
 export type Player = z.infer<typeof PlayerSchema>;
 
@@ -623,6 +653,81 @@ export const RecruitingSchema = z.object({
 });
 export type Recruiting = z.infer<typeof RecruitingSchema>;
 
+/* ───────────────────────── Legacy: legends, goals, family ───────────────────────── */
+
+/** One finished career, as it is remembered in the Hall of Fame and on the family tree. */
+export const LegendSchema = z.object({
+  /** `${saveId}:${generation}`, so filing the same career twice only ever writes one row. */
+  id: z.string(),
+  saveId: z.string(),
+  generation: z.number().default(1),
+  name: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
+  hometown: z.string().default(''),
+  position: z.string().default(''),
+  firstSeason: z.number().default(1),
+  lastSeason: z.number().default(1),
+  seasons: z.number().default(0),
+  peakOverall: z.number().default(0),
+  /** Hall of Fame score and the tier it earns (0 = Journeyman ... 5 = Immortal). */
+  score: z.number().default(0),
+  tier: z.number().default(0),
+  tierLabel: z.string().default(''),
+  titles: z.number().default(0),
+  mvps: z.number().default(0),
+  allStars: z.number().default(0),
+  honors: z.number().default(0),
+  gp: z.number().default(0),
+  ppg: z.number().default(0),
+  rpg: z.number().default(0),
+  apg: z.number().default(0),
+  proGp: z.number().default(0),
+  proPpg: z.number().default(0),
+  earnings: z.number().default(0),
+  kids: z.number().default(0),
+  married: z.boolean().default(false),
+  draftPick: z.number().nullable().default(null),
+  badges: z.number().default(0),
+  goalsDone: z.number().default(0),
+  goalsTotal: z.number().default(0),
+  /** Name of the parent or mentor this career grew out of, if any. */
+  parent: z.string().default(''),
+  /** The teams they played for as a pro. */
+  teams: z.array(z.string()).default([]),
+  summary: z.string().default(''),
+  retiredAt: z.number().default(0),
+});
+export type Legend = z.infer<typeof LegendSchema>;
+
+/** A long-term target for the career. What counts as done is worked out by `engine/goals.ts`. */
+export const GoalSchema = z.object({
+  id: z.string(),
+  kind: z.string(),
+  /** The number to reach, for goals that have one. */
+  target: z.number().default(0),
+  /** Season it was reached in, or 0 while still open. */
+  doneSeason: z.number().default(0),
+  /** Season it was set in. */
+  setSeason: z.number().default(1),
+});
+export type Goal = z.infer<typeof GoalSchema>;
+
+export const LegacySchema = z.object({
+  /** 1 is the first player. Each heir is the next generation. */
+  generation: z.number().default(1),
+  /** The family surname that carries on, empty until a first career retires. */
+  family: z.string().default(''),
+  /** The fame (0 to 5) the current player was born into. */
+  inherited: z.number().default(0),
+  relation: z.enum(['none', 'child', 'protege']).default('none'),
+  /** Full name of the parent or mentor of the current player. */
+  parent: z.string().default(''),
+  /** Careers that came before, oldest first. */
+  lineage: z.array(LegendSchema).default([]),
+});
+export type Legacy = z.infer<typeof LegacySchema>;
+
 /* ───────────────────────── Root state ───────────────────────── */
 
 export const SAVE_VERSION = 1;
@@ -658,5 +763,9 @@ export const GameStateSchema = z.object({
   recruiting: RecruitingSchema.default({}),
   /** Who moved where around the league, newest last. */
   transactions: z.array(z.object({ season: z.number(), week: z.number(), kind: z.enum(['transfer', 'trade', 'signing', 'coach', 'recruit', 'draft']), text: z.string() })).default([]),
+  /** Family and the careers that came before this one. */
+  legacy: LegacySchema.default({}),
+  /** The long-term targets the current career is chasing. */
+  goals: z.array(GoalSchema).default([]),
 });
 export type GameState = z.infer<typeof GameStateSchema>;
