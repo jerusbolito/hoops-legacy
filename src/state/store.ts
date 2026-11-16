@@ -59,7 +59,7 @@ import type { Reveal, RevealData } from './reveals';
 import { RATING_KEYS, RATING_LABELS, type GameState, type PlanId, type RatingKey, type Ratings, type ScheduledGame, type ServiceId } from './schemas';
 
 export type Screen = 'setup' | 'desktop' | 'title' | 'create' | 'game';
-export type Tab = 'hub' | 'profile' | 'relationships' | 'league' | 'paper' | 'analytics' | 'media' | 'money' | 'recruiting' | 'story' | 'memory';
+export type Tab = 'hub' | 'profile' | 'relationships' | 'league' | 'paper' | 'analytics' | 'media' | 'money' | 'recruiting' | 'story' | 'memory' | 'records';
 
 export interface Toast {
   id: number;

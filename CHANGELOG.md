@@ -26,6 +26,10 @@ Only the big things: new systems, engine changes, and anything that changes how 
 - **Milestones and streaks.** Career-point and rebound milestones, career nights, first double- and triple-doubles, win and cold streaks, and goals coming into view, each told once the week it happens.
 - **From the archives.** Anniversaries of old titles, and how an heir is doing against the parent's career.
 
+### Records
+- **Record books.** A new Records tab keeps the top ten for points, rebounds, assists, steals, blocks and threes in a single game, and for a season (totals, plus points, rebounds and assists per game). Every player in the league counts, not only you. Browse high school, college, pro or all leagues together; your own marks are highlighted.
+- **Career highs.** The Player tab shows your best night and best season in each category, with a badge when one made the record books. Older saves rebuild your marks from your game log.
+
 ## 1.1.0
 
 ### A living league

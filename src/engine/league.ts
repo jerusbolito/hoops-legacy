@@ -7,6 +7,7 @@ import { chemistryMod } from './chemistry';
 import { gameScore } from './stats';
 import { buildUserMods } from './userMods';
 import { modsOf } from './origin';
+import { noteGameRecords } from './records';
 
 /** Circle-method single round robin. Returns weeks of [home, away] pairs. */
 export function roundRobin(rng: RNG, teamIds: string[]): [string, string][][] {
@@ -153,6 +154,7 @@ export function accumulateLeagueStats(state: GameState, box: BoxScore) {
       s.drb += l.drb;
       s.tov += l.tov;
       s.pf += l.pf;
+      noteGameRecords(state, l, t.teamId, other.teamId);
       // kept for the week's paper
       state.weekLog.lines.push({ id: l.athleteId, t: t.teamId, o: other.teamId, ts: t.score, os: other.score, min: Math.round(l.sec / 6) / 10, pts: l.pts, reb: l.orb + l.drb, ast: l.ast, stl: l.stl, blk: l.blk, fgm: l.fgm, fga: l.fga, tpm: l.tpm, tpa: l.tpa, tov: l.tov, gs: Math.round(gameScore(l) * 10) / 10 });
     }

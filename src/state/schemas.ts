@@ -574,6 +574,23 @@ export const LeagueStatLineSchema = z.object({
 });
 export type LeagueStatLine = z.infer<typeof LeagueStatLineSchema>;
 
+/** One line in a league record book: a night or a season, and who did it. */
+export const RecordEntrySchema = z.object({
+  athleteId: z.string(),
+  name: z.string(),
+  team: z.string(),
+  /** Who the night was against (games only). */
+  opp: z.string().default(''),
+  season: z.number(),
+  level: LevelSchema,
+  value: z.number(),
+  /** Games played, for season averages. */
+  gp: z.number().default(0),
+  /** Set by the player's own career (the family's, in later generations). */
+  user: z.boolean().default(false),
+});
+export type RecordEntry = z.infer<typeof RecordEntrySchema>;
+
 /* ───────────────────────── The week, and the paper ───────────────────────── */
 
 /** One player's night, kept until the week's paper is printed. */
@@ -767,5 +784,7 @@ export const GameStateSchema = z.object({
   legacy: LegacySchema.default({}),
   /** The long-term targets the current career is chasing. */
   goals: z.array(GoalSchema).default([]),
+  /** Top-10 record books, keyed "game:hs:pts", "season:college:ppg" and so on. */
+  records: z.record(z.array(RecordEntrySchema)).default({}),
 });
 export type GameState = z.infer<typeof GameStateSchema>;

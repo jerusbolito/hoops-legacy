@@ -11,6 +11,7 @@ import { MobileNav } from '../components/MobileNav';
 import { TABS } from './tabs';
 import { RevealOverlay } from '../components/RevealOverlay';
 import { AnalyticsView } from '../views/AnalyticsView';
+import { RecordsView } from '../views/RecordsView';
 import { HubView } from '../views/HubView';
 import { MediaView } from '../views/MediaView';
 import { MemoryView } from '../views/MemoryView';
@@ -149,6 +150,7 @@ export function GameShell() {
         {tab === 'relationships' && <RelationshipsView />}
         {tab === 'league' && <LeagueView />}
         {tab === 'paper' && <NewspaperView />}
+        {tab === 'records' && <RecordsView />}
         {tab === 'analytics' && <AnalyticsView />}
         {tab === 'media' && <MediaView />}
         {tab === 'money' && <MoneyView />}

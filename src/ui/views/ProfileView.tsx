@@ -6,6 +6,7 @@ import { averages, fmt1, fmtPct, lineSummary, seasonRows, totals } from '../../e
 import { RATING_KEYS, RATING_LABELS } from '../../state/schemas';
 import { useStore } from '../../state/store';
 import { BadgesPanel } from '../components/BadgesPanel';
+import { CareerHighs } from '../components/CareerHighs';
 import { CareerTimeline } from '../components/CareerTimeline';
 import { FamilyTree } from '../components/Legacy';
 import { PlayerCardPanel } from '../components/PlayerCard';
@@ -183,6 +184,10 @@ export function ProfileView() {
               </tbody>
             </table>
           </div>
+        </Panel>
+
+        <Panel title="Career highs">
+          <CareerHighs />
         </Panel>
 
         <Panel title="Game log">

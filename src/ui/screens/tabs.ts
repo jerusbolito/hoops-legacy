@@ -6,6 +6,7 @@ export const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'relationships', label: 'People', icon: '🤝' },
   { id: 'league', label: 'League', icon: '🏆' },
   { id: 'paper', label: 'Newspaper', icon: '📰' },
+  { id: 'records', label: 'Records', icon: '🏅' },
   { id: 'analytics', label: 'Analytics', icon: '📊' },
   { id: 'media', label: 'Media', icon: '📱' },
   { id: 'money', label: 'Money', icon: '💰' },
