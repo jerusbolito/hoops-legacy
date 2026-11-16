@@ -47,6 +47,7 @@ const TAB_HELP: Record<string, string> = {
   memory: 'what the game remembers about your past choices.',
   league: 'standings, schedule, playoffs, awards and team rosters.',
   stats: 'all players, your advanced stats, teams and the record books.',
+  honors: 'the champions, MVPs, All-League teams and All-Stars of every season, in every league.',
   media: 'social media, followers and endorsement offers.',
   money: 'your bank, income, spending and what you can buy.',
   recruiting: 'who is watching you, and who you are chasing.',

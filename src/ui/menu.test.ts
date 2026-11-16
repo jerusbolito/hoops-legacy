@@ -150,3 +150,20 @@ describe('tour', () => {
     expect(renderToString(h(HelpView))).toContain('Take the tour');
   });
 });
+
+describe('honors page', () => {
+  it('lists the seasons with each award, and says so when it is empty', async () => {
+    const { HonorsView } = await import('./views/HonorsView');
+    useStore.setState({ game: make(), screen: 'game', tab: 'honors' });
+    expect(renderToString(h(HonorsView))).toContain('Nothing yet');
+    const s = make();
+    playUntil(s, new RNG(5), (g) => g.career.season >= 3, { moves: true });
+    useStore.setState({ game: s });
+    const html = renderToString(h(HonorsView));
+    for (const t of ['All leagues', 'High school', 'Conference MVP', 'All-Conference First Team', 'All-Stars', 'Most decorated', 'Season 1']) expect(html).toContain(t);
+  });
+
+  it('is part of the League group', () => {
+    expect(groupOf('honors').id).toBe('league');
+  });
+});

@@ -591,6 +591,23 @@ export const RecordEntrySchema = z.object({
 });
 export type RecordEntry = z.infer<typeof RecordEntrySchema>;
 
+/** One accolade in a league's history: who won what, in which season. Kept for every league the player passes through. */
+export const HonorKindSchema = z.enum(['champion', 'mvp', 'dpoy', 'first', 'second', 'allstar']);
+export type HonorKind = z.infer<typeof HonorKindSchema>;
+export const HonorSchema = z.object({
+  season: z.number(),
+  level: LevelSchema,
+  kind: HonorKindSchema,
+  /** Empty for a team honor (the champion). */
+  athleteId: z.string().default(''),
+  name: z.string(),
+  team: z.string().default(''),
+  /** A short line of production, such as "20.8 ppg". */
+  stat: z.string().default(''),
+  user: z.boolean().default(false),
+});
+export type Honor = z.infer<typeof HonorSchema>;
+
 /* ───────────────────────── The week, and the paper ───────────────────────── */
 
 /** One player's night, kept until the week's paper is printed. */
@@ -786,5 +803,7 @@ export const GameStateSchema = z.object({
   goals: z.array(GoalSchema).default([]),
   /** Top-10 record books, keyed "game:hs:pts", "season:college:ppg" and so on. */
   records: z.record(z.array(RecordEntrySchema)).default({}),
+  /** League-wide accolades by season: champions, MVPs, All-League and All-Star teams. */
+  honors: z.array(HonorSchema).default([]),
 });
 export type GameState = z.infer<typeof GameStateSchema>;

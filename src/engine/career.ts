@@ -15,6 +15,7 @@ import { OriginSchema, SAVE_VERSION, type Origin, type PlanId } from '../state/s
 import { applyOriginStart, modsOf } from './origin';
 import { checkBadgeUnlocks } from './badges';
 import { ensureGoals } from './goals';
+import { recordSeasonHonors } from './honors';
 import { closeSeasonRecords } from './records';
 import { notePeak } from './legacyScore';
 import { coachReacts, coachStanding, practiceEffort, type CoachChange } from './coach';
@@ -264,6 +265,7 @@ export function createCareer(input: NewCareerInput): GameState {
     legacy: { generation: 1, family: '', inherited: 0, relation: 'none', parent: '', lineage: [] },
     goals: [],
     records: {},
+    honors: [],
   };
 
   seedHighSchoolCast(state, rng, team, teams);
@@ -710,6 +712,7 @@ function finishPlayoffsAndSeason(state: GameState, rng: RNG, messages: string[])
     messages.push(champ.id === state.career.teamId ? 'CHAMPIONS! You won the title!' : `${champ.name} won the championship.`);
   }
   closeSeasonRecords(state);
+  recordSeasonHonors(state, scoredPlayers(state));
   computeAwards(state, messages);
   publishIssue(state, 'recap');
   state.career.phase = 'offseason';

@@ -1,5 +1,6 @@
 import type { GameState } from '../state/schemas';
 import { midseasonWeek } from './events';
+import { recordAllStars } from './honors';
 import { addNews } from './news';
 import { logTransaction } from './news';
 import { clamp } from './rng';
@@ -84,7 +85,8 @@ export function midseasonHeadlines(state: GameState) {
     const picks = mvpRace(state, 10);
     state.story.flags[key] = picks.map((p) => p.id).join(',');
     if (picks.length) {
-      logTransaction(state, 'recruit', `All-Star rosters are out: ${picks.slice(0, 4).map((p) => p.name).join(', ')} and ${Math.max(0, picks.length - 4)} more.`);
+      recordAllStars(state, picks);
+      logTransaction(state, 'recruit', `All-Star rosters are out: ${picks.slice(0, 4).map((p) => p.name).join(', ')} and ${Math.max(0, picks.length - 4)} more. The full list is under League, Honors.`);
       const me = state.athletes[state.player.athleteId];
       if (picks.some((p) => p.isYou)) {
         const p = state.player;

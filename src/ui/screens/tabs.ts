@@ -9,6 +9,7 @@ export const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'memory', label: 'Memory', icon: '🧠' },
   { id: 'league', label: 'League', icon: '🏆' },
   { id: 'stats', label: 'Stats', icon: '📊' },
+  { id: 'honors', label: 'Honors', icon: '🎖️' },
   { id: 'media', label: 'Media', icon: '📱' },
   { id: 'money', label: 'Money', icon: '💰' },
   { id: 'recruiting', label: 'Recruiting', icon: '🎯' },
@@ -19,7 +20,7 @@ export const TABS: { id: Tab; label: string; icon: string }[] = [
 export const GROUPS: { id: string; label: string; icon: string; tabs: Tab[] }[] = [
   { id: 'play', label: 'Play', icon: '🏀', tabs: ['hub', 'paper'] },
   { id: 'career', label: 'Career', icon: '⛹️', tabs: ['profile', 'relationships', 'story', 'memory'] },
-  { id: 'league', label: 'League', icon: '🏆', tabs: ['league', 'stats'] },
+  { id: 'league', label: 'League', icon: '🏆', tabs: ['league', 'stats', 'honors'] },
   { id: 'life', label: 'Life', icon: '💼', tabs: ['media', 'money', 'recruiting'] },
   { id: 'help', label: 'Guide', icon: '❓', tabs: ['help'] },
 ];

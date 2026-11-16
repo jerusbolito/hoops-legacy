@@ -13,6 +13,7 @@ import { GROUPS, TABS, groupOf } from './tabs';
 import { RevealOverlay } from '../components/RevealOverlay';
 import { StatsView } from '../views/StatsView';
 import { HelpView } from '../views/HelpView';
+import { HonorsView } from '../views/HonorsView';
 import { HubView } from '../views/HubView';
 import { MediaView } from '../views/MediaView';
 import { MemoryView } from '../views/MemoryView';
@@ -175,6 +176,7 @@ export function GameShell() {
         {tab === 'league' && <LeagueView />}
         {tab === 'paper' && <NewspaperView />}
         {tab === 'stats' && <StatsView />}
+        {tab === 'honors' && <HonorsView />}
         {tab === 'help' && <HelpView />}
         {tab === 'media' && <MediaView />}
         {tab === 'money' && <MoneyView />}

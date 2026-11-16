@@ -2,6 +2,8 @@ import Dexie, { type Table } from 'dexie';
 import type { LLMConfig } from '../llm/types';
 import { upgradeSave } from '../engine/storyAthletes';
 import { ensureGoals } from '../engine/goals';
+import { scoredPlayers } from '../engine/awards';
+import { backfillHonors } from '../engine/honors';
 import { backfillRecords } from '../engine/records';
 import { GameStateSchema, LegendSchema, type GameState, type Legend } from './schemas';
 import { LEVEL_CONFIG, yearLabel } from '../data/teams';
@@ -54,6 +56,7 @@ export async function loadGame(id: string): Promise<GameState | null> {
   upgradeSave(state);
   ensureGoals(state); // saves from before goals existed get theirs here
   backfillRecords(state);
+  backfillHonors(state, scoredPlayers(state));
   return state;
 }
 
@@ -95,6 +98,7 @@ export function importSave(json: string): GameState {
   upgradeSave(parsed);
   ensureGoals(parsed);
   backfillRecords(parsed);
+  backfillHonors(parsed, scoredPlayers(parsed));
   return { ...parsed, updatedAt: Date.now() };
 }
 
