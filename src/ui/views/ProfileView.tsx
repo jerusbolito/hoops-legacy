@@ -1,7 +1,7 @@
 import { LEVEL_CONFIG, yearLabel } from '../../data/teams';
 import { userAthlete, userRole } from '../../engine/career';
 import { LABELS } from '../../engine/origin';
-import { ARCHETYPE_INFO, formatHeight, overall } from '../../engine/ratings';
+import { ARCHETYPE_INFO, RATING_INFO, formatHeight, overall } from '../../engine/ratings';
 import { averages, fmt1, fmtPct, lineSummary, seasonRows, totals } from '../../engine/stats';
 import { RATING_KEYS, RATING_LABELS } from '../../state/schemas';
 import { useStore } from '../../state/store';
@@ -40,10 +40,10 @@ export function ProfileView() {
             <Stat label="Potential" value={a.potential} />
             <Stat label="Age" value={a.age} />
           </div>
-          <div className="mt-4 space-y-2">
+          <div data-tour="ratings" className="mt-4 space-y-2">
             {RATING_KEYS.map((k) => (
               <div key={k} className="flex items-center gap-2">
-                <span className="w-8 text-[11px] font-semibold text-ink-400">{RATING_LABELS[k]}</span>
+                <span className="w-8 cursor-help text-[11px] font-semibold text-ink-400" title={`${RATING_INFO[k].name}: ${RATING_INFO[k].what}`}>{RATING_LABELS[k]}</span>
                 <Meter className="flex-1" value={a.ratings[k]} max={99} showValue={false} color={a.ratings[k] >= 75 ? 'var(--color-gold)' : 'var(--color-hoop-500)'} />
                 <span className="w-6 text-right font-mono text-xs">{a.ratings[k]}</span>
                 <span className="w-8 text-right font-mono text-[10px] text-ink-500">{p.progress[k] ? `.${Math.floor(p.progress[k] * 10)}` : ''}</span>

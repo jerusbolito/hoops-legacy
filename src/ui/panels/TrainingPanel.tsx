@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { userAthlete } from '../../engine/career';
-import { TRAINING_OPTIONS } from '../../engine/progression';
+import { RATING_INFO } from '../../engine/ratings';
+import { SPILLOVER, TRAINING_OPTIONS } from '../../engine/progression';
 import { RATING_KEYS, RATING_LABELS, type RatingKey } from '../../state/schemas';
 import { useStore } from '../../state/store';
 import { Button, Panel, cx } from '../components/ui';
@@ -53,14 +54,26 @@ export function SummerPanel() {
   return (
     <Panel title="Summer development — choose two focus areas">
       <p className="mb-4 text-sm text-ink-300">The offseason is where players are made. Pick two skills to grind all summer. You also grow naturally (or start to age) each year.</p>
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-        {RATING_KEYS.map((k) => (
-          <button key={k} onClick={() => toggle(k)} className={cx('rounded-lg border p-3 text-center', picks.includes(k) ? 'border-hoop-500 bg-hoop-500/10' : 'border-court-600 hover:border-court-500')}>
-            <div className="text-xs font-semibold tracking-widest text-ink-400">{RATING_LABELS[k]}</div>
-            <div className="font-display text-2xl">{a.ratings[k]}</div>
-          </button>
-        ))}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {RATING_KEYS.map((k) => {
+          const on = picks.includes(k);
+          const side = SPILLOVER[k];
+          return (
+            <button key={k} onClick={() => toggle(k)} aria-pressed={on} className={cx('flex items-start gap-3 rounded-lg border p-3 text-left transition-colors', on ? 'border-hoop-500 bg-hoop-500/10' : 'border-court-600 hover:border-court-500')}>
+              <div className="w-14 shrink-0 text-center">
+                <div className="text-[10px] font-semibold tracking-widest text-ink-400">{RATING_LABELS[k]}</div>
+                <div className="font-display text-3xl leading-none">{a.ratings[k]}</div>
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-ink-100">{RATING_INFO[k].name}</div>
+                <div className="mt-0.5 text-xs text-ink-400">{RATING_INFO[k].what}</div>
+                {side && <div className="mt-1 text-[11px] text-ink-500">Also lifts {RATING_INFO[side].name.toLowerCase()} a little.</div>}
+              </div>
+            </button>
+          );
+        })}
       </div>
+      <p className="mt-3 text-xs text-ink-500">{picks.length}/2 chosen{picks.length ? ': ' + picks.map((k) => RATING_INFO[k].name).join(' and ') : ''}. Skills further below your potential grow faster, and so do younger players.</p>
       <div className="mt-4 flex justify-end">
         <Button disabled={picks.length !== 2} onClick={() => summerTrain(picks)}>
           Grind all summer →

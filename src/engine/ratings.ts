@@ -27,6 +27,19 @@ const POSITION_HEIGHT: Record<Position, [number, number]> = {
   C: [80, 85],
 };
 
+/** What each rating is, in plain words, for the screens that show the three-letter shorthand. */
+export const RATING_INFO: Record<RatingKey, { name: string; what: string }> = {
+  shooting: { name: 'Shooting', what: 'Jumpers, threes and free throws. The biggest piece of your overall.' },
+  finishing: { name: 'Finishing', what: 'Layups, dunks and every shot at the rim, and how well you attack a defender.' },
+  handles: { name: 'Ball handling', what: 'Protecting the ball: fewer turnovers, and defenders find it harder to steal.' },
+  passing: { name: 'Passing', what: 'Setting up teammates: more assists, and better odds when you kick it out.' },
+  defense: { name: 'Defense', what: 'Contesting shots, staying in front, and forcing turnovers and steals.' },
+  rebounding: { name: 'Rebounding', what: 'Winning the ball off the glass, on both ends of the floor.' },
+  athleticism: { name: 'Athleticism', what: 'Speed, strength and leaping. Helps at the rim, on blocks and on steals.' },
+  iq: { name: 'Basketball IQ', what: 'Smart decisions: fewer turnovers and better mid-range shots.' },
+  stamina: { name: 'Stamina', what: 'Conditioning. Counts toward your overall at a lower weight than the skills.' },
+};
+
 const OVERALL_WEIGHTS: Record<RatingKey, number> = {
   shooting: 1.2,
   finishing: 1.1,

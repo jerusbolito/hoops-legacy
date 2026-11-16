@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { useRef } from 'react';
 import { Avatar, Button, Meter, TeamBadge, cx } from '../components/ui';
 import { MobileNav } from '../components/MobileNav';
+import { Tour } from '../components/Tour';
 import { GROUPS, TABS, groupOf } from './tabs';
 import { RevealOverlay } from '../components/RevealOverlay';
 import { StatsView } from '../views/StatsView';
@@ -106,7 +107,7 @@ export function GameShell() {
               </div>
             </div>
           </div>
-          <div className="order-4 flex w-full items-center gap-3 lg:order-none lg:w-auto lg:min-w-[260px] lg:flex-1 lg:gap-4">
+          <div data-tour="bars" className="order-4 flex w-full items-center gap-3 lg:order-none lg:w-auto lg:min-w-[260px] lg:flex-1 lg:gap-4">
             <Meter className="flex-1" label="Energy" value={p.energy} color={p.energy < 35 ? 'var(--color-loss)' : '#38bdf8'} />
             <Meter className="flex-1" label="Morale" value={p.morale} color={p.morale < 35 ? 'var(--color-loss)' : 'var(--color-win)'} />
             <Meter className="flex-1" label="Rep" value={p.reputation} color="var(--color-gold)" />
@@ -134,7 +135,7 @@ export function GameShell() {
           const open = groupOf(tab);
           const newIssue = tab !== 'paper' && (game.paper[game.paper.length - 1]?.id ?? 0) > paperSeen;
           return (
-            <div className="mx-auto hidden max-w-7xl px-4 lg:block">
+            <div data-tour="menu" className="mx-auto hidden max-w-7xl px-4 lg:block">
               <nav aria-label="Menu" className="flex overflow-x-auto scrollbar-thin">
                 {GROUPS.map((g) => (
                   <button
@@ -182,6 +183,7 @@ export function GameShell() {
         {tab === 'memory' && <MemoryView />}
       </main>
       <MobileNav />
+      <Tour />
       {/* A pop-up that breaks closes itself and the game carries on, instead of taking the whole page down with it */}
       <ErrorBoundary resetKey={eventId} fallback={() => null} onError={() => closeBroken('event')}>
         <EventModal />

@@ -25,7 +25,7 @@ export const TRAINING_OPTIONS: { id: TrainingFocus; label: string; desc: string;
 export const COMEBACK_WEEKS = 3;
 
 /** Secondary ratings that get a sliver of growth when training a skill. */
-const SPILLOVER: Partial<Record<RatingKey, RatingKey>> = {
+export const SPILLOVER: Partial<Record<RatingKey, RatingKey>> = {
   shooting: 'iq',
   finishing: 'athleticism',
   handles: 'passing',

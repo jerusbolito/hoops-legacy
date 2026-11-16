@@ -52,7 +52,7 @@ export function HubView() {
         <PressCard />
         {!live && <EventsCard />}
         {showSteps && (
-          <ol className="flex gap-2 text-[11px] font-semibold uppercase tracking-widest">
+          <ol data-tour="steps" className="flex gap-2 text-[11px] font-semibold uppercase tracking-widest">
             {steps.map((s, i) => {
               const idx = steps.indexOf(c.step);
               return (
@@ -99,7 +99,9 @@ function Sidebar() {
           </div>
         </Panel>
       )}
-      <GoalsCard />
+      <div data-tour="goals">
+        <GoalsCard />
+      </div>
       <CoachPanel />
       <ChemistryCard />
       <Panel title={game.league.name}>

@@ -1,9 +1,11 @@
 import { useState, type ReactNode } from 'react';
 import { PLANS } from '../../engine/gameplan';
+import { RATING_INFO } from '../../engine/ratings';
+import { RATING_KEYS, RATING_LABELS } from '../../state/schemas';
 import { TRAINING_OPTIONS } from '../../engine/progression';
 import { TIER_LABELS, TIER_MIN } from '../../engine/legacyScore';
 import { useStore } from '../../state/store';
-import { Panel, cx } from '../components/ui';
+import { Button, Panel, cx } from '../components/ui';
 import { GROUPS, TABS } from '../screens/tabs';
 
 type Section = { id: string; title: string; body: ReactNode };
@@ -194,10 +196,21 @@ const SECTIONS: Section[] = [
     title: 'Your player',
     body: (
       <div className="space-y-3">
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+          {RATING_KEYS.map((k) => (
+            <div key={k}>
+              <dt className="text-ink-100">
+                <span className="mr-2 font-mono text-xs font-semibold text-hoop-400">{RATING_LABELS[k]}</span>
+                <B>{RATING_INFO[k].name}</B>
+              </dt>
+              <dd className="text-xs text-ink-400">{RATING_INFO[k].what}</dd>
+            </div>
+          ))}
+        </dl>
         <List
           items={[
             <>
-              <B>Ratings</B> (shooting, finishing, handles, passing, defense, rebounding, athleticism, IQ, stamina) decide almost everything that happens in a game. Your <B>overall</B> sums them up.
+              <B>Ratings</B> decide almost everything that happens in a game. Your <B>overall</B> sums them up. Each one has a three-letter shorthand, listed below.
             </>,
             <>
               <B>Archetype and position</B> shape your starting ratings and how you play. A sharpshooter and a big man grow in different ways.
@@ -329,6 +342,7 @@ const SECTIONS: Section[] = [
 export function HelpView() {
   const [open, setOpen] = useState<string>('start');
   const setTab = useStore((s) => s.setTab);
+  const startTour = useStore((s) => s.startTour);
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-[220px_1fr]">
       <nav aria-label="Guide sections" className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin lg:flex-col lg:overflow-visible lg:pb-0">
@@ -339,6 +353,13 @@ export function HelpView() {
         ))}
       </nav>
       <div className="min-w-0 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-hoop-500/40 bg-hoop-500/5 px-4 py-3">
+          <div>
+            <div className="text-sm font-semibold text-ink-100">New here?</div>
+            <div className="text-xs text-ink-400">A one-minute tour walks you through the screens, with the real controls lit up.</div>
+          </div>
+          <Button onClick={startTour}>Take the tour</Button>
+        </div>
         {SECTIONS.filter((s) => s.id === open).map((s) => (
           <Panel key={s.id} title={s.title}>
             {s.body}

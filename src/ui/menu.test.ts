@@ -72,11 +72,81 @@ describe('guide', () => {
     for (const t of ['Getting started', 'A week, step by step', 'Playing a game', 'What every tab is for', 'Stats, records and terms', 'Questions']) expect(html).toContain(t);
   });
 
-  it('a brand-new career is welcomed, a later one is not', () => {
+  it('a brand-new career is offered the tour once; choosing either way remembers it for that save', () => {
     const s = make();
-    useStore.setState({ game: s, screen: 'game', tab: 'hub' });
-    expect(renderToString(h(WelcomeCard))).toContain('Open the guide');
-    s.career.season = 3;
+    useStore.setState({ game: s, screen: 'game', tab: 'hub', tour: null });
+    expect(renderToString(h(WelcomeCard))).toContain('Take the tour');
+    s.story.flags.tour_offered = true;
     expect(renderToString(h(WelcomeCard))).toBe('');
+    const later = make();
+    later.career.season = 3;
+    useStore.setState({ game: later });
+    expect(renderToString(h(WelcomeCard))).toBe('');
+  });
+});
+
+describe('ratings explained', () => {
+  it('every rating has a plain name and a description, and the summer panel shows them', async () => {
+    const { RATING_INFO } = await import('../engine/ratings');
+    const { RATING_KEYS } = await import('../state/schemas');
+    const { SummerPanel } = await import('./panels/TrainingPanel');
+    for (const k of RATING_KEYS) {
+      expect(RATING_INFO[k].name.length).toBeGreaterThan(2);
+      expect(RATING_INFO[k].what.length).toBeGreaterThan(20);
+    }
+    useStore.setState({ game: make(), screen: 'game', tab: 'hub' });
+    const html = renderToString(h(SummerPanel));
+    for (const k of RATING_KEYS) expect(html).toContain(RATING_INFO[k].name);
+    expect(html).toContain('Also lifts');
+    expect(html).toContain('/2 chosen');
+  });
+});
+
+describe('tour', () => {
+  it('every step opens a real page and says something', async () => {
+    const { TOUR_STEPS } = await import('./components/Tour');
+    expect(TOUR_STEPS.length).toBeGreaterThanOrEqual(5);
+    for (const st of TOUR_STEPS) {
+      expect(TABS.some((t) => t.id === st.tab)).toBe(true);
+      expect(st.title.length).toBeGreaterThan(3);
+      expect(st.text.length).toBeGreaterThan(40);
+    }
+  });
+
+  it('starting it opens step one on the hub and remembers the offer in the save; ending it clears it', () => {
+    const s = make();
+    useStore.setState({ game: s, screen: 'game', tab: 'help', tour: null });
+    useStore.getState().startTour();
+    const st = useStore.getState();
+    expect(st.tour).toBe(0);
+    expect(st.tab).toBe('hub');
+    expect(st.game!.story.flags.tour_offered).toBe(true);
+    useStore.getState().tourStep(null);
+    expect(useStore.getState().tour).toBeNull();
+  });
+
+  it('declining remembers it too, without starting anything', () => {
+    useStore.setState({ game: make(), screen: 'game', tab: 'hub', tour: null });
+    useStore.getState().declineTour();
+    expect(useStore.getState().tour).toBeNull();
+    expect(useStore.getState().game!.story.flags.tour_offered).toBe(true);
+  });
+
+  it('the card shows the step and its place in the tour, and hides during a live game', async () => {
+    const { Tour, TOUR_STEPS } = await import('./components/Tour');
+    useStore.setState({ game: make(), screen: 'game', tab: 'hub', tour: 2, live: null });
+    const html = renderToString(h(Tour));
+    expect(html).toContain(TOUR_STEPS[2].title);
+    expect(html.replace(/<!-- -->/g, '')).toContain('3 of ' + TOUR_STEPS.length);
+    expect(html).toContain('Skip');
+    useStore.setState({ live: {} as never });
+    expect(renderToString(h(Tour))).toBe('');
+    useStore.setState({ live: null, tour: null });
+    expect(renderToString(h(Tour))).toBe('');
+  });
+
+  it('the guide offers the tour', () => {
+    useStore.setState({ game: make(), screen: 'game', tab: 'help' });
+    expect(renderToString(h(HelpView))).toContain('Take the tour');
   });
 });

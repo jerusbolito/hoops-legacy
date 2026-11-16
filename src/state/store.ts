@@ -126,7 +126,14 @@ interface Store {
   slowDismissed: boolean;
   /** The newest paper the player has seen. */
   paperSeen: number;
+  /** The guided tour: the step it is on, or null when it is not running. */
+  tour: number | null;
 
+  startTour(): void;
+  /** Moves the tour to a step, or ends it with null. */
+  tourStep(n: number | null): void;
+  /** "No thanks": remembers, for this save, that the tour was offered. */
+  declineTour(): void;
   pushReveals(items: RevealData[]): void;
   dismissReveal(): void;
   setScreen(s: Screen): void;
@@ -264,6 +271,7 @@ export const useStore = create<Store>((set, get) => {
     lastMove: null,
     cardId: null,
     paperSeen: 0,
+    tour: null,
     desktopManage: false,
     desktopPreselect: null,
     replySeconds: [],
@@ -276,6 +284,15 @@ export const useStore = create<Store>((set, get) => {
     dismissReveal: () => set({ reveals: get().reveals.slice(1) }),
 
     setScreen: (screen) => set({ screen }),
+    startTour() {
+      get().declineTour();
+      set({ tour: 0, tab: 'hub' });
+    },
+    tourStep: (n) => set({ tour: n }),
+    declineTour() {
+      const g = get().game;
+      if (g && g.story.flags.tour_offered !== true) mutate((d) => void (d.story.flags.tour_offered = true));
+    },
     setTab: (tab) => set({ tab, ...(tab === 'paper' ? { paperSeen: get().game?.paper[get().game!.paper.length - 1]?.id ?? 0 } : {}) }),
     openCard: (id) => set({ cardId: id }),
     closeCard: () => set({ cardId: null }),
@@ -333,7 +350,7 @@ export const useStore = create<Store>((set, get) => {
       // the player's own look (a save from before looks existed keeps the face its name gives it)
       const me = state.athletes[state.player.athleteId];
       if (me) setLookOverride(`${me.firstName} ${me.lastName}`, state.player.origin.chosen ? state.player.origin.look : null);
-      set({ game: state, screen: 'game', tab: 'hub', scene: null, live: null, post: null, offers: {}, draft: null, phaseNarration: null, lastTraining: null, pressOutcome: null, eventId: null, contest: null, combine: null, lifeOutcome: null, lastMove: null, cardId: null, paperSeen: state.paper[state.paper.length - 1]?.id ?? 0 });
+      set({ game: state, screen: 'game', tab: 'hub', scene: null, live: null, post: null, offers: {}, draft: null, phaseNarration: null, lastTraining: null, pressOutcome: null, eventId: null, contest: null, combine: null, lifeOutcome: null, lastMove: null, cardId: null, tour: null, paperSeen: state.paper[state.paper.length - 1]?.id ?? 0 });
       await saveGame(state);
     },
 
@@ -348,7 +365,7 @@ export const useStore = create<Store>((set, get) => {
       get().toast(`${plan.athlete.firstName} ${plan.athlete.lastName} begins the next chapter of the ${plan.athlete.lastName} story.`, 'award');
     },
 
-    closeCareer: () => set({ game: null, screen: 'title', scene: null, live: null, post: null, reveals: [], pressOutcome: null, eventId: null, contest: null, combine: null, lifeOutcome: null, lastMove: null }),
+    closeCareer: () => set({ game: null, tour: null, screen: 'title', scene: null, live: null, post: null, reveals: [], pressOutcome: null, eventId: null, contest: null, combine: null, lifeOutcome: null, lastMove: null }),
 
     /* ── weekly steps ── */
 
