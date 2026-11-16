@@ -1,7 +1,7 @@
 {
   "name": "hoops-legacy",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "module",
   "description": "A basketball career RPG with an AI narrator.",
   "author": "Jerus Bolito",
