@@ -4,6 +4,15 @@ Only the big things: new systems, engine changes, and anything that changes how 
 
 ## 1.2.0
 
+### Accounts and cloud saves
+- **Sign in to keep your careers in the cloud.** Create an account with an email and password (optional: the game works exactly as before without one) and your careers and Hall of Fame follow you to the website and the desktop app. Saves stay on your device too, so you can still play offline.
+- **Syncs on its own.** Changes upload a few seconds after you stop playing and when you leave the app, and new careers from another device appear when you open the title screen. **Sync now** is there if you want it right away.
+- **Nothing is lost if two devices disagree.** If you played the same career in two places, you choose: keep both (the default, which saves one as a separate career), keep this device's version, or keep the cloud's. Deleting a career on one device removes it everywhere, and a career you kept playing after deleting it elsewhere comes back.
+- **Forgot your password?** Use the link on the sign-in screen. Your AI settings and API key are never uploaded.
+
+### A new name
+- **Hoops Legacy is now Come Up.** New name, new home at comeuphoops.com. Your existing careers, settings and downloaded models carry over untouched.
+
 ### Legacy
 - **Play the next generation.** When your career ends, carry the same save on with your kid (or, with no kids, a young player you took under your wing). The world moves on a few years, a new high school league forms around them, and the old career goes into the family record. Fame is only a head start: a little rating, reputation and family money.
 - **A Hall of Fame across every career.** Each finished career is scored on titles, awards and stats, ranked from Journeyman up to Immortal, and kept on the title screen, best first.
