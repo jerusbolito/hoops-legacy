@@ -30,7 +30,7 @@ export function openAICompatibleClient(config: LLMConfig): LLMClient {
     if (config.apiKey) h.Authorization = `Bearer ${config.apiKey}`;
     if (config.presetId === 'openrouter') {
       h['HTTP-Referer'] = location.origin;
-      h['X-Title'] = 'Hoops Legacy';
+      h['X-Title'] = 'Come Up';
     }
     return h;
   };

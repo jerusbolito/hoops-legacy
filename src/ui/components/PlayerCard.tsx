@@ -148,7 +148,7 @@ export function PlayerCardSvg({ d }: { d: CardData }) {
         </g>
       ))}
       <text x={W / 2} y="424" textAnchor="middle" fontSize="9" fontWeight="700" fill={t.ink} fillOpacity="0.7" letterSpacing="3" fontFamily="system-ui, sans-serif">
-        HOOPS LEGACY · {d.teamName.toUpperCase()}
+        COME UP · {d.teamName.toUpperCase()}
       </text>
     </svg>
   );

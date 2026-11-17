@@ -9,7 +9,7 @@ import { startStaticServer, type StaticServer } from './server';
 import type { AIEngine } from './types';
 
 /**
- * Hoops Legacy desktop shell. It serves the built game from a fixed local address, starts an AI engine for you (the
+ * Come Up desktop shell. It serves the built game from a fixed local address, starts an AI engine for you (the
  * built-in model by default, or Ollama if you prefer), and gets out of the way. The game is the same code as the website.
  */
 
@@ -141,7 +141,7 @@ function createWindow(url: string, show = true): BrowserWindow {
     minHeight: 640,
     show: false,
     backgroundColor: '#0b0f17',
-    title: 'Hoops Legacy',
+    title: 'Come Up',
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),

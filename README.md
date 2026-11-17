@@ -1,4 +1,4 @@
-# Hoops Legacy
+# Come Up
 
 A text-based basketball career RPG that runs entirely in the browser. You start as a high-school freshman and play through college, the draft, a pro career, and retirement. Story scenes are written by an LLM that the player brings (their own API key, or a local model). Every number in the game — ratings, box scores, standings, contracts — is computed by a deterministic engine, not by the model.
 
@@ -125,7 +125,7 @@ HOOPS_QUALITY=gemma-4-e2b npx vitest run desktop/realQuality   # story quality, 
 node scripts/run-electron.mjs --smoke --smoke-seed=bundled --smoke-chat --smoke-wait=240 --smoke-out=result.json
 ```
 
-The last one launches the app, lets it start the engine and reach its title screen, and makes one request exactly as the game would. For a packaged app, run `release/win-unpacked/"Hoops Legacy.exe"` with the same flags. **Page checks** (`scripts/page-checks/`) drive the real game screens inside the desktop app and report whether the page is still alive afterwards. They catch the kind of bug unit tests cannot, such as a pop-up that crashes the whole page while it fades out. `events.js` plays both midseason contests and the combine; `safety-net.js` breaks a pop-up and a screen on purpose to prove the crash screen works. They need a test build that exposes the game's controls:
+The last one launches the app, lets it start the engine and reach its title screen, and makes one request exactly as the game would. For a packaged app, run `release/win-unpacked/"Come Up.exe"` with the same flags. **Page checks** (`scripts/page-checks/`) drive the real game screens inside the desktop app and report whether the page is still alive afterwards. They catch the kind of bug unit tests cannot, such as a pop-up that crashes the whole page while it fades out. `events.js` plays both midseason contests and the combine; `safety-net.js` breaks a pop-up and a screen on purpose to prove the crash screen works. They need a test build that exposes the game's controls:
 
 ```bash
 VITE_EXPOSE_STORE=1 npx vite build --outDir dist-test
@@ -205,7 +205,7 @@ node scripts/verify-signature.mjs --require      # reads the real signature off 
 Make a throwaway one and sign into a separate folder. It will correctly show as "signed, NOT trusted", because nobody trusts a certificate you made yourself. Never install it as trusted.
 
 ```bash
-MSYS_NO_PATHCONV=1 openssl req -x509 -newkey rsa:3072 -sha256 -nodes -keyout k.pem -out c.pem -days 30 -subj "/CN=Hoops Legacy TEST ONLY" -addext "keyUsage=critical,digitalSignature" -addext "extendedKeyUsage=critical,codeSigning"
+MSYS_NO_PATHCONV=1 openssl req -x509 -newkey rsa:3072 -sha256 -nodes -keyout k.pem -out c.pem -days 30 -subj "/CN=Come Up TEST ONLY" -addext "keyUsage=critical,digitalSignature" -addext "extendedKeyUsage=critical,codeSigning"
 openssl pkcs12 -export -out test.pfx -inkey k.pem -in c.pem -passout pass:testonly
 CSC_LINK=$PWD/test.pfx CSC_KEY_PASSWORD=testonly HOOPS_OUT=release/signtest node scripts/pack.mjs --dir
 ```

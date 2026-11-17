@@ -19,7 +19,7 @@ if (full && !model) throw new Error(`Unknown HOOPS_MODEL "${modelId}". Choose on
 
 module.exports = {
   appId: 'com.hoopslegacy.app',
-  productName: 'Hoops Legacy',
+  productName: 'Come Up',
   directories: { output: process.env.HOOPS_OUT || (full ? 'release/full' : 'release'), buildResources: 'build' },
   // the game and the shell are each bundled into single files, so no node_modules are needed at runtime
   files: ['dist/**/*', 'desktop/dist/**/*', 'package.json', '!node_modules/**/*'],

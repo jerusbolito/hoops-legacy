@@ -1,4 +1,4 @@
-# Hoops Legacy: handoff for AI agents
+# Come Up: handoff for AI agents
 
 Read this first if you are picking the project up cold. It says what the game is, how it is built, what was added recently and why, what is in flight, and the traps that cost time. Keep it current: when you finish a piece of work, update the **Roadmap** and **Recent changes** sections.
 

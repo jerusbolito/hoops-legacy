@@ -23,7 +23,7 @@ if (!files.length) {
   if (existsSync(out)) for (const f of readdirSync(out)) if (f.toLowerCase().endsWith('.exe')) files.push(path.join(out, f));
   const unpacked = path.join(out, 'win-unpacked');
   if (existsSync(unpacked)) {
-    files.push(path.join(unpacked, 'Hoops Legacy.exe'));
+    files.push(path.join(unpacked, 'Come Up.exe'));
     const engine = path.join(unpacked, 'resources', 'engine');
     if (existsSync(engine)) for (const v of readdirSync(engine)) files.push(path.join(engine, v, 'llama-server.exe'));
   }

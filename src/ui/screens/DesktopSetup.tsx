@@ -298,7 +298,7 @@ export function DesktopSetup() {
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className={cx('w-full', phase === 'choose' || phase === 'manage' ? 'max-w-2xl' : 'max-w-lg')}>
         <div className="mb-5 text-center">
           <div className="text-5xl">🏀</div>
-          <h1 className="mt-2 font-display text-3xl font-bold tracking-wide">HOOPS LEGACY</h1>
+          <h1 className="mt-2 font-display text-3xl font-bold tracking-wide">COME UP</h1>
           <p className="mt-1 text-sm text-ink-400">{phase === 'manage' ? 'Your story model' : phase === 'choose' ? 'Pick the storyteller that suits this computer' : 'Getting your local storyteller ready'}</p>
         </div>
 
