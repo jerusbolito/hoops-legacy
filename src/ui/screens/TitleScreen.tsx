@@ -6,6 +6,8 @@ import { useStore } from '../../state/store';
 import { Avatar, Button, Panel } from '../components/ui';
 import { getDesktop } from '../../desktop/bridge';
 import { WhatsNew } from '../components/WhatsNew';
+import { AccountBar } from '../components/Account';
+import { useAccount } from '../../sync/account';
 import { HallOfFame } from '../components/Legacy';
 
 // always the newest release (see electron-builder.config.cjs)
@@ -28,9 +30,11 @@ export function TitleScreen() {
   const [showNew, setShowNew] = useState(false);
 
   const refresh = () => listSaves().then(setSaves);
+  const lastSyncedAt = useAccount((s) => s.lastSyncedAt);
+  // a sync may have brought careers down from the cloud (or removed ones deleted elsewhere)
   useEffect(() => {
     refresh();
-  }, []);
+  }, [lastSyncedAt]);
 
   const doExport = async (id: string) => {
     const st = await loadGame(id);
@@ -38,7 +42,7 @@ export function TitleScreen() {
     const blob = new Blob([exportSave(st)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `hoops-legacy-${id}.json`;
+    a.download = `come-up-${id}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
@@ -61,7 +65,7 @@ export function TitleScreen() {
           🏀
         </motion.div>
         <h1 className="mt-3 font-display text-6xl font-bold tracking-tight">
-          HOOPS <span className="text-hoop-500">LEGACY</span>
+          COME <span className="text-hoop-500">UP</span>
         </h1>
         <p className="mt-2 text-ink-400">From the high school gym to the league. Every choice writes the story.</p>
       </motion.div>
@@ -81,6 +85,8 @@ export function TitleScreen() {
         </Button>
         <input ref={fileRef} type="file" accept="application/json" hidden onChange={(e) => e.target.files?.[0] && doImport(e.target.files[0])} />
       </div>
+
+      <AccountBar />
 
       {/* only on the website: the desktop app has no use for a link to itself */}
       {!getDesktop() && (

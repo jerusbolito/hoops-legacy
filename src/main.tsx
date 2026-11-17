@@ -17,10 +17,14 @@ import '@fontsource/jetbrains-mono/latin-400.css';
 import '@fontsource/jetbrains-mono/latin-600.css';
 import './index.css';
 import { useStore } from './state/store';
+import { startAccount } from './sync/account';
 import { App } from './ui/App';
 
 // Debugging handle: window.__hoops.getState() / .setState(). Present in dev, and in production only when built with VITE_EXPOSE_STORE=1.
 if (import.meta.env.DEV || import.meta.env.VITE_EXPOSE_STORE) (window as unknown as { __hoops: typeof useStore }).__hoops = useStore;
+
+// restores a signed-in session and starts background sync (does nothing in a build without Supabase settings)
+startAccount();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
