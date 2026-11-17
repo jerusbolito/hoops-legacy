@@ -152,10 +152,10 @@ To photograph a first-run screen without a real engine: `--smoke-engine=bundled-
 The desktop app carries its own copy of the game and never loads the website, so **deploying the website does not update installed apps**. To ship a change to desktop players:
 
 1. Push the change (Vercel redeploys the website).
-2. Raise `version` in `package.json`, then run `npm run desktop:dist`. The installer is written to `release/Hoops-Legacy-Setup.exe`. The file name is fixed on purpose (see `nsis.artifactName` in `electron-builder.config.cjs`).
+2. Raise `version` in `package.json`, then run `npm run desktop:dist`. The installer is written to `release/Come-Up-Setup.exe`. The file name is fixed on purpose (see `nsis.artifactName` in `electron-builder.config.cjs`).
 3. Create a GitHub release (for example `v1.0.1`) and attach that file. GitHub allows 2 GB per file, so the standard installer fits and the full zip (about 7.5 GB) does not.
 
-The website's title screen shows a **Download for Windows** card (`src/ui/screens/TitleScreen.tsx`) that links to `https://github.com/jerusbolito/hoops-legacy/releases/latest/download/Hoops-Legacy-Setup.exe`. That address always serves the newest release, so a new release needs no website change. The card is hidden inside the desktop app.
+The website's title screen shows a **Download for Windows** card (`src/ui/screens/TitleScreen.tsx`) that links to `https://github.com/jerusbolito/hoops-legacy/releases/latest/download/Come-Up-Setup.exe`. That address always serves the newest release, so a new release needs no website change. The card is hidden inside the desktop app.
 
 Players who already have the app must run the new installer themselves. It installs over the old version, and nothing they have is lost: careers live at the app's fixed local address, and the downloaded model sits in its own folder. There is no automatic update check yet.
 

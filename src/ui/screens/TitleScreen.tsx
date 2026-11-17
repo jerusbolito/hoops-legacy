@@ -9,9 +9,9 @@ import { WhatsNew } from '../components/WhatsNew';
 import { HallOfFame } from '../components/Legacy';
 
 // always the newest release (see electron-builder.config.cjs)
-const DESKTOP_DOWNLOAD_URL = 'https://github.com/jerusbolito/hoops-legacy/releases/latest/download/Hoops-Legacy-Setup.exe';
+const DESKTOP_DOWNLOAD_URL = 'https://github.com/jerusbolito/hoops-legacy/releases/latest/download/Come-Up-Setup.exe';
 // Apple Silicon only (see mac.artifactName in electron-builder.config.cjs)
-const MAC_DOWNLOAD_URL = 'https://github.com/jerusbolito/hoops-legacy/releases/latest/download/Hoops-Legacy-Mac.dmg';
+const MAC_DOWNLOAD_URL = 'https://github.com/jerusbolito/hoops-legacy/releases/latest/download/Come-Up-Mac.dmg';
 
 const onMac = () => typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform || navigator.userAgent) && !/iPhone|iPad/i.test(navigator.userAgent);
 

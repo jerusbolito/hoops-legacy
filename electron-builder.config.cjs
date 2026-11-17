@@ -34,9 +34,9 @@ module.exports = {
   // signing is switched on by environment variables (see scripts/signing-config.cjs); with none set the build is unsigned
   win: { target: full ? ['zip'] : ['nsis'], artifactName: full ? '${productName}-${version}-full-win.${ext}' : undefined, ...signing.win },
   // a fixed file name (no version, no spaces) so one permanent link always points at the newest release:
-  // https://github.com/jerusbolito/hoops-legacy/releases/latest/download/Hoops-Legacy-Setup.exe
+  // https://github.com/jerusbolito/hoops-legacy/releases/latest/download/Come-Up-Setup.exe
   // build/installer.nsh adds the uninstall step that removes downloaded story models (and keeps saved careers)
-  nsis: { oneClick: false, allowToChangeInstallationDirectory: true, perMachine: false, artifactName: 'Hoops-Legacy-Setup.${ext}', include: 'build/installer.nsh' },
-  mac: { target: full ? ['zip'] : ['dmg'], artifactName: full ? undefined : 'Hoops-Legacy-Mac.${ext}', category: 'public.app-category.games' },
+  nsis: { oneClick: false, allowToChangeInstallationDirectory: true, perMachine: false, artifactName: 'Come-Up-Setup.${ext}', include: 'build/installer.nsh' },
+  mac: { target: full ? ['zip'] : ['dmg'], artifactName: full ? undefined : 'Come-Up-Mac.${ext}', category: 'public.app-category.games' },
   linux: { target: full ? ['tar.gz'] : ['AppImage'], category: 'Game' },
 };
