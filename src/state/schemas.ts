@@ -57,6 +57,8 @@ export const AthleteSchema = z.object({
   teamId: z.string().nullable(),
   /** Persistent athletes (user, rivals, friends) survive level transitions. */
   persistent: z.boolean().default(false),
+  /** A senior's announced college, so they turn up there when the class moves on. */
+  committedTo: z.string().optional(),
   /** Pros only: seasons left on their deal. Set the first time the league's contracts roll over. */
   contractYears: z.number().optional(),
   /** Pros only: what they are paid a year. Set along with the length of the deal. */

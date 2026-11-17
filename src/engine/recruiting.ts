@@ -283,6 +283,7 @@ export function classCommitNews(state: GameState, rng: RNG) {
     .slice(0, 3);
   for (const a of seniors) {
     const college = rng.weighted(COLLEGE_TEAMS, (t) => 0.3 + (t.prestige / 100) ** 2 * (overall(a.ratings) / 55));
+    a.committedTo = college.name;
     logTransaction(state, 'recruit', `${first(a)}, the ${state.teams[a.teamId!].name} senior ${a.position}, commits to ${college.name}.`);
   }
 }

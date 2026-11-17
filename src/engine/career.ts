@@ -58,7 +58,7 @@ import { developNpcs, offseasonDevelopment, postGameWear, train, weeklyRecovery,
 import { makeRatings, overall } from './ratings';
 import { RNG, clamp } from './rng';
 import { gameScore, seasonAverages } from './stats';
-import { developStoryAthletes, promoteTeammate, recordStorySeasons, refreshStoryTitles } from './storyAthletes';
+import { developStoryAthletes, lockedAthleteIds, promoteTeammate, recordStorySeasons, refreshStoryTitles } from './storyAthletes';
 
 /* ───────────────────────── RNG plumbing ───────────────────────── */
 
@@ -928,15 +928,31 @@ function introduceScout(state: GameState, rng: RNG) {
   );
 }
 
+/** Who from the old league carries on: the best graduating high school seniors, or every college player who was drafted. */
+function alumniOf(state: GameState, level: Level, drafted?: Map<string, string>): Athlete[] {
+  const locked = lockedAthleteIds(state);
+  const pool = state.league.teamIds
+    .flatMap((id) => state.teams[id].rosterIds)
+    .map((id) => state.athletes[id])
+    .filter((a): a is Athlete => !!a && !a.persistent && !locked.has(a.id));
+  const best = (xs: Athlete[]) => xs.sort((a, b) => overall(b.ratings) - overall(a.ratings));
+  if (level === 'college') return best(pool.filter((a) => a.age >= graduationAge('hs'))).slice(0, 24);
+  if (level === 'pro') return best(pool.filter((a) => drafted?.has(a.id)));
+  return [];
+}
+
 /** Move the user (and persistent NPC athletes) into a fresh league at a new level. */
 function enterLevel(state: GameState, rng: RNG, level: Level, tpl: TeamTemplate, drafted?: Map<string, string>) {
   // school NIL deals end when you leave, and pending offers lapse
   state.offers = [];
   state.player.deals = [];
   // detach old league
+  // the league's standouts move up with you: the best graduating seniors, or everyone who was drafted
+  const carried = alumniOf(state, level, drafted);
+  const kept = new Set(carried.map((a) => a.id));
   for (const tid of state.league.teamIds) state.teams[tid].rosterIds = [];
   for (const a of Object.values(state.athletes)) {
-    if (!a.persistent) delete state.athletes[a.id];
+    if (!a.persistent && !kept.has(a.id)) delete state.athletes[a.id];
     else a.teamId = null;
   }
   const others = TEAMS_BY_LEVEL[level].filter((t) => t.name !== tpl.name);
@@ -949,8 +965,8 @@ function enterLevel(state: GameState, rng: RNG, level: Level, tpl: TeamTemplate,
 
   const placeInto = (ath: Athlete, t: Team) => {
     const roster = t.rosterIds.map((id) => state.athletes[id]);
-    const cut = roster.filter((a) => !a.persistent && a.position === ath.position).sort((a, b) => overall(a.ratings) - overall(b.ratings))[0] ??
-      roster.filter((a) => !a.persistent).sort((a, b) => overall(a.ratings) - overall(b.ratings))[0];
+    const cut = roster.filter((a) => !a.persistent && !kept.has(a.id) && a.position === ath.position).sort((a, b) => overall(a.ratings) - overall(b.ratings))[0] ??
+      roster.filter((a) => !a.persistent && !kept.has(a.id)).sort((a, b) => overall(a.ratings) - overall(b.ratings))[0];
     if (cut) {
       t.rosterIds = t.rosterIds.filter((id) => id !== cut.id);
       delete state.athletes[cut.id];
@@ -960,6 +976,23 @@ function enterLevel(state: GameState, rng: RNG, level: Level, tpl: TeamTemplate,
   };
 
   placeInto(userAthlete(state), team);
+  // best first, so the top players get the pick of the programs
+  const perTeam = new Map<string, number>();
+  for (const a of carried) {
+    const named = level === 'pro' ? drafted?.get(a.id) : a.committedTo;
+    let t = named ? teams.find((x) => x.name === named) : undefined;
+    t ??= rng.weighted(
+      teams.filter((x) => (perTeam.get(x.id) ?? 0) < 3),
+      (x) => 0.3 + (x.prestige / 100) ** 2 * (overall(a.ratings) / 55),
+    );
+    delete a.committedTo;
+    if (!t) {
+      delete state.athletes[a.id];
+      continue;
+    }
+    perTeam.set(t.id, (perTeam.get(t.id) ?? 0) + 1);
+    placeInto(a, t);
+  }
   // schools courting you and players you were chasing belong to the old level
   state.recruiting.suitors = [];
   state.recruiting.targets = [];

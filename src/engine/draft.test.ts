@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { PRO_TEAMS } from '../data/teams';
+import { COLLEGE_TEAMS, PRO_TEAMS } from '../data/teams';
 import type { GameState } from '../state/schemas';
-import { createCareer, runDraft, userAthlete } from './career';
+import { commitToCollege, createCareer, runDraft, userAthlete } from './career';
 import { DRAFT_PICKS, boardRank, draftBoard, draftStock, projectedPick, simulateDraft } from './draft';
 import { RNG } from './rng';
 import { playUntil } from './testkit';
@@ -88,4 +88,39 @@ describe('the draft class', () => {
     }
     expect(checked).toBeGreaterThan(0);
   }, 60_000);
+});
+
+describe('the league moves up with you', () => {
+  it('seniors who announced a college turn up on that team, and the best graduating seniors all carry on', () => {
+    const s = make(6);
+    playUntil(s, new RNG(6), (x) => x.career.phase === 'recruiting' && !x.career.lifeEvent);
+    const committed = Object.values(s.athletes).filter((a) => a.committedTo);
+    expect(committed.length).toBeGreaterThan(0);
+    const named = committed.map((a) => ({ id: a.id, college: a.committedTo! }));
+    const best = Object.values(s.athletes).filter((a) => !a.persistent && a.age >= 18 && a.id !== s.player.athleteId);
+    expect(best.length).toBeGreaterThan(0);
+    commitToCollege(s, COLLEGE_TEAMS[0].name);
+    for (const n of named) {
+      const a = s.athletes[n.id];
+      expect(a, 'announced commit is still in the game').toBeDefined();
+      expect(s.teams[a.teamId!].name).toBe(n.college);
+      expect(s.teams[a.teamId!].level).toBe('college');
+    }
+    // nobody is on two rosters, and every rostered player exists
+    const seen = new Set<string>();
+    for (const id of s.league.teamIds) for (const aid of s.teams[id].rosterIds) {
+      expect(s.athletes[aid]).toBeDefined();
+      expect(seen.has(aid)).toBe(false);
+      seen.add(aid);
+    }
+  });
+
+  it('everyone drafted turns up on the team that picked them', () => {
+    const s = atDraft(5);
+    const r = runDraft(s);
+    const rostered = new Map<string, string>();
+    for (const id of s.league.teamIds) for (const aid of s.teams[id].rosterIds) rostered.set(`${s.athletes[aid].firstName} ${s.athletes[aid].lastName}`, s.teams[id].name);
+    const missing = r.picks.filter((p) => !p.isUser && rostered.get(p.name) !== p.team);
+    expect(missing).toEqual([]);
+  });
 });

@@ -272,7 +272,8 @@ describe('money', () => {
     playUntil(s, rng, (x) => x.career.phase === 'offseason' && !x.career.lifeEvent);
     // signed a couple of weeks in, so it pays for the weeks that are left
     expect(s.player.finance.endorse).toBeGreaterThan(9000 * 0.75);
-    expect(s.player.finance.endorse).toBeLessThanOrEqual(9000);
+    // the play-through may sign more deals along the way; together they can never pay more than they are worth
+    expect(s.player.finance.endorse).toBeLessThanOrEqual(s.player.deals.reduce((t, d) => t + d.perSeason, 0));
   });
 });
 
