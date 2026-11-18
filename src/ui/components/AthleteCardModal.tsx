@@ -6,6 +6,7 @@ import { fmtPct } from '../../engine/stats';
 import { useStore } from '../../state/store';
 import { Avatar, Meter, Pill, TeamBadge, cx } from './ui';
 import { tierFor } from './PlayerCard';
+import { useDialog } from './useDialog';
 
 const money = (n: number) => (n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : `$${Math.round(n).toLocaleString()}`);
 
@@ -194,9 +195,10 @@ function Body({ card, report }: { card: AthleteCard; report: ScoutingReport | nu
 
 /** Opens from any player's name. Takes the card as a prop so the fade-out never draws from a store that has moved on. */
 function Shell({ card, report, onClose }: { card: AthleteCard; report: ScoutingReport | null; onClose: () => void }) {
+  const ref = useDialog<HTMLDivElement>(onClose);
   return (
     <motion.div role="dialog" aria-modal="true" aria-label={card.name} className="fixed inset-0 z-[54] flex items-start justify-center overflow-y-auto bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
-      <motion.div initial={{ y: 24, scale: 0.97 }} animate={{ y: 0, scale: 1 }} onClick={(e) => e.stopPropagation()} className="my-auto w-full max-w-3xl rounded-2xl border border-court-600 bg-court-850 p-5 shadow-2xl">
+      <motion.div ref={ref} tabIndex={-1} initial={{ y: 24, scale: 0.97 }} animate={{ y: 0, scale: 1 }} onClick={(e) => e.stopPropagation()} className="my-auto w-full max-w-3xl rounded-2xl border border-court-600 bg-court-850 p-5 shadow-2xl">
         <div className="mb-3 flex justify-end">
           <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-md text-ink-400 hover:bg-court-700 hover:text-ink-100" aria-label="Close">
             ✕

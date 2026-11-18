@@ -2,6 +2,30 @@
 
 Only the big things: new systems, engine changes, and anything that changes how the game plays. Newest first. The game shows this on the title screen (**What's new**), read straight from this file.
 
+## 1.3.0
+
+### After the career
+- **Become a coach.** When a pro career ends you can take over a team. Pick a philosophy (win now, balanced, or develop the kids) and what the staff drills, then play the whole season and read the result. A winning record and titles build your reputation, which lifts the whole roster, and a long losing run gets you fired. Hang up the whistle any time and carry on with the next generation.
+- **A trade market under the salary cap.** As a coach you can swap players with other teams. Each team has to stay under the cap or take back no more than 125% of the pay it sends out, and the other side tells you whether they would do it before you ask.
+
+### Compete and collect
+- **Challenges.** A fresh challenge every week, plus three classics, all with a fixed start so everyone faces the same league. Your score is your Hall of Fame score. Sign in to see the leaderboard and post yours.
+- **Achievements.** Twenty-two goals across every career you finish, from your first title to a Hall of Fame legacy three generations deep. They follow your account.
+- **Share your career.** Any career in the Hall of Fame can be shared as an image.
+- **Difficulty.** Choose Relaxed, Standard or Grind when you create a character: how fast training pays off, how often you get hurt and how far money goes.
+
+### The world around you
+- **Scouting reports.** Open any player's card for a grade, strengths and concerns, a likely peak and best case, and how ready they are for the next level.
+- **Media storylines.** A documentary crew follows you across three seasons, and new moments include press conference blow-ups, podcast invites, sneaker collaborations, false rumors and a letter from a young fan.
+
+### Fixes and tuning
+- **Elite shooters cool off.** Top scorers no longer post 65% from three. League leaders need more attempts to qualify for the percentage boards.
+- **Tiredness hurts a little less.** Playing on low energy costs fewer rating points, so training hard is not punished as much.
+- **A drafted player no longer vanishes.** A story teammate who was drafted could disappear from the league. They now join the team that picked them.
+- **The MVP race matches the awards** when two players are within a tenth of a point.
+- **Easier to read and to reach with a keyboard.** Dim text is brighter, keyboard focus is visible, Escape closes the player card and What's new, and progress bars are announced.
+- **Safer saves.** Saves now carry a migration path, so future updates can change the save format without breaking older careers.
+
 ## 1.2.0
 
 ### Accounts and cloud saves

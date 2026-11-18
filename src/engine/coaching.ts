@@ -2,6 +2,7 @@ import type { Athlete, Coaching, CoachSeason, GameState, RatingKey } from '../st
 import { RATING_KEYS } from '../state/schemas';
 import { scoredPlayers } from './awards';
 import { ageEveryone, turnoverRosters, withRng } from './career';
+import { salaryOf } from './contracts';
 import { archiveSeasonStats } from './leaders';
 import { advancePlayoffs, createLeague, currentPlayoffRound, seedPlayoffs, simOtherGames, sortedStandings, teamRoster } from './league';
 import { tierOf } from './legacyScore';
@@ -79,6 +80,7 @@ export function takeJob(s: GameState, teamId: string): boolean {
   if (!c.active || c.stage !== 'offers' || !c.offers.includes(teamId)) return false;
   c.teamId = teamId;
   c.stage = 'offseason';
+  c.trades = 0;
   c.offers = [];
   s.career.teamId = teamId;
   const a = s.athletes[s.player.athleteId];
@@ -208,6 +210,7 @@ export function nextSeason(s: GameState): boolean {
     c.teamId = '';
     c.offers = coachingOffers(s);
   } else c.stage = 'offseason';
+  c.trades = 0;
   return true;
 }
 
@@ -240,12 +243,13 @@ export interface CoachRosterRow {
   position: string;
   ovr: number;
   potential: number;
+  salary: number;
 }
 
 export function coachRoster(s: GameState): CoachRosterRow[] {
   if (!s.coaching.teamId) return [];
   return teamRoster(s, s.coaching.teamId)
-    .map((a: Athlete) => ({ id: a.id, name: `${a.firstName} ${a.lastName}`, age: a.age, position: a.position, ovr: overall(a.ratings), potential: a.potential }))
+    .map((a: Athlete) => ({ id: a.id, name: `${a.firstName} ${a.lastName}`, age: a.age, position: a.position, ovr: overall(a.ratings), potential: a.potential, salary: salaryOf(a) }))
     .sort((a, b) => b.ovr - a.ovr);
 }
 

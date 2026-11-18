@@ -15,7 +15,8 @@
   --color-ink-100: #eef2f8;
   --color-ink-300: #b7c0cf;
   --color-ink-400: #8a95a8;
-  --color-ink-500: #667085;
+  /* 4.7:1 or better on every card surface (the old #667085 was 3.5:1 on the cards, under the 4.5:1 minimum) */
+  --color-ink-500: #7b869a;
   --color-hoop-400: #fb923c;
   --color-hoop-500: #f97316;
   --color-hoop-600: #ea580c;
@@ -154,6 +155,16 @@ body {
 .rain {
   animation: rain 1.4s linear infinite;
 }
+/* Keyboard users can always see where they are. Mouse clicks do not draw a ring. */
+:focus-visible {
+  outline: 2px solid var(--color-hoop-400);
+  outline-offset: 2px;
+}
+button:focus:not(:focus-visible),
+[tabindex='-1']:focus:not(:focus-visible) {
+  outline: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .beam,
   .flash,

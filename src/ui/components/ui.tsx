@@ -50,7 +50,7 @@ export function Meter({ value, max = 100, color = 'var(--color-hoop-500)', label
           {showValue && <span className="font-mono text-ink-300">{Math.round(value)}</span>}
         </div>
       )}
-      <div className="h-1.5 overflow-hidden rounded-full bg-court-700">
+      <div className="h-1.5 overflow-hidden rounded-full bg-court-700" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={max} aria-valuenow={Math.round(value)}>
         <motion.div className="h-full rounded-full" style={{ background: color }} initial={false} animate={{ width: `${pct}%` }} transition={{ type: 'spring', stiffness: 120, damping: 20 }} />
       </div>
     </div>

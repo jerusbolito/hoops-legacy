@@ -18,7 +18,7 @@ export function Toasts() {
     } else if (newestKind === 'bad') sfx.thud();
   }, [newestId, newestKind]);
   return (
-    <div className="pointer-events-none fixed right-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-50 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 lg:bottom-4">
+    <div role="status" aria-live="polite" className="pointer-events-none fixed right-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-50 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 lg:bottom-4">
       <AnimatePresence>
         {toasts.map((t) => (
           <motion.button

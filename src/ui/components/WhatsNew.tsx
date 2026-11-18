@@ -1,6 +1,7 @@
 import { Fragment } from 'react';
 import { CHANGELOG } from '../../changelog';
 import { Button } from './ui';
+import { useDialog } from './useDialog';
 
 /** `**bold**` and `code` in a changelog line, nothing else. */
 function Line({ text }: { text: string }) {
@@ -15,9 +16,10 @@ function Line({ text }: { text: string }) {
 
 /** The release notes, newest first, read from CHANGELOG.md. */
 export function WhatsNew({ onClose }: { onClose: () => void }) {
+  const ref = useDialog<HTMLDivElement>(onClose);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-label="What's new" onClick={onClose}>
-      <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-court-700 bg-court-900 p-5" onClick={(e) => e.stopPropagation()}>
+      <div ref={ref} tabIndex={-1} className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-court-700 bg-court-900 p-5" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-display text-2xl font-bold">What's new</h2>
           <Button variant="ghost" onClick={onClose}>Close</Button>

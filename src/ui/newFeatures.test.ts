@@ -70,6 +70,7 @@ describe('coaching screens', () => {
     let html = renderToString(h(CoachingPanel));
     expect(html).toContain('Philosophy');
     expect(html).toContain('Your roster');
+    expect(html).toContain('Trade market');
     expect(html).toContain('Play the season');
 
     playSeason(s);

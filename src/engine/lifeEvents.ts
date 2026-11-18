@@ -2258,6 +2258,257 @@ const DEFS: Def[] = [
       }),
     ],
   },
+
+  /* ── media storylines ── */
+
+  // A documentary, in three parts over three seasons: the pitch, the camera at a bad moment, the premiere.
+  {
+    id: 'documentary_pitch',
+    icon: '🎬',
+    title: 'A film crew wants in',
+    tone: 'good',
+    levels: UP,
+    weight: 1.2,
+    when: (c) => c.s.player.reputation >= 30 && c.s.player.followers >= 1500 && c.s.story.flags.doc_state === undefined,
+    text: (c) => `A small production company wants to follow your season for a documentary. A producer who has clearly done their homework tells you that ${c.s.player.hometown} is where the story starts. It would mean cameras in the gym, the car and the kitchen.`,
+    options: () => [
+      opt('yes', 'Say yes', (f) => {
+        f.flag('doc_state', 1);
+        f.flag('doc_season', f.s.career.season);
+        f.energy(-4);
+        f.rep(1);
+        return 'You shake on it. The crew is polite, quiet and everywhere. Within a week you stop noticing the lens, which is exactly what they wanted.';
+      }, { hint: 'It runs for a couple of seasons' }),
+      opt('later', 'Not this year', (f) => {
+        f.flag('doc_state', -1);
+        return 'You ask them to come back when you have more to show. They say they will, and you both know they might not.';
+      }),
+      opt('no', 'No cameras', (f) => {
+        f.flag('doc_state', -2);
+        f.morale(1);
+        return 'You keep the gym your own. Some things are better when nobody is filming them.';
+      }),
+    ],
+  },
+  {
+    id: 'documentary_low',
+    icon: '🎥',
+    title: 'The camera catches you at your worst',
+    tone: 'odd',
+    levels: UP,
+    weight: 5,
+    when: (c) => c.s.story.flags.doc_state === 1 && Number(c.s.story.flags.doc_season ?? 0) < c.s.career.season,
+    text: () => 'The crew is still around, and tonight they got you after a game you would like to forget: head down, alone in the tunnel, saying things you would never say to a microphone. The producer asks if they can use it.',
+    options: () => [
+      opt('use', 'Let them use it', (f) => {
+        f.flag('doc_state', 2);
+        f.flag('doc_season', f.s.career.season);
+        if (f.rng.chance(0.7)) {
+          f.rep(2);
+          f.followers(0.04);
+          return 'It is the most honest thing in the film, and you know it. You wince, and you let it stay.';
+        }
+        f.rep(-1);
+        f.morale(-2);
+        return 'It looks worse than it felt. You will be reminded of that tunnel for a while.';
+      }, { hint: 'Honest, and a little risky' }),
+      opt('cut', 'Ask them to cut it', (f) => {
+        f.flag('doc_state', 2);
+        f.flag('doc_season', f.s.career.season);
+        f.morale(1);
+        return 'The producer nods and says it is your story. The film will be a little less true and a little more yours.';
+      }),
+    ],
+  },
+  {
+    id: 'documentary_premiere',
+    icon: '🍿',
+    title: 'The premiere',
+    tone: 'good',
+    levels: UP,
+    weight: 5,
+    when: (c) => c.s.story.flags.doc_state === 2 && Number(c.s.story.flags.doc_season ?? 0) < c.s.career.season,
+    text: () => 'The documentary is finished and a streaming service has picked it up. There is a premiere on Friday, and your name is on the poster.',
+    options: (c) => [
+      opt('red', 'Walk the red carpet', (f) => {
+        f.flag('doc_state', 3);
+        f.energy(-5);
+        f.followers(0.12);
+        f.rep(3);
+        f.money(c.$(0, 800, 40000));
+        f.news(`${c.me.first} ${c.me.last}'s documentary premieres to strong reviews.`);
+        return 'You wear something you would never pick yourself and smile for an hour. The reviews are kind and the clip of you in the tunnel is everywhere.';
+      }),
+      opt('team', 'Bring the whole team', (f) => {
+        f.flag('doc_state', 3);
+        f.chem(5);
+        f.followers(0.07);
+        f.rep(2);
+        f.morale(3);
+        return 'Twelve guys in rented suits take over the back row and heckle every scene you are in. It is the best night of the season.';
+      }),
+      opt('home', 'Watch it at home', (f) => {
+        f.flag('doc_state', 3);
+        f.followers(0.04);
+        f.morale(1);
+        return 'You watch it on the couch with the sound low. It is strange to see your own life edited. It is also good.';
+      }),
+    ],
+  },
+  {
+    id: 'press_walkout',
+    icon: '🎤',
+    title: 'The postgame press conference',
+    tone: 'odd',
+    levels: UP,
+    weight: 0.9,
+    when: (c) => inSeason(c) && c.s.player.reputation >= 15,
+    text: () => 'A reporter opens with a question about whether your team has quit on the coach. The room goes quiet. Everybody is looking at you.',
+    options: (c) => [
+      opt('answer', 'Answer it straight', (f) => {
+        if (f.rng.chance(0.55)) {
+          f.rep(2);
+          f.coach(2, 1);
+          return 'You say the team is hurting, not quitting, and name what needs fixing. The room relaxes, and the clip is all over the place by morning.';
+        }
+        f.coach(-2);
+        f.rep(-1);
+        return 'It comes out sharper than you meant. A headline makes it sound like you are calling out the locker room.';
+      }, { hint: 'Coin flip' }),
+      opt('walk', 'Walk out', (f) => {
+        f.followers(0.03);
+        f.rep(-2);
+        f.coach(-3);
+        f.chem(-2);
+        return 'You stand up and leave. The silence behind you is louder than any answer. It trends for a day.';
+      }),
+      opt('joke', 'Turn it into a joke', (f) => {
+        f.morale(1);
+        f.followers(0.02);
+        return `You say you would quit, but ${c.coach ? `Coach ${first(c.coach)}` : 'the coach'} would make you run for it. People laugh, the question dies and you move on.`;
+      }),
+    ],
+  },
+  {
+    id: 'podcast_invite',
+    icon: '🎧',
+    title: 'A podcast wants an hour',
+    tone: 'good',
+    levels: UP,
+    weight: 1,
+    when: (c) => c.s.player.followers >= 800,
+    text: () => 'A popular basketball podcast has invited you for a long, unscripted conversation. The hosts are funny and a little ruthless.',
+    options: (c) => [
+      opt('go', 'Go on', (f) => {
+        if (f.rng.chance(0.7)) {
+          f.followers(0.08);
+          f.rep(1);
+          return 'It goes better than you hoped. You tell a story about your first coach that makes the hosts stop talking, and the clip does numbers.';
+        }
+        f.followers(0.02);
+        f.rep(-1);
+        return `You say one thing about ${c.rival ? first(c.rival) : 'a rival'} that is clipped and shared out of context. The rest of the hour does not matter.`;
+      }, { hint: 'Mostly upside' }),
+      opt('prep', 'Prepare for a day first', (f) => {
+        f.energy(-3);
+        f.followers(0.06);
+        f.rep(1);
+        return 'You write down three stories and two things you will not say. It is a clean hour. The hosts say you are the easiest guest they have had.';
+      }),
+      opt('pass', 'Pass', () => 'You thank them and say not this season. They say the offer stands, and you believe them about half.'),
+    ],
+  },
+  {
+    id: 'sneaker_collab',
+    icon: '👟',
+    title: 'A sneaker collab',
+    tone: 'good',
+    levels: PRO,
+    weight: 0.9,
+    when: (c) => c.s.player.reputation >= 45 && c.s.player.followers >= 5000 && c.s.player.deals.length > 0,
+    text: (c) => `One of your sponsors wants a limited shoe with your name, ${c.s.player.hometown} colors and a design you get a say in. They want an answer this week.`,
+    options: (c) => [
+      opt('design', 'Design it yourself', (f) => {
+        f.energy(-6);
+        f.money(c.$(0, 0, 220000));
+        f.followers(0.1);
+        f.rep(2);
+        return 'You sketch on the plane for a month. The shoe sells out in an afternoon and people are already reselling it for triple.';
+      }),
+      opt('sign', 'Sign off on theirs', (f) => {
+        f.money(c.$(0, 0, 120000));
+        f.followers(0.03);
+        return 'It is a perfectly fine shoe. The check clears and nobody writes about it.';
+      }),
+      opt('hold', 'Hold out for a bigger deal', (f) => {
+        if (f.rng.chance(0.4)) {
+          f.money(c.$(0, 0, 350000));
+          f.rep(1);
+          return 'They blink. You get the larger share and a say in the colorway.';
+        }
+        f.rep(-1);
+        return 'They move on to another player. Your agent does not say I told you so, which is somehow worse.';
+      }, { hint: 'Risky' }),
+    ],
+  },
+  {
+    id: 'false_rumor',
+    icon: '🗞️',
+    title: 'A rumor with your name on it',
+    tone: 'bad',
+    levels: UP,
+    weight: 0.8,
+    when: (c) => c.s.player.followers >= 1000,
+    text: () => 'An anonymous account says you are unhappy with the team and asking around about a move. It is not true. It is also being repeated by people who should know better.',
+    options: (c) => [
+      opt('deny', 'Shut it down publicly', (f) => {
+        f.rep(1);
+        f.coach(2, 1);
+        f.morale(-1);
+        return 'You post one short, firm line. The coach reads it and nods. The account goes quiet.';
+      }),
+      opt('call', 'Call the coach first', (f) => {
+        f.coach(4, 2);
+        f.morale(1);
+        return `You tell ${c.coach ? `Coach ${first(c.coach)}` : 'the coach'} directly before the story reaches them. They already knew, and they respect that you said it to their face.`;
+      }),
+      opt('ignore', 'Let it burn out', (f) => {
+        f.rep(-2);
+        f.chem(-2);
+        f.morale(-2);
+        return 'It takes ten days. Teammates start looking at you a little differently in the meantime.';
+      }),
+    ],
+  },
+  {
+    id: 'fan_letter',
+    icon: '✉️',
+    title: 'A letter from a kid',
+    tone: 'good',
+    levels: AMATEUR,
+    weight: 0.9,
+    when: (c) => c.s.player.reputation >= 8,
+    text: (c) => `A handwritten letter arrives at the gym from a kid in ${c.s.player.hometown}. The handwriting is rough. They want to know how you stay so calm when it is close.`,
+    options: () => [
+      opt('write', 'Write back a real answer', (f) => {
+        f.morale(3);
+        f.rep(1);
+        f.followers(0.02);
+        return 'You answer honestly: you are not calm, you just keep breathing. The kid\'s mom posts a photo of the reply on the fridge, and it spreads further than you intended.';
+      }),
+      opt('visit', 'Show up at their game', (f) => {
+        f.energy(-4);
+        f.morale(4);
+        f.rep(2);
+        f.followers(0.04);
+        return 'You sit in a folding chair in a small gym and clap too loud. The kid hits a free throw and looks straight at you.';
+      }),
+      opt('keep', 'Keep it on the wall', (f) => {
+        f.morale(1);
+        return 'You tape it inside your locker. It helps more than you would admit.';
+      }),
+    ],
+  },
 ];
 
 const BY_ID = Object.fromEntries(DEFS.map((d) => [d.id, d])) as Record<string, Def>;

@@ -552,3 +552,65 @@ describe('rivals and friends keep growing up', () => {
     }
   });
 });
+
+describe('the documentary storyline', () => {
+  const DOC = ['documentary_pitch', 'documentary_low', 'documentary_premiere'];
+  /** Every moment that could come up for this save, by asking each event whether it applies. */
+  const eligible = (s: GameState): string[] => {
+    const refs = lifeRefs(s);
+    const ctx = lifeContext(s, refs, 1);
+    return lifeEventDefs().filter((d) => d.levels.includes(s.career.level) && (d.need ?? []).every((r) => refs[r]) && (!d.when || d.when(ctx))).map((d) => d.id);
+  };
+  const force = (s: GameState, id: string, choice: string) => {
+    s.career.lifeEvent = { id, seed: 7, refs: lifeRefs(s) };
+    return withRng(s, (rng) => resolveLifeEvent(s, rng, choice))!;
+  };
+
+  it('is offered once to someone with a name, and the later parts wait their turn', () => {
+    const { s } = careerAt('pro', 5);
+    s.player.reputation = 60;
+    s.player.followers = 20000;
+    expect(eligible(s)).toContain('documentary_pitch');
+    expect(eligible(s)).not.toContain('documentary_low');
+    expect(eligible(s)).not.toContain('documentary_premiere');
+
+    force(s, 'documentary_pitch', 'yes');
+    expect(s.story.flags.doc_state).toBe(1);
+    // same season: nothing more yet, and the pitch does not come twice
+    expect(eligible(s)).not.toContain('documentary_pitch');
+    expect(eligible(s)).not.toContain('documentary_low');
+
+    s.career.season++;
+    expect(eligible(s)).toContain('documentary_low');
+    expect(eligible(s)).not.toContain('documentary_premiere');
+    force(s, 'documentary_low', 'cut');
+    expect(s.story.flags.doc_state).toBe(2);
+    expect(eligible(s)).not.toContain('documentary_low');
+    expect(eligible(s)).not.toContain('documentary_premiere');
+
+    s.career.season++;
+    expect(eligible(s)).toContain('documentary_premiere');
+    const out = force(s, 'documentary_premiere', 'red');
+    expect(out.text.length).toBeGreaterThan(20);
+    expect(s.story.flags.doc_state).toBe(3);
+    for (const id of DOC) expect(eligible(s)).not.toContain(id);
+  }, 120_000);
+
+  it('saying no, or not yet, closes it for good', () => {
+    for (const choice of ['no', 'later']) {
+      const { s } = careerAt('pro', 5);
+      s.player.reputation = 60;
+      s.player.followers = 20000;
+      force(s, 'documentary_pitch', choice);
+      s.career.season += 3;
+      for (const id of DOC) expect(eligible(s), choice).not.toContain(id);
+    }
+  }, 120_000);
+
+  it('needs a name first', () => {
+    const { s } = careerAt('pro', 5);
+    s.player.reputation = 5;
+    s.player.followers = 100;
+    expect(eligible(s)).not.toContain('documentary_pitch');
+  }, 120_000);
+});

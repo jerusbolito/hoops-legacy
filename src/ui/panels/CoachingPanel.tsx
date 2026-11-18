@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { PHILOSOPHIES, canStartCoaching, coachRoster, coachingSummary, nextSeason, playSeason, setPhilosophy, startCoaching, stopCoaching, takeJob, type SeasonReport } from '../../engine/coaching';
+import { MAX_TRADES, checkTrade, proposeTrade, tradeTargets } from '../../engine/coachingTrades';
+import { salaryCap } from '../../engine/contracts';
 import { RATING_KEYS, RATING_LABELS, type RatingKey } from '../../state/schemas';
 import { useStore } from '../../state/store';
 import { Button, Meter, Panel, Pill, cx } from '../components/ui';
@@ -80,6 +82,86 @@ function Roster() {
           ))}
         </tbody>
       </table>
+    </Panel>
+  );
+}
+
+const money = (n: number) => `$${(n / 1e6).toFixed(1)}M`;
+
+/** Swap players with another team under the same salary cap every team lives under. */
+function TradeMarket() {
+  const game = useStore((s) => s.game)!;
+  const edit = useStore((s) => s.editGame);
+  const toast = useStore((s) => s.toast);
+  const [targetId, setTargetId] = useState<string | null>(null);
+  const [give, setGive] = useState<string[]>([]);
+  const targets = tradeTargets(game, 8);
+  const mine = coachRoster(game);
+  const chk = targetId && give.length ? checkTrade(game, targetId, give) : null;
+  const left = MAX_TRADES - game.coaching.trades;
+  const toggle = (id: string) => setGive((g) => (g.includes(id) ? g.filter((x) => x !== id) : g.length >= 2 ? g : [...g, id]));
+  return (
+    <Panel title="Trade market" right={<span className="text-xs text-ink-500">{left} trade{left === 1 ? '' : 's'} left · cap {money(salaryCap(game))}</span>}>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-ink-500">Who you want</div>
+          <ul className="space-y-1">
+            {targets.map((t) => (
+              <li key={t.id}>
+                <button onClick={() => setTargetId(t.id)} aria-pressed={targetId === t.id} className={cx('flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left text-sm', targetId === t.id ? 'border-hoop-500 bg-hoop-500/10' : 'border-court-700 hover:border-court-500')}>
+                  <span className="min-w-0 flex-1 truncate">
+                    {t.name} <span className="text-xs text-ink-500">{t.position} · {t.age} · {t.team}</span>
+                  </span>
+                  <span className="font-mono text-xs text-ink-400">{money(t.salary)}</span>
+                  <span className="w-7 text-right font-mono">{t.ovr}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-ink-500">What you give (one or two)</div>
+          <ul className="space-y-1">
+            {mine.map((p) => (
+              <li key={p.id}>
+                <button onClick={() => toggle(p.id)} aria-pressed={give.includes(p.id)} className={cx('flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left text-sm', give.includes(p.id) ? 'border-hoop-500 bg-hoop-500/10' : 'border-court-700 hover:border-court-500')}>
+                  <span className="min-w-0 flex-1 truncate">
+                    {p.name} <span className="text-xs text-ink-500">{p.position} · {p.age}</span>
+                  </span>
+                  <span className="font-mono text-xs text-ink-400">{money(p.salary)}</span>
+                  <span className="w-7 text-right font-mono">{p.ovr}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      <div className="mt-4 rounded-lg border border-court-700 bg-court-900/40 p-3 text-sm">
+        {chk ? (
+          <>
+            <p className={chk.ok ? 'font-semibold text-win' : 'text-ink-300'}>{chk.reasons.join(' ')}</p>
+            <p className="mt-1 text-xs text-ink-500">
+              Your payroll after: {money(chk.yourPayroll)} · theirs: {money(chk.theirPayroll)} · value ratio {chk.ratio.toFixed(2)}
+            </p>
+          </>
+        ) : (
+          <p className="text-ink-500">Pick a player you want and one or two of yours to offer.</p>
+        )}
+        <Button
+          className="mt-3"
+          disabled={!chk?.ok}
+          onClick={() => {
+            const r = edit((d) => proposeTrade(d, targetId!, give));
+            toast(r.text, r.done ? 'award' : 'bad');
+            if (r.done) {
+              setTargetId(null);
+              setGive([]);
+            }
+          }}
+        >
+          Propose the trade
+        </Button>
+      </div>
     </Panel>
   );
 }
@@ -169,6 +251,7 @@ export function CoachingPanel() {
               Play the season
             </Button>
           </Panel>
+          <TradeMarket />
           <Roster />
         </>
       )}

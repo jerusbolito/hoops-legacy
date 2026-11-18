@@ -792,6 +792,8 @@ export const CoachingSchema = z.object({
   /** 0..100. Climbs with wins and titles, falls with losing; low means a pink slip. */
   rep: z.number().default(40),
   offers: z.array(z.string()).default([]),
+  /** Trades made this offseason (see engine/coachingTrades.ts). */
+  trades: z.number().default(0),
   history: z.array(CoachSeasonSchema).default([]),
 });
 export type Coaching = z.infer<typeof CoachingSchema>;

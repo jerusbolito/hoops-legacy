@@ -3,13 +3,16 @@ import { requestPasswordReset, resolve, setNewPassword, signIn, signOut, signUp,
 import type { ConflictChoice } from '../../sync/engine';
 import { cloudConfigured } from '../../sync/supabase';
 import { Button } from './ui';
+import { useDialog } from './useDialog';
 
 const input = 'w-full rounded-lg border border-court-600 bg-court-800 px-3 py-2 text-sm text-ink-100 outline-none focus:border-hoop-500';
 
 function Modal({ title, onClose, children }: { title: string; onClose?: () => void; children: ReactNode }) {
+  // Escape only closes a dialog that is allowed to close; one that needs an answer keeps focus inside instead
+  const ref = useDialog<HTMLDivElement>(() => onClose?.());
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
-      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-xl border border-court-700 bg-court-900 p-5" onClick={(e) => e.stopPropagation()}>
+      <div ref={ref} tabIndex={-1} className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-xl border border-court-700 bg-court-900 p-5" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-display text-2xl font-bold">{title}</h2>
           {onClose && (
