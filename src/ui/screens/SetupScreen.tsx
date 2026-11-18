@@ -105,7 +105,7 @@ export function SetupScreen() {
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-8 text-center">
         <div className="text-5xl">🏀</div>
         <h1 className="mt-2 font-display text-5xl font-bold tracking-tight">
-          HOOPS <span className="text-hoop-500">LEGACY</span>
+          COME <span className="text-hoop-500">UP</span>
         </h1>
         <p className="mt-2 text-ink-400">An AI-narrated basketball career. Bring your own model.</p>
       </motion.div>
