@@ -8,6 +8,7 @@ import { shortName } from '../engine/ratings';
 import { fmt1, lineSummary, seasonAverages } from '../engine/stats';
 import type { BoxScore, Effect, GameState, PlayerLine } from '../state/schemas';
 import { fullContext, teamLabel } from './context';
+import { plainProblem } from './plain';
 import {
   FlavorSchema,
   RecapSchema,
@@ -39,23 +40,32 @@ async function askJson<T>(
   client: LLMClient,
   prompt: string,
   schema: ZodType<T, ZodTypeDef, unknown>,
-  opts: { maxTokens?: number; signal?: AbortSignal; check?: (v: T) => string | null } = {},
+  opts: { maxTokens?: number; signal?: AbortSignal; check?: (v: T) => string | null; style?: (v: T) => string | null } = {},
 ): Promise<T> {
   const messages: ChatMessage[] = [{ role: 'user', content: prompt }];
   let lastErr = '';
+  // A reply that is valid but badly written (too figurative) is sent back once. If the rewrite fails or is no better, the
+  // first one is still better than throwing the whole scene away, so a style problem never costs the player their scene.
+  let writtenBadly: T | null = null;
   for (let attempt = 0; attempt < 2; attempt++) {
     const text = await chatWithRetry(client, { system: SYSTEM_PROMPT, messages, json: true, maxTokens: opts.maxTokens, signal: opts.signal });
+    let styleNote = '';
     try {
       const parsed = schema.parse(extractJson(text));
       const problem = opts.check?.(parsed);
-      if (!problem) return parsed;
-      lastErr = problem;
+      if (!problem) {
+        const style = opts.style?.(parsed);
+        if (!style || attempt > 0) return parsed;
+        writtenBadly = parsed;
+        styleNote = style;
+      } else lastErr = problem;
     } catch (e) {
       lastErr = e instanceof Error ? e.message.slice(0, 400) : String(e);
     }
     messages.push({ role: 'assistant', content: text });
-    messages.push({ role: 'user', content: `That response was not valid: ${lastErr}\nReturn ONLY the corrected JSON object.` });
+    messages.push({ role: 'user', content: styleNote ? `${styleNote}\nReturn ONLY the corrected JSON object.` : `That response was not valid: ${lastErr}\nReturn ONLY the corrected JSON object.` });
   }
+  if (writtenBadly) return writtenBadly;
   throw new LLMError(`Invalid response after repair attempt: ${lastErr}`, 'bad_request');
 }
 
@@ -77,6 +87,7 @@ export async function generateScene(client: LLMClient | null, state: GameState, 
       signal,
       // a scene that offers the same choice twice is not a decision: give the model one chance to write real alternatives
       check: (v) => (new Set(v.choices.map((c) => c.text.trim().toLowerCase())).size < v.choices.length ? 'Two of your choices say the same thing. Every choice must be a different action.' : null),
+      style: (v) => plainProblem(v.narration),
     });
     setup.choices = setup.choices.slice(0, 4).map((c, i) => ({ ...c, id: String.fromCharCode(97 + i) }));
     return { setup, source: 'ai' };
@@ -105,7 +116,7 @@ export async function resolveScene(
 ): Promise<SceneResolution> {
   if (!isLive(client)) return { ...templateResolution(plan, choice.tone, choice.text), invalidEffects: 0, source: 'template' };
   try {
-    const r = await askJson(client, sceneResolvePrompt(fullContext(state, plan.castIds), setup, choice.text), SceneResolveSchema, { signal });
+    const r = await askJson(client, sceneResolvePrompt(fullContext(state, plan.castIds), setup, choice.text), SceneResolveSchema, { signal, style: (v) => plainProblem(v.narration) });
     const { effects, invalid } = parseEffects(r.effects);
     return { narration: r.narration, summary: r.summary, hook: r.hook?.trim() || undefined, effects, invalidEffects: invalid, source: 'ai' };
   } catch (e) {
@@ -180,6 +191,7 @@ export async function generateRecap(client: LLMClient | null, state: GameState, 
         const bad = findStatViolations(`${v.headline} ${v.narration}`, allowed);
         return bad.length ? `These numbers do not match the box score: ${bad.join(', ')}. Use only numbers from GAME FACTS or none at all.` : null;
       },
+      style: (v) => plainProblem(v.narration),
     });
     const { effects } = parseEffects(r.effects);
     const allowedTypes = new Set(['rel', 'morale', 'reputation', 'followers', 'memory', 'flag']);
@@ -245,7 +257,7 @@ export async function narrateResult(client: LLMClient | null, state: GameState, 
 export async function narrateFlavor(client: LLMClient | null, state: GameState, situation: string, fallback: string, focusIds: string[] = []): Promise<string> {
   if (!isLive(client)) return fallback;
   try {
-    const r = await askJson(client, flavorPrompt(fullContext(state, focusIds), situation), FlavorSchema, { maxTokens: 4000 });
+    const r = await askJson(client, flavorPrompt(fullContext(state, focusIds), situation), FlavorSchema, { maxTokens: 4000, style: (v) => plainProblem(v.narration) });
     return r.narration;
   } catch {
     return fallback;

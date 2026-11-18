@@ -9,7 +9,7 @@ function cast(state: GameState, plan: ScenePlan) {
   return plan.castIds.map((id) => state.npcs[id]).filter(Boolean);
 }
 
-const OPENERS: Record<string, string[]> = {
+export const OPENERS: Record<string, string[]> = {
   season_opener: [
     'The gym lights hum to life. New season, new jerseys, same squeak of rubber on hardwood. Everyone is sizing everyone up.',
   ],
@@ -31,7 +31,7 @@ const OPENERS: Record<string, string[]> = {
 };
 
 /** Player-facing dilemma lines (the LLM brief is internal and never shown). */
-const DILEMMAS: Record<string, string> = {
+export const DILEMMAS: Record<string, string> = {
   season_opener: 'Coach looks around the gym and asks who wants to set the tone today. Every eye in the room drifts toward you.',
   practice: 'Coach wants to know why your man scored three straight times in the drill. The whole gym goes quiet, waiting on your answer.',
   locker_room: 'Somebody is talking about who should be starting, loud enough for you to hear. A couple of guys are watching for your reaction.',
@@ -83,7 +83,7 @@ export function templateScene(state: GameState, plan: ScenePlan, seed: number): 
   };
 }
 
-const TONE_EFFECTS: Record<string, { narration: string; build: (ids: string[]) => Effect[] }> = {
+export const TONE_EFFECTS: Record<string, { narration: string; build: (ids: string[]) => Effect[] }> = {
   bold: {
     narration: 'You step forward. It is a risk, but people notice when you do not flinch.',
     build: (ids) => [{ type: 'morale', delta: 3 }, ...ids.map((id): Effect => ({ type: 'rel', npc: id, field: 'respect', delta: 4 }))],

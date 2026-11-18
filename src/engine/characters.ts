@@ -67,7 +67,7 @@ export const PROFILES: Profile[] = [
   P({ id: 'drifting', role: 'friend', label: 'Drifting away', blurb: 'Still your friend, but the distance is growing, and you are both pretending it is not.', want: 'A life that is not about your career.', flaw: 'Says yes to plans they cancel later.', soft: 'Any time you ask about them.', voice: 'Warm, vague, a half-beat late.', traits: ['kind', 'distant'], rel: { affinity: -6, trust: -4 }, weight: 0.9 }),
   P({ id: 'friendly_rival', role: 'friend', label: 'The competitive friend', blurb: 'Your best friend and a fierce competitor. Everything is a bet, and they hate losing to you most of all.', want: 'To be as good as you, and for you to know it.', flaw: 'Cannot celebrate your wins without measuring theirs.', soft: 'You being honest about your own doubts.', voice: 'Teasing, quick, always keeping score.', traits: ['competitive', 'funny'], rel: { rivalry: 8, affinity: 4 }, weight: 1 }),
   P({ id: 'worrier', role: 'friend', label: 'The worrier', blurb: 'Cares so much it comes out as nagging. Checks that you ate, slept and did the homework.', want: 'For you to be okay.', flaw: 'Smothers, and takes it personally when you push back.', soft: 'A thank-you that is not a joke.', voice: 'Anxious, affectionate, practical.', traits: ['caring', 'anxious'], rel: { affinity: 10, trust: 10 }, weight: 0.9 }),
-  P({ id: 'hype_man', role: 'friend', label: 'The hype man', blurb: 'Your biggest fan and loudest voice. Makes everything feel like a movie, and sometimes you need it quiet.', want: 'To be part of something big.', flaw: 'Hypes the moment instead of the work.', soft: 'Being included, not just cheered.', voice: 'Loud, generous, all caps.', traits: ['flashy', 'loyal'], rel: { affinity: 12 }, weight: 1 }),
+  P({ id: 'hype_man', role: 'friend', label: 'The hype man', blurb: 'Your biggest fan and loudest voice. Cheers every small win as loudly as a big one, and sometimes you need it quiet.', want: 'To be part of something big.', flaw: 'Hypes the moment instead of the work.', soft: 'Being included, not just cheered.', voice: 'Loud, generous, all caps.', traits: ['flashy', 'loyal'], rel: { affinity: 12 }, weight: 1 }),
 ];
 
 const BY_ID = new Map(PROFILES.map((p) => [p.id, p]));
@@ -209,7 +209,7 @@ export const PROFILE_SCENES: Record<string, Partial<Record<string, { opener: str
   },
   father_figure: {
     practice: { opener: 'Coach asks about your mom before he asks about the drill.', dilemma: 'He says he worries about you, and he means it, but it makes the next decision harder.' },
-    coach_meeting: { opener: 'Coach has brought a thermos and two cups, like he has done this before.', dilemma: 'He talks about your future as if it were partly his. It is hard to tell whether that is love or pressure.' },
+    coach_meeting: { opener: 'Coach has brought a thermos and two cups, like he has done this before.', dilemma: 'He talks about your future as something he has a share in. It is hard to tell whether that is love or pressure.' },
   },
   trash_talker: {
     rival_encounter: { opener: 'Open gym. The speaker is already on, and they are narrating their own warmups to a crowd of eleven.', dilemma: 'They spot you, grin, and check the ball your way. "One to eleven, unless you are scared."' },
@@ -232,7 +232,7 @@ export const PROFILE_SCENES: Record<string, Partial<Record<string, { opener: str
     rivalry_week: { opener: 'Rivalry week. They are the only person in the building not smiling, and they plan to keep it that way.', dilemma: 'In the hallway they say something that sounds like an insult and might be an invitation.' },
   },
   class_act: {
-    rival_encounter: { opener: 'They are already in the gym, helping a younger kid with his form. They wave you over like it is normal.', dilemma: 'They suggest a game to eleven, loser buys water. Nothing about it feels like a trap, which is strange.' },
+    rival_encounter: { opener: 'They are already in the gym, helping a younger kid with his form. They wave you over like it is normal.', dilemma: 'They suggest a game to eleven, loser buys water. It does not seem to be a trap, which surprises you.' },
     rivalry_week: { opener: 'Rivalry week. They sent flowers to the school nurse, according to a post you did not expect to like.', dilemma: 'They congratulate you on your last game, publicly. You have to decide how to answer.' },
   },
   fan_made: {

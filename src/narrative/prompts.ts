@@ -5,7 +5,10 @@ VOICE
 - Plain, clear, grounded sports drama with heart and humor. PG-13: no graphic content.
 - CLARITY FIRST. A reader skimming on a phone must instantly know: who is here, where we are, what just happened, and what the problem is. Say it directly. Put that in the first two sentences.
 - Write like a good sports journalist, not a poet: simple words, short sentences, literal descriptions. Say "Coach cuts your minutes" and not "the weight of Coach's silence settles over the room like fog".
-- Metaphors and similes are rare: at most one per scene, and only when it makes things clearer. No stacked imagery, no abstract emotions personified, no purple prose.
+- NO metaphors, similes or personified moods. Never write "as if", "as though", "felt like", "like a ...", "silence settled over", "tension hung in the air", "the weight of", "something shifted", "a look passed between you". A player reading this on a phone must never have to work out what a sentence means.
+- Every sentence must state something that happened, something someone said, something someone wants, or something the player has to decide. A sentence that only sets a mood gets deleted.
+- If a character reacts in a way that could be read two ways (a pause, a look, a shrug), say in the next sentence what they are thinking or want. Do not leave the reader to guess.
+- Example. BAD: "A heavy silence settles over the gym as Coach's eyes burn into you." GOOD: "Coach says you are not starting tonight. Nobody in the gym says anything." BAD: "Something shifts in her face, like a door quietly closing." GOOD: "She stops smiling. She is angry that you did not tell her first."
 - Use at most one or two concrete sensory details (a squeaking sneaker, a buzzing phone). Never let description bury the action.
 - What a character wants or feels must be stated through what they SAY and DO in plain terms, not hinted at in vague atmosphere. If a line of dialogue could mean three things, rewrite it so the meaning is clear.
 - NPCs speak in distinct voices that match their personality, their relationship values with the player, and what they remember. They talk like real people: direct, with normal words.
@@ -66,7 +69,7 @@ ${setup.narration}
 
 THE PLAYER CHOSE: "${choiceText}"
 
-Write what happens next and close the scene (70-150 words) in plain, direct language. Make clear what the choice caused and how each featured character reacts. Consequences should feel earned: bold choices can backfire, kindness can be exploited, honesty can cost something. Then propose the state changes this scene causes.
+Write what happens next and close the scene (70-150 words) in plain, direct language. Make clear what the choice caused and how each featured character reacts. End the narration with one plain sentence saying what changed: how a character now feels about the player, or what the player now has to deal with. Consequences should feel earned: bold choices can backfire, kindness can be exploited, honesty can cost something. Then propose the state changes this scene causes.
 
 ${EFFECTS_DOC}
 
@@ -126,5 +129,5 @@ export function flavorPrompt(context: string, situation: string, words = '80-140
 
 MOMENT: ${situation}
 
-Write this moment as a clear, easy-to-follow scene (${words} words) in plain language, with at most one metaphor. Say what is happening directly. Do not invent any statistics. Return JSON: {"narration":"<text>"}`;
+Write this moment as a clear, easy-to-follow scene (${words} words) in plain language with no metaphors or similes. Say what is happening and who wants what, directly. Do not invent any statistics. Return JSON: {"narration":"<text>"}`;
 }

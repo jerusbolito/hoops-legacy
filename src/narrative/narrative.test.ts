@@ -140,3 +140,56 @@ describe('narrator', () => {
     expect(recap.narration).toContain(`${report.teamScore}-${report.oppScore}`);
   });
 });
+
+describe('plain language from a model', () => {
+  const figurative = 'A heavy silence settled over the gym as Coach looked at you. Something shifted in his face, like a door closing, and the weight of the moment hung in the air.';
+  const plain = 'Coach tells you that you are not starting tonight. Nobody in the gym says anything, and your best friend will not look at you.';
+  const scene = (narration: string) => JSON.stringify({ title: 'The lineup', location: 'Gym', narration, choices: [{ id: 'a', text: 'Ask Coach why.', tone: 'honest' }, { id: 'b', text: 'Say nothing and warm up.', tone: 'calm' }] });
+
+  it('sends back writing that is all mood and imagery, quoting the phrases, and shows the rewrite', async () => {
+    const s = newGame();
+    const plan = pickScene(s, new RNG(5));
+    const client = scripted([scene(figurative), scene(plain)]);
+    const out = await generateScene(client, s, plan);
+    expect(out.source).toBe('ai');
+    expect(client.calls).toHaveLength(2);
+    expect(client.calls[1].messages.at(-1)!.content).toMatch(/too figurative/);
+    expect(client.calls[1].messages.at(-1)!.content).toMatch(/silence settled/i);
+    expect(out.setup.narration).toBe(plain);
+  });
+
+  it('never costs the player their scene: a second figurative try is shown rather than thrown away', async () => {
+    const s = newGame();
+    const plan = pickScene(s, new RNG(5));
+    const out = await generateScene(scripted([scene(figurative), scene(figurative)]), s, plan);
+    expect(out.source).toBe('ai');
+    expect(out.setup.narration).toBe(figurative);
+  });
+
+  it('keeps the first scene if the rewrite comes back broken', async () => {
+    const s = newGame();
+    const plan = pickScene(s, new RNG(5));
+    const out = await generateScene(scripted([scene(figurative), 'not json at all']), s, plan);
+    expect(out.source).toBe('ai');
+    expect(out.setup.narration).toBe(figurative);
+  });
+
+  it('does not bother a model that already wrote plainly', async () => {
+    const s = newGame();
+    const plan = pickScene(s, new RNG(5));
+    const client = scripted([scene(plain)]);
+    await generateScene(client, s, plan);
+    expect(client.calls).toHaveLength(1);
+  });
+
+  it('holds resolutions to the same standard', async () => {
+    const s = newGame();
+    const plan = pickScene(s, new RNG(5));
+    const setup = (await generateScene(scripted([scene(plain)]), s, plan)).setup;
+    const res = (n: string) => JSON.stringify({ narration: n, summary: 'You asked Coach why.', effects: [] });
+    const client = scripted([res(figurative), res('Coach explains that he wants a taller lineup tonight. You are angry, but you understand, and he nods when you say so.')]);
+    const r = await resolveScene(client, s, plan, setup, setup.choices[0]);
+    expect(client.calls).toHaveLength(2);
+    expect(r.narration).toMatch(/taller lineup/);
+  });
+});

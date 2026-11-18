@@ -284,7 +284,7 @@ const DEFS: Def[] = [
     weight: 2.4,
     need: ['love'],
     when: (c) => stageOf(c.s) === 'dating' && !longDistance(c.s) && (c.love?.relationship.romance ?? 0) >= 55 && c.s.story.flags.serious_wait !== c.s.career.season && Number(c.s.story.flags.love_since ?? 0) < c.s.career.season,
-    text: (c) => `You have been with ${first(c.love)} for a while now, and it has stopped feeling like a phase. They bring up the future for the first time, quietly: "Where do you see us?"`,
+    text: (c) => `You have been with ${first(c.love)} for a while now, and it is no longer just a phase. They bring up the future for the first time, quietly: "Where do you see us?"`,
     options: (c) => [
       opt('all', 'Say you are in this for the long run', (f) => {
         setStage(f.s, 'partner');
@@ -1172,7 +1172,7 @@ const DEFS: Def[] = [
       opt('all', 'Pull an all-nighter', (f) => {
         f.energy(-18);
         f.gpa(0.12);
-        return 'Cold coffee, a mountain of notes, and a paper that actually holds together. You feel like a zombie in the morning.';
+        return 'Cold coffee, a mountain of notes, and a paper that actually holds together. You are exhausted in the morning.';
       }),
       opt('tutor', 'Pay for help', (f) => {
         f.energy(-4);
@@ -1499,7 +1499,7 @@ const DEFS: Def[] = [
         f.progress('defense', 0.3);
         f.rel(c.teammate, 'trust', 6);
         f.rel(c.teammate, 'affinity', 5);
-        return 'Two hours of footwork, angles and tricks of the trade. You feel like you skipped a year of learning.';
+        return 'Two hours of footwork, angles and tricks of the trade. You learn more in two hours than in months of practice.';
       }),
       opt('no', 'Thanks, not today', (f) => {
         f.rel(c.teammate, 'respect', -2);
@@ -1594,7 +1594,7 @@ const DEFS: Def[] = [
     text: (c) => {
       const st = c.rival ? athleteStatus(c.s, c.rival) : null;
       const line = st?.line ? `${c.rival?.name} is putting up ${Math.round(st.line.ppg * 10) / 10} a game${st.teamName ? ` for ${st.teamName}` : ''}` : `${c.rival?.name} is getting a lot of attention`;
-      return `${line}, and every piece of coverage ends up comparing the two of you. It feels like there is only room for one name.`;
+      return `${line}, and every piece of coverage ends up comparing the two of you. Every article suggests only one of you can be the best.`;
     },
     options: (c) => [
       opt('congrats', 'Congratulate them', (f) => {
@@ -1849,7 +1849,7 @@ const DEFS: Def[] = [
         f.progress('stamina', 0.7);
         f.progress('shooting', 0.5);
         f.morale(-1);
-        return 'You work on your game instead. It feels like the right call until the grocery run.';
+        return 'You work on your game instead. It is the right call for your game, until the grocery run.';
       }),
     ],
   },
@@ -2152,7 +2152,7 @@ const DEFS: Def[] = [
       opt('ignore', 'Leave it on read', (f) => {
         f.coach(1, 1.5);
         f.morale(1);
-        return 'You close the app and go to practice. It feels like growing up, a little.';
+        return 'You close the app and go to practice. It is a small step toward growing up.';
       }),
     ],
   },
@@ -2819,7 +2819,7 @@ const DEFS: Def[] = [
         f.rel(c.rival, 'rivalry', -6);
         f.morale(4);
         f.energy(-3);
-        return 'You do not talk about rankings. You just shoot until the streetlights come on, like you used to. It feels like getting something back.';
+        return 'You do not talk about rankings. You just shoot until the streetlights come on, the way you used to. It is good to have that back.';
       }),
       opt('honest', 'Tell them what hurt', (f) => {
         if (f.rng.chance(0.55)) {
@@ -2886,7 +2886,7 @@ const DEFS: Def[] = [
         f.rel(c.rival, 'trust', 6);
         f.rel(c.rival, 'affinity', 5);
         f.morale(1);
-        return 'They tell you, slowly and angrily, what it took to get here. You do not have an answer. You say so, and something in their face changes.';
+        return 'They tell you, slowly and angrily, what it took to get here. You do not have an answer. You say so, and they stop looking angry for the first time.';
       }),
       opt('defend', 'Defend yourself', (f) => {
         f.rel(c.rival, 'rivalry', 8);
@@ -3099,7 +3099,7 @@ const DEFS: Def[] = [
       opt('let', 'Let it go', (f) => {
         f.morale(-2);
         f.rel(c.friend, 'affinity', -5);
-        return 'You tell yourself people change. You are probably right. It still feels like a small door closing.';
+        return 'You tell yourself people change. You are probably right. It still hurts a little.';
       }),
     ],
   },
