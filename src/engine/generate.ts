@@ -1,6 +1,7 @@
 import { PERSONALITIES } from '../data/names';
 import { LEVEL_CONFIG, TEAMS_BY_LEVEL, type TeamTemplate } from '../data/teams';
 import type { Archetype, Athlete, Level, Npc, NpcRole, Position, Relationship, Team } from '../state/schemas';
+import { PROFILED_ROLES, pickProfile, profileById } from './characters';
 import { NameBook } from './nameBook';
 import { ARCHETYPE_INFO, heightFor, makeRatings } from './ratings';
 import { RNG, clamp } from './rng';
@@ -107,18 +108,29 @@ export function makeNpc(
     personality?: string[];
     rel?: Partial<Relationship>;
     memories?: string[];
+    /** A profile id to use, or null for none. Left out, coaches, rivals, teammates and friends get one drawn for them. */
+    profile?: string | null;
+    /** The level they are met at, which makes some profiles likelier than others. */
+    level?: Level;
   },
 ): Npc {
-  const personality = p.personality ?? rng.shuffle([...PERSONALITIES]).slice(0, 2);
+  // someone the narrator invented arrives with its own personality, and is left as it made them
+  const prof = p.profile === null ? undefined : p.profile ? profileById(p.profile) : PROFILED_ROLES.includes(p.role) && !p.personality ? pickProfile(rng, p.role, p.level) : undefined;
+  const personality = p.personality ?? prof?.traits ?? rng.shuffle([...PERSONALITIES]).slice(0, 2);
+  const rel = baseRelationship(p.rel);
+  // a profile shifts however the relationship would have started
+  if (prof) for (const [k, d] of Object.entries(prof.rel) as [keyof Relationship, number][]) rel[k] = k === 'affinity' ? clamp(rel[k] + d, -100, 100) : clamp(rel[k] + d, 0, 100);
   return {
     id: rng.id('npc'),
     name: p.name,
     role: p.role,
+    profile: prof?.id ?? '',
+    stage: 0,
     title: p.title,
     personality,
     athleteId: p.athleteId,
-    relationship: baseRelationship(p.rel),
-    memories: p.memories ?? [],
+    relationship: rel,
+    memories: p.memories ?? (prof?.memory ? [prof.memory] : []),
     keyMemories: [],
     estranged: false,
     h2h: { w: 0, l: 0 },

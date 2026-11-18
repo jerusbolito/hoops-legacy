@@ -1,3 +1,4 @@
+import { PROFILE_SCENES } from '../engine/characters';
 import type { Effect, GameState } from '../state/schemas';
 import type { SceneSetup } from './parse';
 import type { ScenePlan } from './scenes';
@@ -68,14 +69,16 @@ const GENERIC_CHOICES: { text: string; tone: string }[][] = [
 
 export function templateScene(state: GameState, plan: ScenePlan, seed: number): SceneSetup {
   const people = cast(state, plan);
-  const opener = (OPENERS[plan.kind] ?? ['Another day, another test of who you are becoming.'])[0];
+  // someone in the room who has their own way of being there changes how the scene opens and what it asks of you
+  const own = people.map((p) => PROFILE_SCENES[p.profile]?.[plan.kind]).find(Boolean);
+  const opener = own?.opener ?? (OPENERS[plan.kind] ?? ['Another day, another test of who you are becoming.'])[0];
   const names = people.map((p) => p.name);
   const who = names.length ? ` ${names.join(names.length > 1 ? ' and ' : '')} ${names.length > 1 ? 'are' : 'is'} here, watching how you handle it.` : '';
   const choices = GENERIC_CHOICES[seed % GENERIC_CHOICES.length];
   return {
     title: plan.kind.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
     location: '',
-    narration: `${opener}${who}\n\n${DILEMMAS[plan.kind] ?? 'The moment is yours. How you handle it will be remembered.'}`,
+    narration: `${opener}${who}\n\n${own?.dilemma ?? DILEMMAS[plan.kind] ?? 'The moment is yours. How you handle it will be remembered.'}`,
     choices: choices.map((c, i) => ({ id: String.fromCharCode(97 + i), ...c })),
   };
 }

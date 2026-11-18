@@ -126,7 +126,7 @@ describe('trimCast', () => {
   const base = () => createCareer({ firstName: 'Trim', lastName: 'Test', hometown: 'X', archetype: 'slasher', position: 'SG', heightIn: 76, schoolIndex: 0, traits: [], seed: 5 });
   const add = (s: GameState, i: number, role: (typeof ROLES)[number], extra: Partial<GameState['npcs'][string]> = {}) => {
     const id = `extra_${i}`;
-    s.npcs[id] = { id, name: `Extra ${i}`, role, title: `Acquaintance ${i}`, personality: [], relationship: { affinity: 0, respect: 30, trust: 30, rivalry: 0, romance: 0 }, memories: [], keyMemories: [], estranged: false, h2h: { w: 0, l: 0 }, active: true, metSeason: 1, ...extra };
+    s.npcs[id] = { id, name: `Extra ${i}`, role, profile: '', stage: 0, title: `Acquaintance ${i}`, personality: [], relationship: { affinity: 0, respect: 30, trust: 30, rivalry: 0, romance: 0 }, memories: [], keyMemories: [], estranged: false, h2h: { w: 0, l: 0 }, active: true, metSeason: 1, ...extra };
     return s.npcs[id];
   };
 

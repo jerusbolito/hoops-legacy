@@ -14,6 +14,11 @@ Only the big things: new systems, engine changes, and anything that changes how 
 - **Share your career.** Any career in the Hall of Fame can be shared as an image.
 - **Difficulty.** Choose Relaxed, Standard or Grind when you create a character: how fast training pays off, how often you get hurt and how far money goes.
 
+### People are more than their job
+- **Coaches, rivals, teammates and friends are different people every career.** There are eight kinds of coach (the disciplinarian, the players' coach, the tactician, the old-school mentor, the climber, the burned-out veteran, the politician, the father figure), seven kinds of rival (the trash-talker, the quiet grinder, the old friend, the reluctant rival, the one with a chip, the class act, the feud the fans made), seven teammates and five friends. Each has something they want, a flaw and a soft spot, and the story is told that way.
+- **The moments fit the person.** A taunt comes from the loud rival, not the gracious one, and a locker-room fight needs someone who would start one. Twenty new moments belong to one kind of person each: a strict coach who benches you for being two minutes late, a warm one who dodges the hard conversation, a rival who sends a kind note, an old friend who texts a photo of the court you grew up on.
+- **People change.** Treat someone well and a hard shell can crack. Beat a rival often enough and the talking stops, or lose to them and it gets worse. A warm coach gets tougher after a losing run, and a coach who is already half out the door is hard to read. Careers you already have keep their people as they were.
+
 ### The world around you
 - **Scouting reports.** Open any player's card for a grade, strengths and concerns, a likely peak and best case, and how ready they are for the next level.
 - **Media storylines.** A documentary crew follows you across three seasons, and new moments include press conference blow-ups, podcast invites, sneaker collaborations, false rumors and a letter from a young fan.

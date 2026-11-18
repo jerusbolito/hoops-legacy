@@ -11,6 +11,7 @@ import { addNews } from './news';
 import { addProgress } from './progression';
 import { atLeast, kidsOf, longDistance, setStage, stageOf } from './romance';
 import { bumpSuitor, bumpTarget, suitorOf, topSuitor } from './recruiting';
+import { isProfile, isProfileOrLegacy } from './characters';
 import { addPost } from './media';
 import { overall } from './ratings';
 import { RNG, clamp } from './rng';
@@ -801,6 +802,8 @@ const DEFS: Def[] = [
     levels: ALL,
     weight: 1.2,
     need: ['teammate'],
+    // only the people who would actually do this; a glue guy or a quiet leader does not have chest-to-chest fights
+    when: (c) => isProfileOrLegacy(c.teammate, 'demanding_star', 'insecure_vet', 'hungry_bench'),
     text: (c) => `${first(c.teammate)} and another player are chest to chest over who gets the shots. The whole room goes quiet and looks at you.`,
     options: (c) => [
       opt('step', 'Step between them', (f) => {
@@ -836,6 +839,8 @@ const DEFS: Def[] = [
     levels: ALL,
     weight: 1.1,
     need: ['rival'],
+    // a taunt is for the loud ones; the quiet and the gracious have their own moments
+    when: (c) => isProfileOrLegacy(c.rival, 'trash_talker', 'chip', 'fan_made'),
     text: (c) => `${c.rival?.name} posted a clip calling you overrated. It already has thousands of likes, and your friends keep sending it.`,
     options: (c) => [
       opt('fire', 'Fire back online', (f) => {
@@ -2506,6 +2511,659 @@ const DEFS: Def[] = [
       opt('keep', 'Keep it on the wall', (f) => {
         f.morale(1);
         return 'You tape it inside your locker. It helps more than you would admit.';
+      }),
+    ],
+  },
+
+  /* ── people with their own way of being ── each of these belongs to one kind of coach, rival, teammate or friend ── */
+
+  // coaches
+  {
+    id: 'coach_late',
+    icon: '⏱️',
+    title: 'Two minutes late',
+    tone: 'bad',
+    levels: ALL,
+    weight: 1,
+    need: ['coach'],
+    when: (c) => isProfile(c.coach, 'disciplinarian') && inSeason(c),
+    text: (c) => `You come through the door two minutes after practice started. Coach ${first(c.coach)} does not stop the drill. He just points at the baseline, and everyone watches you run.`,
+    options: () => [
+      opt('take', 'Run it and say nothing', (f) => {
+        f.coach(4, 3);
+        f.energy(-4);
+        return `You run until he nods. Afterward he says only, "Thank you." It is the closest thing to praise he gives.`;
+      }),
+      opt('argue', 'Tell him why you were late', (f) => {
+        if (f.rng.chance(0.4)) {
+          f.coach(2, 1);
+          return 'He listens, which surprises you, and the baseline is shorter than it could have been. "Next time you tell me before," he says.';
+        }
+        f.coach(-4, -2);
+        f.morale(-2);
+        return 'It sounds like an excuse the second it leaves your mouth. He does not argue. He just adds another lap.';
+      }, { hint: 'He does not like excuses' }),
+      opt('ask', 'Ask after practice what the rule is for', (f) => {
+        f.coach(3, 4);
+        f.progress('iq', 0.5);
+        return `He is quiet for a while, then tells you about a team he lost because nobody was on time and nobody said anything. You never are late again.`;
+      }),
+    ],
+  },
+  {
+    id: 'coach_dodge',
+    icon: '🙈',
+    title: 'Everything is fine',
+    tone: 'odd',
+    levels: ALL,
+    weight: 1,
+    need: ['coach'],
+    when: (c) => isProfile(c.coach, 'players_coach') && inSeason(c),
+    text: (c) => `Coach ${first(c.coach)} keeps telling you that everything is great. You have noticed your minutes slipping, and he has noticed you noticing. He laughs, changes the subject and asks about your weekend.`,
+    options: (c) => [
+      opt('push', 'Ask him for the real answer', (f) => {
+        if (f.rng.chance(0.6)) {
+          f.coach(5, 4);
+          f.progress('iq', 0.6);
+          return 'He sighs and finally tells you. It is not what you wanted to hear, and it is useful. "Thanks for making me say it," he says.';
+        }
+        f.coach(-1);
+        f.morale(-1);
+        return 'He gets uncomfortable, promises to talk later, and does not. At least you tried.';
+      }, { hint: 'He hates this kind of talk' }),
+      opt('vet', 'Ask one of the veterans instead', (f) => {
+        f.progress('iq', 0.5);
+        f.chem(1);
+        return `${first(c.teammate)} does not sugar-coat it. You get the answer you needed from the person who was willing to give it.`;
+      }),
+      opt('ride', 'Let it ride', (f) => {
+        f.morale(-2);
+        f.coach(1);
+        return 'You smile and keep your head down. It is easier. It is also another week of not knowing.';
+      }),
+    ],
+  },
+  {
+    id: 'coach_filmroom',
+    icon: '🎞️',
+    title: 'The film room invitation',
+    tone: 'good',
+    levels: UP,
+    weight: 1,
+    need: ['coach'],
+    when: (c) => isProfile(c.coach, 'tactician'),
+    text: (c) => `Coach ${first(c.coach)} stops you in the hallway. "I have something on tape. Twenty minutes?" It is the longest sentence he has said to you all month.`,
+    options: () => [
+      opt('dig', 'Sit down and dig in', (f) => {
+        f.progress('iq', 1.4);
+        f.energy(-3);
+        f.coach(4, 3);
+        return 'He shows you three possessions you thought went fine, and why they did not. You will see the floor differently for a while.';
+      }),
+      opt('challenge', 'Disagree with his read', (f) => {
+        if (f.rng.chance(0.5)) {
+          f.coach(6, 6);
+          f.progress('iq', 0.8);
+          return 'He rewinds, frowns, and says, "You are right." He writes something down. It is one of the best things that has happened to you all season.';
+        }
+        f.coach(-2, 1);
+        return 'He explains, patiently and entirely correctly, why you are wrong. The room is colder after that.';
+      }, { hint: 'Risky, with a big upside' }),
+      opt('skip', 'Say you are wiped out', (f) => {
+        f.energy(2);
+        f.coach(-1);
+        return 'He nods and says another time. There is a small, disappointed pause you pretend not to notice.';
+      }),
+    ],
+  },
+  {
+    id: 'coach_story',
+    icon: '📖',
+    title: 'A story from before you were born',
+    tone: 'good',
+    levels: ALL,
+    weight: 1,
+    need: ['coach'],
+    when: (c) => isProfile(c.coach, 'old_school'),
+    text: (c) => `Coach ${first(c.coach)} sits down next to you on the bench and starts telling a story about a player from 1987 whose name you have never heard. It goes on a while. You realize halfway through that it is about you.`,
+    options: () => [
+      opt('listen', 'Listen to all of it', (f) => {
+        f.coach(4, 4);
+        f.progress('defense', 0.5);
+        f.morale(2);
+        return 'It ends with a line you will repeat to somebody someday. He pats your knee and goes back to the whistle.';
+      }),
+      opt('ask', 'Ask what he would do', (f) => {
+        f.coach(3, 3);
+        f.progress('iq', 0.8);
+        return 'He tells you, bluntly. It is not what you wanted, and it is exactly what you needed.';
+      }),
+      opt('joke', 'Ask if the story has a point', (f) => {
+        if (f.rng.chance(0.6)) {
+          f.coach(2, 0);
+          f.morale(1);
+          return 'He laughs so hard he has to take his glasses off. "It does," he says, "but you will not get it for ten years."';
+        }
+        f.coach(-2, -1);
+        return 'He looks at you for a long time. "Never mind," he says. You feel about eight years old.';
+      }, { hint: 'Coin flip' }),
+    ],
+  },
+  {
+    id: 'coach_job',
+    icon: '📞',
+    title: 'You overhear a phone call',
+    tone: 'odd',
+    levels: UP,
+    weight: 1,
+    need: ['coach'],
+    when: (c) => isProfile(c.coach, 'climber'),
+    text: (c) => `You are heading for the parking lot when you hear Coach ${first(c.coach)} on the phone, quietly. He is talking about a bigger program. He sees you, hangs up, and for a second neither of you says anything.`,
+    options: (c) => [
+      opt('quiet', 'Tell him it stays with you', (f) => {
+        f.coach(5, 3);
+        return `He lets out a breath. "I owe you one." It turns out that matters. He treats you differently after that, more like an equal.`;
+      }),
+      opt('ask', 'Ask him what it means for you', (f) => {
+        if (f.rng.chance(0.55)) {
+          f.coach(3, 4);
+          f.rep(1);
+          return 'He gives you the straight answer, and tells you where he thinks you stand. It is more honest than anything he has said before.';
+        }
+        f.coach(-2);
+        f.morale(-2);
+        return 'He gives you the polished version. You can tell that is all you are going to get.';
+      }),
+      opt('tell', 'Tell a teammate', (f) => {
+        f.chem(-3);
+        f.coach(-5, -3);
+        f.rel(c.teammate, 'trust', 2);
+        return 'By Thursday the whole locker room knows. Coach never says a word about it, and never looks at you the same way again.';
+      }, { hint: 'It will get around' }),
+    ],
+  },
+  {
+    id: 'coach_alone',
+    icon: '🌙',
+    title: 'The gym light is still on',
+    tone: 'good',
+    levels: UP,
+    weight: 1,
+    need: ['coach'],
+    when: (c) => isProfile(c.coach, 'burned_out'),
+    text: (c) => `It is late and the gym lights are still on. Coach ${first(c.coach)} is sitting alone on the bottom bleacher with a clipboard he is not looking at.`,
+    options: () => [
+      opt('rebound', 'Offer to rebound for him', (f) => {
+        f.energy(-3);
+        f.coach(5, 4);
+        f.progress('shooting', 0.7);
+        return 'He gets up, grumbling, and runs you through a shooting drill he has not used in years. By the end he is smiling and pretends he is not.';
+      }),
+      opt('sit', 'Sit with him for a minute', (f) => {
+        f.coach(4, 2);
+        f.morale(1);
+        return 'Neither of you talks much. He says, eventually, that it is easy to forget why you do this. It is the most he has ever told you.';
+      }),
+      opt('leave', 'Leave him alone', () => 'You nod and slip out. You tell yourself it was the respectful thing to do. Part of you is not sure.'),
+    ],
+  },
+  {
+    id: 'coach_booster',
+    icon: '🤝',
+    title: 'A booster’s kid',
+    tone: 'odd',
+    levels: UP,
+    weight: 1,
+    need: ['coach'],
+    when: (c) => isProfile(c.coach, 'politician') && inSeason(c),
+    text: (c) => `A booster has been watching practice with Coach ${first(c.coach)}. Afterward Coach mentions, casually, that the man's nephew could use some minutes this week. Everybody understands what is being asked, and of whom.`,
+    options: () => [
+      opt('gracious', 'Be gracious about it', (f) => {
+        f.coach(4, 1);
+        f.chem(-1);
+        return 'You say you want what is best for the team. Coach says he knows you do. A week later he finds you a better role as a thank-you.';
+      }),
+      opt('push', 'Say what you actually think', (f) => {
+        f.coach(-3, 3);
+        f.rep(1);
+        f.chem(2);
+        return 'It comes out evenly and honestly. Coach does not like it, but a few teammates quietly do, and the nephew plays eight minutes instead of twenty.';
+      }, { hint: 'Honest, with a cost' }),
+      opt('ask', 'Ask Coach what he wants', (f) => {
+        if (f.rng.chance(0.5)) {
+          f.coach(3, 3);
+          return 'He drops the act for a moment. "I need this man happy. I am asking you to help me." You do, and it turns out to be a favor he remembers.';
+        }
+        f.coach(-1);
+        return 'He tells you it is nothing and not to worry. It is, and you should.';
+      }),
+    ],
+  },
+  {
+    id: 'coach_family',
+    icon: '🏠',
+    title: 'Coach calls your mom',
+    tone: 'odd',
+    levels: AMATEUR,
+    weight: 1,
+    need: ['coach'],
+    when: (c) => isProfile(c.coach, 'father_figure'),
+    text: (c) => `You find out that Coach ${first(c.coach)} called your family to check in about how you are doing. He means well. He also did not ask you first.`,
+    options: () => [
+      opt('thanks', 'Tell him you appreciate it', (f) => {
+        f.coach(5, 1);
+        f.morale(2);
+        return 'He gets a little misty and says you are family. It is sweet, and it also ties you a little tighter to him.';
+      }),
+      opt('line', 'Ask him to talk to you first', (f) => {
+        f.coach(-1, 4);
+        f.morale(1);
+        return 'He is hurt for a day, and then he gets it. After that he asks you before he does anything. It is a better relationship.';
+      }),
+      opt('lean', 'Let him help', (f) => {
+        f.coach(6, 0);
+        f.morale(3);
+        f.flag('coach_close', true);
+        return 'You let him be the person in your corner. It is a relief, though you wonder what it will cost when you want to leave.';
+      }),
+    ],
+  },
+
+  // rivals
+  {
+    id: 'rival_respect',
+    icon: '🤝',
+    title: 'Your rival does something decent',
+    tone: 'good',
+    levels: ALL,
+    weight: 1,
+    need: ['rival'],
+    when: (c) => isProfile(c.rival, 'quiet_grinder', 'class_act', 'reluctant'),
+    text: (c) => `${c.rival?.name} did something you did not expect: a short message after your last game, with one specific thing they noticed. No taunting, no tag. It reads like it was meant.`,
+    options: (c) => [
+      opt('return', 'Write back, and mean it', (f) => {
+        f.rel(c.rival, 'respect', 6);
+        f.rel(c.rival, 'affinity', 6);
+        f.rel(c.rival, 'rivalry', -4);
+        f.morale(2);
+        return 'You send the kind of reply you would want to get. Something that has been tight for a long time loosens a little.';
+      }),
+      opt('train', 'Suggest working out together', (f) => {
+        f.rel(c.rival, 'respect', 8);
+        f.rel(c.rival, 'affinity', 4);
+        f.progress('finishing', 0.9);
+        f.energy(-4);
+        return 'It is the best two hours of work you have had all month. You leave sore and a little unsettled by how much you like them.';
+      }),
+      opt('cold', 'Keep it professional', (f) => {
+        f.rel(c.rival, 'rivalry', 4);
+        f.rel(c.rival, 'respect', 2);
+        return 'You say thanks and nothing else. You are going to have to beat this person, and you want to keep your edge.';
+      }),
+    ],
+  },
+  {
+    id: 'rival_old_friend',
+    icon: '📱',
+    title: 'A text from an old friend',
+    tone: 'odd',
+    levels: ALL,
+    weight: 1,
+    need: ['rival'],
+    when: (c) => isProfile(c.rival, 'old_friend'),
+    text: (c) => `${c.rival?.name} texts you out of nowhere: a photo of the old court, one rim leaning, and four words. "Remember when this mattered?" You have not spoken in months.`,
+    options: (c) => [
+      opt('meet', 'Go to the old court', (f) => {
+        f.rel(c.rival, 'affinity', 10);
+        f.rel(c.rival, 'trust', 6);
+        f.rel(c.rival, 'rivalry', -6);
+        f.morale(4);
+        f.energy(-3);
+        return 'You do not talk about rankings. You just shoot until the streetlights come on, like you used to. It feels like getting something back.';
+      }),
+      opt('honest', 'Tell them what hurt', (f) => {
+        if (f.rng.chance(0.55)) {
+          f.rel(c.rival, 'trust', 10);
+          f.rel(c.rival, 'affinity', 6);
+          f.morale(2);
+          return 'It takes a while to say. They listen, and then say what hurt them. You have been angry at each other for the wrong things.';
+        }
+        f.rel(c.rival, 'affinity', -6);
+        f.rel(c.rival, 'rivalry', 6);
+        f.morale(-3);
+        return 'It comes out harder than you meant, and they answer in kind. You both go home angry and a little relieved.';
+      }, { hint: 'Honest, and it could go wrong' }),
+      opt('cool', 'Send back a thumbs up', (f) => {
+        f.rel(c.rival, 'affinity', -3);
+        f.morale(-1);
+        return 'You keep it light. Neither of you mentions it again. You think about that photo for a week.';
+      }),
+    ],
+  },
+  {
+    id: 'rival_media',
+    icon: '📰',
+    title: 'The headline says feud',
+    tone: 'odd',
+    levels: ALL,
+    weight: 1,
+    need: ['rival'],
+    when: (c) => isProfile(c.rival, 'reluctant', 'fan_made') && c.s.player.followers >= 100,
+    text: (c) => `A big account has put you and ${c.rival?.name} on the same graphic with the word FEUD in huge letters. You have not said a word about them. They have not said a word about you. Everybody is asking about it.`,
+    options: (c) => [
+      opt('call', 'Call them and talk it through', (f) => {
+        f.rel(c.rival, 'trust', 8);
+        f.rel(c.rival, 'affinity', 8);
+        f.rep(1);
+        f.followers(0.03);
+        return 'You agree to post the same thing, a short and friendly line. People are almost disappointed. You both get to stop being a story.';
+      }),
+      opt('play', 'Play along a little', (f) => {
+        f.followers(0.08);
+        f.rel(c.rival, 'rivalry', 6);
+        f.rel(c.rival, 'affinity', -4);
+        return 'You post something cheeky. The numbers jump and the feud is now real. You are not sure whose idea it was.';
+      }),
+      opt('quiet', 'Say nothing', (f) => {
+        f.followers(0.02);
+        f.morale(1);
+        return 'You let it burn out. It takes about ten days, and the two of you nod politely in the hallway.';
+      }),
+    ],
+  },
+  {
+    id: 'rival_chip',
+    icon: '😤',
+    title: '“Must be nice”',
+    tone: 'bad',
+    levels: ALL,
+    weight: 1,
+    need: ['rival'],
+    when: (c) => isProfile(c.rival, 'chip'),
+    text: (c) => `${c.rival?.name} catches you after the game. They look you up and down and say, "Must be nice, having everything handed to you." Then they wait.`,
+    options: (c) => [
+      opt('listen', 'Ask what they mean', (f) => {
+        f.rel(c.rival, 'trust', 6);
+        f.rel(c.rival, 'affinity', 5);
+        f.morale(1);
+        return 'They tell you, slowly and angrily, what it took to get here. You do not have an answer. You say so, and something in their face changes.';
+      }),
+      opt('defend', 'Defend yourself', (f) => {
+        f.rel(c.rival, 'rivalry', 8);
+        f.rel(c.rival, 'affinity', -5);
+        f.morale(-1);
+        return 'You list what you have done to get here. They do not hear it, and it was not the point.';
+      }),
+      opt('work', 'Offer to run drills', (f) => {
+        if (f.rng.chance(0.5)) {
+          f.rel(c.rival, 'respect', 10);
+          f.progress('defense', 0.9);
+          f.energy(-4);
+          return 'They are suspicious for the first ten minutes. After that they are the hardest worker you have ever shared a floor with.';
+        }
+        f.rel(c.rival, 'rivalry', 4);
+        return 'They shrug and say they do not need your help. The offer is remembered, even if it was not wanted.';
+      }, { hint: 'Coin flip' }),
+    ],
+  },
+
+  // teammates
+  {
+    id: 'mate_glue',
+    icon: '🧽',
+    title: 'Somebody covered for you',
+    tone: 'good',
+    levels: ALL,
+    weight: 1,
+    need: ['teammate'],
+    when: (c) => isProfile(c.teammate, 'glue_guy') && inSeason(c),
+    text: (c) => `You blew a rotation last night, and nobody mentioned it. You find out why from the film: ${first(c.teammate)} had quietly covered your man the whole second half, and said nothing to anyone.`,
+    options: (c) => [
+      opt('thank', 'Thank them in front of the team', (f) => {
+        f.rel(c.teammate, 'affinity', 8);
+        f.chem(4);
+        f.morale(2);
+        return 'They go red and wave you off, and the rest of the room starts counting up all the things they do. It is a good day for everybody.';
+      }),
+      opt('return', 'Cover for them next time', (f) => {
+        f.rel(c.teammate, 'trust', 6);
+        f.progress('defense', 0.7);
+        f.chem(2);
+        return 'You pay attention to their spots this week. They notice and do not mention it, which is how you know it counted.';
+      }),
+      opt('take', 'Take it for granted', (f) => {
+        f.chem(-2);
+        f.rel(c.teammate, 'affinity', -4);
+        return 'You nod and move on. Nothing visible happens. Something small changes in how they look at you.';
+      }),
+    ],
+  },
+  {
+    id: 'mate_holding_back',
+    icon: '🤐',
+    title: 'The advice that never comes',
+    tone: 'odd',
+    levels: ALL,
+    weight: 1,
+    need: ['teammate'],
+    when: (c) => isProfile(c.teammate, 'insecure_vet'),
+    text: (c) => `${first(c.teammate)} is always friendly, and always a beat slow to answer when you ask about their spots. You catch them showing a newer player a move they have never shown you. They see you see it.`,
+    options: (c) => [
+      opt('ask', 'Ask them straight', (f) => {
+        if (f.rng.chance(0.55)) {
+          f.rel(c.teammate, 'trust', 8);
+          f.rel(c.teammate, 'rivalry', -6);
+          f.progress('handles', 0.9);
+          return 'They are quiet for a while. "I thought you would take my spot," they say. You tell them you want to learn it. They teach you everything.';
+        }
+        f.rel(c.teammate, 'affinity', -5);
+        f.rel(c.teammate, 'rivalry', 4);
+        return 'They deny it, tightly. Nothing changes, except that they know you know.';
+      }, { hint: 'It could go either way' }),
+      opt('coach', 'Ask the coach about it', (f) => {
+        f.coach(1, 2);
+        f.rel(c.teammate, 'trust', -4);
+        f.progress('iq', 0.5);
+        return 'You get the information you need, and the word gets back to them that you went around. It is a quiet cost.';
+      }),
+      opt('alone', 'Figure it out yourself', (f) => {
+        f.progress('handles', 0.5);
+        f.progress('iq', 0.4);
+        f.energy(-3);
+        return 'It takes longer, and it is yours. A teammate who is not threatened by you would have been faster, but this works.';
+      }),
+    ],
+  },
+  {
+    id: 'mate_clown',
+    icon: '🤡',
+    title: 'The joke goes on too long',
+    tone: 'odd',
+    levels: ALL,
+    weight: 1,
+    need: ['teammate'],
+    when: (c) => isProfile(c.teammate, 'class_clown'),
+    text: (c) => `${first(c.teammate)} has the whole locker room in tears again. Then you see their face when they think no one is looking, and it is not a face that matches the bit.`,
+    options: (c) => [
+      opt('ask', 'Ask, seriously, if they are okay', (f) => {
+        f.rel(c.teammate, 'trust', 10);
+        f.rel(c.teammate, 'affinity', 6);
+        f.chem(2);
+        f.morale(2);
+        return 'For the first time, they do not do a bit. They tell you about something at home they have been carrying for months. You listen. It is the most real conversation you have had all year.';
+      }),
+      opt('join', 'Keep the joke going', (f) => {
+        f.chem(2);
+        f.morale(1);
+        f.rel(c.teammate, 'affinity', 2);
+        return 'The room is loud again. Whatever it was goes back under the surface, and so does the chance to ask about it.';
+      }),
+      opt('coach', 'Mention it to the coach', (f) => {
+        f.coach(2, 1);
+        f.rel(c.teammate, 'trust', -6);
+        return 'You do it for the right reasons, and they do not take it that way. It might help them. It definitely costs you.';
+      }, { hint: 'Well-meant, risky' }),
+    ],
+  },
+  {
+    id: 'mate_hungry',
+    icon: '🔥',
+    title: 'The reserve asks for a word',
+    tone: 'odd',
+    levels: ALL,
+    weight: 1,
+    need: ['teammate'],
+    when: (c) => isProfile(c.teammate, 'hungry_bench') && inSeason(c),
+    text: (c) => `${first(c.teammate)} waits for you after practice. They are not asking for a favor. They are asking, plainly, what it would take to earn minutes, and whether you would put in a word with the coach.`,
+    options: (c) => [
+      opt('vouch', 'Vouch for them to the coach', (f) => {
+        f.rel(c.teammate, 'affinity', 10);
+        f.rel(c.teammate, 'trust', 8);
+        f.coach(1, 2);
+        f.chem(2);
+        return 'It is a small thing to say and a big thing to hear. They go harder in practice for the next month, and the whole bench notices.';
+      }),
+      opt('honest', 'Tell them exactly what is missing', (f) => {
+        f.rel(c.teammate, 'respect', 8);
+        f.rel(c.teammate, 'trust', 4);
+        f.progress('iq', 0.4);
+        return 'You give them the real list. They write it down. Nobody has been that direct with them before, and they respect it.';
+      }),
+      opt('wave', 'Tell them to keep working', (f) => {
+        f.rel(c.teammate, 'affinity', -4);
+        return 'It is true, and it is also not an answer. They nod and go back to the gym. You can see it did not land.';
+      }),
+    ],
+  },
+  {
+    id: 'mate_leader',
+    icon: '🌅',
+    title: 'Six in the morning',
+    tone: 'good',
+    levels: ALL,
+    weight: 1,
+    need: ['teammate'],
+    when: (c) => isProfile(c.teammate, 'quiet_leader'),
+    text: (c) => `${first(c.teammate)} does not say much. This week they said one thing to you: "Six a.m. Gym. If you want." Then they walked away, and everybody in the room heard it.`,
+    options: (c) => [
+      opt('go', 'Be there at five-fifty', (f) => {
+        f.energy(-6);
+        f.progress('stamina', 0.8);
+        f.progress('shooting', 0.6);
+        f.rel(c.teammate, 'respect', 10);
+        f.chem(3);
+        return 'They nod when you walk in. Nobody speaks for an hour. It is the most you have learned in a month.';
+      }),
+      opt('bring', 'Bring a couple of teammates', (f) => {
+        f.chem(5);
+        f.energy(-4);
+        f.rel(c.teammate, 'respect', 6);
+        return 'They raise an eyebrow, then shrug. By the end of the week it is a regular thing and the whole team is better for it.';
+      }),
+      opt('pass', 'Not this week', (f) => {
+        f.rel(c.teammate, 'respect', -4);
+        f.energy(2);
+        return 'You sleep in. They do not hold it against you. You can tell they marked it anyway.';
+      }),
+    ],
+  },
+
+  // friends
+  {
+    id: 'friend_drift',
+    icon: '🌫️',
+    title: 'Another cancelled plan',
+    tone: 'bad',
+    levels: ALL,
+    weight: 1,
+    need: ['friend'],
+    when: (c) => isProfile(c.friend, 'drifting'),
+    text: (c) => `${first(c.friend)} cancelled again. It is the third time. They are still warm about it, which is almost worse: "Next week for sure!" You both know how this goes.`,
+    options: (c) => [
+      opt('show', 'Show up at their thing, unannounced', (f) => {
+        f.energy(-4);
+        f.rel(c.friend, 'affinity', 10);
+        f.rel(c.friend, 'trust', 6);
+        f.morale(3);
+        return 'They are stunned, and then very happy. It is not a fix, but it is a start, and you remember what you liked about them.';
+      }),
+      opt('say', 'Tell them you miss them', (f) => {
+        if (f.rng.chance(0.65)) {
+          f.rel(c.friend, 'affinity', 8);
+          f.morale(2);
+          return 'They do not say anything for a bit, and then they say they miss you too. They have not known how to say it either.';
+        }
+        f.rel(c.friend, 'affinity', -2);
+        return 'It comes out heavier than you meant. They apologize quickly and change the subject.';
+      }),
+      opt('let', 'Let it go', (f) => {
+        f.morale(-2);
+        f.rel(c.friend, 'affinity', -5);
+        return 'You tell yourself people change. You are probably right. It still feels like a small door closing.';
+      }),
+    ],
+  },
+  {
+    id: 'friend_bet',
+    icon: '🎲',
+    title: 'A bet, naturally',
+    tone: 'good',
+    levels: ALL,
+    weight: 1,
+    need: ['friend'],
+    when: (c) => isProfile(c.friend, 'friendly_rival'),
+    text: (c) => `${first(c.friend)} has a new bet: whoever gets the better line this week buys dinner, and also has to admit it. They are grinning in a way you know very well.`,
+    options: (c) => [
+      opt('take', 'Take the bet', (f) => {
+        f.progress('shooting', 0.5);
+        if (f.rng.chance(0.5)) {
+          f.morale(3);
+          f.rel(c.friend, 'rivalry', 2);
+          return 'You win, and make them say it out loud. They do, with enormous dignity, and then demand a rematch.';
+        }
+        f.morale(-1);
+        f.rel(c.friend, 'affinity', 3);
+        return 'You lose, and pay for dinner, and say it. It is fine. It is also really annoying.';
+      }),
+      opt('train', 'Make it a training challenge', (f) => {
+        f.progress('finishing', 0.8);
+        f.progress('defense', 0.5);
+        f.energy(-4);
+        f.rel(c.friend, 'trust', 4);
+        return 'You turn it into a week of drills, trading reps and winning nothing. Both of you get better.';
+      }),
+      opt('pass', 'Skip it this time', (f) => {
+        f.rel(c.friend, 'affinity', -2);
+        return 'They shrug and say you are afraid. You are not. You just have a lot going on.';
+      }),
+    ],
+  },
+  {
+    id: 'friend_worry',
+    icon: '🥣',
+    title: 'Did you eat?',
+    tone: 'odd',
+    levels: ALL,
+    weight: 1,
+    need: ['friend'],
+    when: (c) => isProfile(c.friend, 'worrier'),
+    text: (c) => `${first(c.friend)} has left you three messages: did you sleep, did you eat, did you do the reading. There is a container of something on your locker. It is the third one this week.`,
+    options: (c) => [
+      opt('accept', 'Let them look after you', (f) => {
+        f.energy(4);
+        f.rel(c.friend, 'affinity', 6);
+        f.morale(2);
+        return 'It is a really good casserole. You feel looked after, which you did not know you needed.';
+      }),
+      opt('snap', 'Tell them to back off', (f) => {
+        f.rel(c.friend, 'affinity', -6);
+        f.morale(-1);
+        return 'It comes out sharper than you meant. They go quiet and apologize, which makes it worse.';
+      }),
+      opt('joke', 'Turn it into a joke', (f) => {
+        f.rel(c.friend, 'affinity', 3);
+        f.morale(1);
+        return 'You say they should charge for the service. They laugh, relieved, and then bring you another one the next day.';
       }),
     ],
   },

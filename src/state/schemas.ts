@@ -119,6 +119,10 @@ export const NpcSchema = z.object({
   role: NpcRoleSchema,
   /** Short descriptor e.g. "Head coach, Westbrook High" */
   title: z.string(),
+  /** Who they are underneath the role (see engine/characters.ts). Empty for people from before profiles existed. */
+  profile: z.string().default(''),
+  /** How far their personal story has moved: 0 is how they began, 1 and up are changes you caused. */
+  stage: z.number().default(0),
   personality: z.array(z.string()),
   athleteId: z.string().optional(),
   relationship: RelationshipSchema,

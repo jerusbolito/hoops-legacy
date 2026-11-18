@@ -64,27 +64,31 @@ describe('badges', () => {
   });
 
   it('give key moments an extra signature option that resolves like the shot it upgrades', () => {
-    const s = toGameDay();
-    s.player.badges = ['stepback', 'ballhawk'];
-    const { sim } = createUserGameSim(s)!;
+    // whether a particular game has a key moment that fits a badge is a matter of luck, so try a few games
     const seen: string[] = [];
-    for (let i = 0; i < 40; i++) {
-      const st = sim.advance();
-      if (st.type === 'final') break;
-      if (st.type !== 'moment') continue;
-      const m = st.moment;
-      const sig = m.options.find((o) => o.signature);
-      if (sig) {
-        seen.push(m.kind);
-        expect(sig.id.startsWith('sig:')).toBe(true);
-        expect(sig.odds).toBeGreaterThan(0);
-        expect(sig.odds).toBeLessThan(1);
-        const res = sim.resolveMoment(sig.id);
-        expect(res.optionId).toBe(sig.id);
-        expect(res.text.length).toBeGreaterThan(5);
-      } else {
-        sim.resolveMoment(m.options[0].id);
+    for (const seed of [31, 32, 33, 34, 35, 36]) {
+      const s = toGameDay(seed);
+      s.player.badges = ['stepback', 'ballhawk'];
+      const { sim } = createUserGameSim(s)!;
+      for (let i = 0; i < 40; i++) {
+        const st = sim.advance();
+        if (st.type === 'final') break;
+        if (st.type !== 'moment') continue;
+        const m = st.moment;
+        const sig = m.options.find((o) => o.signature);
+        if (sig) {
+          seen.push(m.kind);
+          expect(sig.id.startsWith('sig:')).toBe(true);
+          expect(sig.odds).toBeGreaterThan(0);
+          expect(sig.odds).toBeLessThan(1);
+          const res = sim.resolveMoment(sig.id);
+          expect(res.optionId).toBe(sig.id);
+          expect(res.text.length).toBeGreaterThan(5);
+        } else {
+          sim.resolveMoment(m.options[0].id);
+        }
       }
+      if (seen.length) break;
     }
     // the step-back is offense, the ball hawk is defense
     expect(seen.length).toBeGreaterThan(0);

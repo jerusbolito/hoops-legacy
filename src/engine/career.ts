@@ -27,6 +27,7 @@ import { midseasonHeadlines, scoredPlayers } from './awards';
 import { draftStock, projectedPick, simulateDraft, type DraftPick } from './draft';
 import { archiveSeasonStats } from './leaders';
 import { publishIssue } from './paper';
+import { evolveCharacters } from './characters';
 import { chemistryAfterGame, chemistryNewSeason, weeklyChemistry } from './chemistry';
 import { capSpace, MIN_SALARY, weeklyHoldout } from './contracts';
 import { adoptCoach } from './moves';
@@ -347,9 +348,9 @@ function seedHighSchoolCast(state: GameState, rng: RNG, team: Team, teams: Team[
       title: `Freshman phenom at ${rivalTeam.name}`,
       season,
       athleteId: rivalAth.id,
-      personality: ['cocky', rng.pick(['intense', 'flashy', 'calculating'])],
+      // who they are (loud, quiet, an old friend, a reluctant face of the feud...) is drawn from their profile
       rel: { affinity: -15, rivalry: 45, respect: 35 },
-      memories: ['Beat you in an AAU tournament final last summer and let you hear about it.'],
+      level: 'hs',
     }),
   );
 
@@ -877,6 +878,8 @@ function startNextSeason(state: GameState, rng: RNG, messages: string[]): WeekAd
   ageEveryone(state);
   developNpcs(state, rng);
   developStoryAthletes(state, rng);
+  // people who have reached a turning point with you change (no dice involved, so the random sequence is untouched)
+  evolveCharacters(state);
   const nextYear = c.year + 1;
 
   if (c.level === 'hs' && nextYear > 4) {
@@ -1063,7 +1066,7 @@ function enterLevel(state: GameState, rng: RNG, level: Level, tpl: TeamTemplate,
   state.career.teamId = team.id;
   state.league = createLeague(rng, level, teams.map((t) => t.id));
 
-  addNpc(state, makeNpc(rng, { name: team.coachName, role: 'coach', title: `Head coach, ${team.name}`, season: state.career.season + 1, rel: { respect: 30, trust: 25 } }));
+  addNpc(state, makeNpc(rng, { name: team.coachName, role: 'coach', title: `Head coach, ${team.name}`, season: state.career.season + 1, rel: { respect: 30, trust: 25 }, level }));
   const mate = teamRoster(state, team.id).filter((a) => a.id !== state.player.athleteId && !a.persistent).sort((a, b) => overall(b.ratings) - overall(a.ratings))[0];
   if (mate) {
     addNpc(
@@ -1075,6 +1078,7 @@ function enterLevel(state: GameState, rng: RNG, level: Level, tpl: TeamTemplate,
         season: state.career.season + 1,
         athleteId: mate.id,
         rel: { affinity: 0, respect: 25, trust: 15 },
+        level,
       }),
     );
   }

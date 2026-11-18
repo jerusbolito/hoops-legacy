@@ -90,7 +90,7 @@ describe('honor roll', () => {
   });
 
   it('backfilled championships name your team, not the league', () => {
-    for (const seed of [3, 4, 5, 6, 7, 8, 9, 10]) {
+    for (const seed of [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]) {
       const s = played(seed, (g) => g.career.season >= 5);
       if (!s.player.awards.some((a) => /Champion$/.test(a.name))) continue;
       const raw = JSON.parse(JSON.stringify(s));

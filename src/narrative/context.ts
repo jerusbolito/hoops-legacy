@@ -8,6 +8,7 @@ import { SERVICE_BY_ID } from '../engine/finance';
 import { recruitingBlock } from '../engine/recruiting';
 import { originBlock } from '../engine/origin';
 import { loveBlock } from '../engine/romance';
+import { profileLine } from '../engine/characters';
 import { athleteStatus, statusText } from '../engine/storyAthletes';
 import { ARCHETYPE_INFO, formatHeight, overall } from '../engine/ratings';
 import { fmt1, lineSummary, seasonAverages } from '../engine/stats';
@@ -106,6 +107,8 @@ export function npcLine(state: GameState, n: Npc, detailed: boolean): string {
     const best = pinnedMemories(n, 1)[0];
     return best ? `${s} | remembers: ${best.slice(0, 90)}` : s;
   }
+  const prof = profileLine(n);
+  if (prof) s += `\n    who they are: ${prof}`;
   s += `\n    personality: ${n.personality.join(', ')} | affinity ${r.affinity}, respect ${r.respect}, trust ${r.trust}, rivalry ${r.rivalry}${r.romance ? `, romance ${r.romance}` : ''}`;
   const mems = pinnedMemories(n, MEMORY_WINDOWS.pinnedMemories);
   if (mems.length) s += `\n    remembers: ${mems.join(' / ')}`;

@@ -120,7 +120,9 @@ describe('a league that moves', () => {
     expect(m).toHaveLength(6);
     for (let i = 1; i < m.length; i++) expect(m[i - 1].ovr).toBeGreaterThanOrEqual(m[i].ovr);
     expect(m.every((p) => p.asking >= 1_000_000 && p.id !== s.player.athleteId)).toBe(true);
-    expect(m[0].ovr).toBe(Math.max(...s.league.teamIds.flatMap((t) => s.teams[t].rosterIds).filter((id) => id !== s.player.athleteId).map((id) => overall(s.athletes[id].ratings))));
+    // the story's own teammates are not on the market, so they cannot be its best player
+    const held = new Set(Object.values(s.npcs).filter((n) => n.role === 'teammate' && n.athleteId).map((n) => n.athleteId!));
+    expect(m[0].ovr).toBe(Math.max(...s.league.teamIds.flatMap((t) => s.teams[t].rosterIds).filter((id) => id !== s.player.athleteId && !held.has(id)).map((id) => overall(s.athletes[id].ratings))));
   });
 
   it('a rival or friend whose deal is up always lands on a team', () => {
