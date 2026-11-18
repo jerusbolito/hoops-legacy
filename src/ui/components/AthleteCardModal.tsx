@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { athleteCard, type AthleteCard } from '../../engine/athleteCard';
 import { STAT_BY_KEY, fmtStat, type StatKey } from '../../engine/leaders';
+import { scoutingReport, type ScoutingReport } from '../../engine/scouting';
 import { fmtPct } from '../../engine/stats';
 import { useStore } from '../../state/store';
 import { Avatar, Meter, Pill, TeamBadge, cx } from './ui';
@@ -20,7 +21,57 @@ function Tile({ label, value, rank }: { label: string; value: string; rank?: num
   );
 }
 
-function Body({ card }: { card: AthleteCard }) {
+const RISK_COLOR = { low: 'text-win', medium: 'text-gold', high: 'text-loss' } as const;
+
+/** What a scout would write: grade, strengths, concerns, a likely peak and how ready they are. */
+function Scouting({ r }: { r: ScoutingReport }) {
+  return (
+    <section>
+      <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-ink-500 uppercase">Scouting report</h3>
+      <div className="rounded-lg border border-court-700 bg-court-800/40 p-3">
+        <div className="flex items-center gap-3">
+          <span className="flex h-12 w-12 items-center justify-center rounded-lg border border-gold/50 font-display text-2xl font-bold text-gold" aria-label={`Grade ${r.grade}`}>
+            {r.grade}
+          </span>
+          <p className="text-sm text-ink-100">{r.headline}</p>
+        </div>
+        <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <div>
+            <dt className="text-[10px] tracking-widest text-ink-500 uppercase">Now</dt>
+            <dd className="font-mono text-lg">{r.now}</dd>
+          </div>
+          <div>
+            <dt className="text-[10px] tracking-widest text-ink-500 uppercase">Likely peak</dt>
+            <dd className="font-mono text-lg">{r.likelyPeak}</dd>
+          </div>
+          <div>
+            <dt className="text-[10px] tracking-widest text-ink-500 uppercase">Best case</dt>
+            <dd className="font-mono text-lg text-gold">{r.ceiling}</dd>
+          </div>
+        </dl>
+        <div className="mt-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+          <div>
+            <div className="text-[10px] font-semibold tracking-widest text-ink-500 uppercase">Strengths</div>
+            {r.strengths.length ? <ul>{r.strengths.map((x) => <li key={x.key}>{x.label} <span className="font-mono text-xs text-win">{x.value}</span></li>)}</ul> : <p className="text-ink-500">Nothing stands out.</p>}
+          </div>
+          <div>
+            <div className="text-[10px] font-semibold tracking-widest text-ink-500 uppercase">Concerns</div>
+            {r.concerns.length ? <ul>{r.concerns.map((x) => <li key={x.key}>{x.label} <span className="font-mono text-xs text-loss">{x.value}</span></li>)}</ul> : <p className="text-ink-500">No glaring holes.</p>}
+          </div>
+        </div>
+        <p className="mt-3 text-sm text-ink-300">{r.readinessText}</p>
+        <p className="mt-1 text-sm">
+          <span className={cx('font-semibold', RISK_COLOR[r.risk])}>{r.risk[0].toUpperCase() + r.risk.slice(1)} risk.</span> <span className="text-ink-300">{r.riskText}</span>
+        </p>
+        {r.stockVsYou !== null && (
+          <p className="mt-1 text-xs text-ink-400">Draft stock: {r.stockVsYou > 0 ? `${r.stockVsYou} ahead of you` : r.stockVsYou < 0 ? `${-r.stockVsYou} behind you` : 'level with you'}.</p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function Body({ card, report }: { card: AthleteCard; report: ScoutingReport | null }) {
   const tier = tierFor(card.ovr);
   const s = card.season;
   const r = (k: StatKey) => card.ranks[k] ?? null;
@@ -106,6 +157,8 @@ function Body({ card }: { card: AthleteCard }) {
         </div>
       </section>
 
+      {report && !card.isYou && <Scouting r={report} />}
+
       {card.contract && (
         <p className="text-sm text-ink-300">
           Contract: <span className="font-mono text-gold">{money(card.contract.salary)}</span> a year{card.contract.years ? `, ${card.contract.years} year${card.contract.years === 1 ? '' : 's'} left` : ''}.
@@ -140,7 +193,7 @@ function Body({ card }: { card: AthleteCard }) {
 }
 
 /** Opens from any player's name. Takes the card as a prop so the fade-out never draws from a store that has moved on. */
-function Shell({ card, onClose }: { card: AthleteCard; onClose: () => void }) {
+function Shell({ card, report, onClose }: { card: AthleteCard; report: ScoutingReport | null; onClose: () => void }) {
   return (
     <motion.div role="dialog" aria-modal="true" aria-label={card.name} className="fixed inset-0 z-[54] flex items-start justify-center overflow-y-auto bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
       <motion.div initial={{ y: 24, scale: 0.97 }} animate={{ y: 0, scale: 1 }} onClick={(e) => e.stopPropagation()} className="my-auto w-full max-w-3xl rounded-2xl border border-court-600 bg-court-850 p-5 shadow-2xl">
@@ -149,7 +202,7 @@ function Shell({ card, onClose }: { card: AthleteCard; onClose: () => void }) {
             ✕
           </button>
         </div>
-        <Body card={card} />
+        <Body card={card} report={report} />
       </motion.div>
     </motion.div>
   );
@@ -160,7 +213,8 @@ export function AthleteCardModal() {
   const id = useStore((s) => s.cardId);
   const close = useStore((s) => s.closeCard);
   const card = game && id ? athleteCard(game, id) : null;
-  return <AnimatePresence>{card ? <Shell key={card.id} card={card} onClose={close} /> : null}</AnimatePresence>;
+  const report = game && id ? scoutingReport(game, id) : null;
+  return <AnimatePresence>{card ? <Shell key={card.id} card={card} report={report} onClose={close} /> : null}</AnimatePresence>;
 }
 
 export { STAT_BY_KEY, fmtStat };

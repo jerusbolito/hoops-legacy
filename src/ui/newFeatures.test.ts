@@ -93,3 +93,21 @@ describe('coaching screens', () => {
     expect(loaded.coaching.history).toEqual([]);
   });
 });
+
+import { AthleteCardModal } from './components/AthleteCardModal';
+
+describe('scouting on the player card', () => {
+  it('shows a scouting report for someone else, and not for you', async () => {
+    const s = createCareer({ firstName: 'Sc', lastName: 'Out', hometown: 'Akron, OH', archetype: 'slasher', position: 'SG', heightIn: 76, schoolIndex: 0, traits: [], seed: 3 });
+    const other = s.teams[s.career.teamId].rosterIds.find((id) => id !== s.player.athleteId)!;
+    // the card sits inside an AnimatePresence, so render it through the same path the app uses
+    useStore.setState({ game: s, cardId: other });
+    const html = renderToString(h(AthleteCardModal)).replace(/<!-- -->/g, '');
+    expect(html).toContain('Scouting report');
+    expect(html).toMatch(/Likely peak/);
+    expect(html).not.toMatch(/undefined|NaN/);
+    useStore.setState({ cardId: s.player.athleteId });
+    expect(renderToString(h(AthleteCardModal))).not.toContain('Scouting report');
+    useStore.setState({ cardId: null });
+  });
+});
