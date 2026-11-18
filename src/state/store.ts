@@ -150,6 +150,8 @@ interface Store {
   connectLocalEngine(status: EngineStatus, fastReplies?: boolean): void;
   boot(): void;
   toast(text: string, kind?: Toast['kind']): void;
+  /** Runs a change on a copy of the save and autosaves it (used by the coaching screens). */
+  editGame<T>(fn: (draft: GameState) => T): T;
   dismissToast(id: number): void;
 
   newCareer(input: NewCareerInput): Promise<void>;
@@ -335,6 +337,8 @@ export const useStore = create<Store>((set, get) => {
       // a new model starts with a clean slate for judging how fast it is, and returns to wherever the player was
       set({ llm: config, client: createClient(config), screen: get().game ? 'game' : 'title', desktopManage: false, desktopPreselect: null, replySeconds: [], slowDismissed: false });
     },
+
+    editGame: (fn) => mutate(fn),
 
     toast(text, kind = 'info') {
       const id = ++toastSeq;

@@ -63,11 +63,13 @@ export function mvpRace(state: GameState, n = 6): RaceRow[] {
       if (!s || !a || s.gp < Math.min(2, gamesNeeded)) return null;
       const pct = a.teamId && state.league.standings[a.teamId] ? state.league.standings[a.teamId].w / Math.max(1, state.league.standings[a.teamId].w + state.league.standings[a.teamId].l) : 0.5;
       const per = (s.pts + s.reb * 0.6 + s.ast * 0.8 + s.stl * 1.2 + s.blk * 1.2) / s.gp;
-      return { id, name: `${a.firstName} ${a.lastName}`, team: a.teamId ? state.teams[a.teamId].name : '', score: Math.round(per * (0.75 + pct * 0.5) * 10) / 10, ppg: Math.round((s.pts / s.gp) * 10) / 10, isYou: id === me, isRival: rivalIds.has(id) };
+      const raw = per * (0.75 + pct * 0.5);
+      return { raw, id, name: `${a.firstName} ${a.lastName}`, team: a.teamId ? state.teams[a.teamId].name : '', score: Math.round(raw * 10) / 10, ppg: Math.round((s.pts / s.gp) * 10) / 10, isYou: id === me, isRival: rivalIds.has(id) };
     })
-    .filter((x): x is RaceRow => !!x)
-    .sort((a, b) => b.score - a.score);
-  return rows.slice(0, n);
+    .filter((x): x is RaceRow & { raw: number } => !!x)
+    // sort on the unrounded score so the race agrees with the year-end awards when two players are within a tenth
+    .sort((a, b) => b.raw - a.raw);
+  return rows.slice(0, n).map(({ raw: _raw, ...row }) => row);
 }
 
 /** All-Stars named at the midpoint, as a comma-joined list of athlete ids (flags can only hold simple values). */

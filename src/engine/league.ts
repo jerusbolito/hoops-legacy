@@ -1,4 +1,5 @@
 import { LEVEL_CONFIG } from '../data/teams';
+import { coachRatingMods } from './coachingMods';
 import type { Athlete, BoxScore, GameState, League, Level, ScheduledGame, Team } from '../state/schemas';
 import { HURT_PENALTY, isPlayingHurt, sitOutReason } from './consequences';
 import { GameSim, type SimOptions, type SimTeamInput } from './gameSim';
@@ -77,7 +78,9 @@ export function simOptions(state: GameState, keyMoments: boolean): SimOptions {
   const cfg = LEVEL_CONFIG[state.league.level];
   const p = state.player;
   // energy & morale shade the user's effective ratings; playing on an injury costs a lot
-  const mod = Math.round((p.energy - 70) / 10 + (p.morale - 50) / 15) - (isPlayingHurt(state) ? HURT_PENALTY : 0);
+  // being fresh helps a little more than being tired hurts, so a casual player is not punished for training hard
+  const energyMod = p.energy >= 70 ? (p.energy - 70) / 10 : (p.energy - 70) / 14;
+  const mod = Math.round(energyMod + (p.morale - 50) / 15) - (isPlayingHurt(state) ? HURT_PENALTY : 0);
   const rivalIds = Object.values(state.npcs)
     .filter((n) => n.athleteId && n.relationship.rivalry >= 40)
     .map((n) => n.athleteId!);
@@ -89,7 +92,7 @@ export function simOptions(state: GameState, keyMoments: boolean): SimOptions {
     keyMoments,
     userAthleteId: p.athleteId,
     // a close locker room plays above its ratings, a fractured one below
-    ratingMods: { ...Object.fromEntries((state.teams[state.career.teamId]?.rosterIds ?? []).map((id) => [id, chemistryMod(state)])), [p.athleteId]: mod + chemistryMod(state) },
+    ratingMods: { ...Object.fromEntries((state.teams[state.career.teamId]?.rosterIds ?? []).map((id) => [id, chemistryMod(state)])), [p.athleteId]: mod + chemistryMod(state), ...coachRatingMods(state) },
     rivalIds,
     userTraits: p.traits,
     userClutch: modsOf(state).clutch,

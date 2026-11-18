@@ -766,6 +766,36 @@ export const LegacySchema = z.object({
 });
 export type Legacy = z.infer<typeof LegacySchema>;
 
+/* ───────────────────────── Coaching: the career after the career ───────────────────────── */
+
+export const CoachSeasonSchema = z.object({
+  season: z.number(),
+  teamId: z.string(),
+  teamName: z.string(),
+  w: z.number(),
+  l: z.number(),
+  result: z.enum(['champion', 'finalist', 'playoffs', 'missed']),
+  /** Reputation after the season. */
+  rep: z.number().default(0),
+  fired: z.boolean().default(false),
+});
+export type CoachSeason = z.infer<typeof CoachSeasonSchema>;
+
+export const CoachingSchema = z.object({
+  active: z.boolean().default(false),
+  /** Where the coach is in the yearly loop. */
+  stage: z.enum(['offers', 'offseason', 'review']).default('offers'),
+  teamId: z.string().default(''),
+  philosophy: z.enum(['win_now', 'balanced', 'develop']).default('balanced'),
+  /** The skill the staff drills with the whole roster. */
+  focus: z.enum(RATING_KEYS).default('shooting'),
+  /** 0..100. Climbs with wins and titles, falls with losing; low means a pink slip. */
+  rep: z.number().default(40),
+  offers: z.array(z.string()).default([]),
+  history: z.array(CoachSeasonSchema).default([]),
+});
+export type Coaching = z.infer<typeof CoachingSchema>;
+
 /* ───────────────────────── Root state ───────────────────────── */
 
 export const SAVE_VERSION = 1;
@@ -809,5 +839,7 @@ export const GameStateSchema = z.object({
   records: z.record(z.array(RecordEntrySchema)).default({}),
   /** League-wide accolades by season: champions, MVPs, All-League and All-Star teams. */
   honors: z.array(HonorSchema).default([]),
+  /** The coaching career, once a retired player takes a job (see engine/coaching.ts). */
+  coaching: CoachingSchema.default({}),
 });
 export type GameState = z.infer<typeof GameStateSchema>;

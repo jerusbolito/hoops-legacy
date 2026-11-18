@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GameState } from '../state/schemas';
+import { coachOf } from './coach';
 import { createCareer, freeAgencyOffers, marketValue, withRng } from './career';
 import { MIN_SALARY, acceptCounter, askingPrice, capSpace, endHoldout, extensionStatus, holdingOut, negotiate, payroll, salaryCap, salaryOf, startHoldout, weeklyHoldout, type Stance } from './contracts';
 import { sitOutReason } from './consequences';
@@ -83,6 +84,9 @@ describe('extensions and holdouts', () => {
 
   it('a fair ask usually works, an absurd one usually does not, and in between you get a counter', () => {
     const base = pro(7);
+    // the ceiling depends on how much the coach trusts you, which is whatever this seed's season happened to produce.
+    // Pin it to a neutral value so the test is about the negotiation, not about that season.
+    coachOf(base)!.relationship.trust = 50;
     const rate = (stance: Stance) => {
       const out = { accepted: 0, counter: 0, rejected: 0 };
       for (let i = 0; i < 40; i++) {

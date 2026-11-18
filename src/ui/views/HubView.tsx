@@ -10,6 +10,7 @@ import { SlowModelBanner } from '../components/SlowModelBanner';
 import { WelcomeCard } from '../components/WelcomeCard';
 import { Panel, TeamBadge, cx } from '../components/ui';
 import { DraftPanel, FreeAgencyPanel, RecruitingPanel, RetiredPanel } from '../panels/CareerPanels';
+import { CoachingPanel } from '../panels/CoachingPanel';
 import { GamePanel, PreGamePanel } from '../panels/GamePanel';
 import { ScenePanel } from '../panels/ScenePanel';
 import { SummerPanel, TrainingPanel } from '../panels/TrainingPanel';
@@ -30,7 +31,7 @@ export function HubView() {
   else if (c.phase === 'recruiting') main = <RecruitingPanel />;
   else if (c.phase === 'draft') main = <DraftPanel />;
   else if (c.phase === 'free_agency') main = <FreeAgencyPanel />;
-  else if (c.phase === 'retired') main = <RetiredPanel />;
+  else if (c.phase === 'retired') main = game.coaching.active ? <CoachingPanel /> : <RetiredPanel />;
   else if (c.step === 'training') main = c.phase === 'offseason' ? <SummerPanel /> : <TrainingPanel />;
   else if (c.step === 'scene') main = <ScenePanel />;
   else if (c.step === 'game') main = <PreGamePanel />;

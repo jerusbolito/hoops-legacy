@@ -8,6 +8,7 @@ import { averages, fmt1, seasonRows, totals } from '../../engine/stats';
 import { marketPreview } from '../../engine/transactions';
 import { legendOf } from '../../engine/legacyScore';
 import { listLegends, saveLegend } from '../../state/persistence';
+import { CoachCard } from './CoachingPanel';
 import { useStore } from '../../state/store';
 import { FamilyTree, HeirCard, TierChip, TierProgress } from '../components/Legacy';
 import { PlayerLink } from '../components/PlayerLink';
@@ -208,6 +209,7 @@ export function RetiredPanel() {
         {legend.tier >= 3 && game.player.origin.chosen && <p className="mt-2 text-sm text-gold">Number {game.player.origin.look.number} is retired to the rafters.</p>}
       </Panel>
       <HeirCard />
+      <CoachCard />
       <FamilyTree game={game} />
       <Panel title="Trophy case">
         {game.player.awards.length === 0 ? (

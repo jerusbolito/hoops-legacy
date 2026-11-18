@@ -12,7 +12,7 @@ import type {
   ScheduledGame,
   Team,
 } from '../state/schemas';
-import { OriginSchema, SAVE_VERSION, type Origin, type PlanId } from '../state/schemas';
+import { CoachingSchema, OriginSchema, SAVE_VERSION, type Origin, type PlanId } from '../state/schemas';
 import { applyOriginStart, modsOf } from './origin';
 import { checkBadgeUnlocks } from './badges';
 import { ensureGoals } from './goals';
@@ -268,6 +268,7 @@ export function createCareer(input: NewCareerInput): GameState {
     weekLog: { lines: [] },
     paper: [],
     legacy: { generation: 1, family: '', inherited: 0, relation: 'none', parent: '', lineage: [] },
+    coaching: CoachingSchema.parse({}),
     goals: [],
     records: {},
     honors: [],
@@ -793,7 +794,7 @@ export function retireStaleNpcs(state: GameState) {
 }
 
 /** Remove departing NPC athletes and refill rosters with newcomers. */
-function turnoverRosters(state: GameState, rng: RNG) {
+export function turnoverRosters(state: GameState, rng: RNG) {
   const names = NameBook.fromState(state);
   const level = state.career.level;
   const cfg = LEVEL_CONFIG[level];
@@ -852,7 +853,7 @@ function newSeasonCommon(state: GameState, rng: RNG) {
   else state.recruiting.targets = [];
 }
 
-function ageEveryone(state: GameState) {
+export function ageEveryone(state: GameState) {
   for (const a of Object.values(state.athletes)) a.age++;
 }
 
@@ -944,7 +945,8 @@ function alumniOf(state: GameState, level: Level, drafted?: Map<string, string>)
     .filter((a): a is Athlete => !!a && !a.persistent && !locked.has(a.id));
   const best = (xs: Athlete[]) => xs.sort((a, b) => overall(b.ratings) - overall(a.ratings));
   if (level === 'college') return best(pool.filter((a) => a.age >= graduationAge('hs'))).slice(0, 24);
-  if (level === 'pro') return best(pool.filter((a) => drafted?.has(a.id)));
+  // a draftee who was only a teammate in the story still has to turn up on the team that picked them
+  if (level === 'pro') return best(Object.values(state.athletes).filter((a) => !a.persistent && a.id !== state.player.athleteId && drafted?.has(a.id)));
   return [];
 }
 
@@ -1046,6 +1048,12 @@ function enterLevel(state: GameState, rng: RNG, level: Level, tpl: TeamTemplate,
     if (n.role === 'teammate' && n.athleteId && !state.athletes[n.athleteId]) {
       n.active = false;
       n.athleteId = undefined;
+    }
+    // a teammate who was drafted is on another team now
+    const mateAth = n.role === 'teammate' && n.athleteId ? state.athletes[n.athleteId] : undefined;
+    if (mateAth && !mateAth.persistent && mateAth.teamId && mateAth.teamId !== team.id) {
+      n.active = false;
+      n.title = `Former teammate, now at ${state.teams[mateAth.teamId]?.name ?? 'another team'}`;
     }
   }
 

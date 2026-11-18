@@ -123,4 +123,19 @@ describe('the league moves up with you', () => {
     const missing = r.picks.filter((p) => !p.isUser && rostered.get(p.name) !== p.team);
     expect(missing).toEqual([]);
   });
+
+  it('nobody who was picked vanishes, even a teammate your story was built on', () => {
+    for (const seed of [5, 6, 8, 11]) {
+      const s = atDraft(seed);
+      const r = runDraft(s);
+      const rostered = new Set<string>();
+      for (const id of s.league.teamIds) for (const aid of s.teams[id].rosterIds) rostered.add(`${s.athletes[aid].firstName} ${s.athletes[aid].lastName}`);
+      expect(r.picks.filter((p) => !p.isUser && !rostered.has(p.name)).map((p) => p.name), `seed ${seed}`).toEqual([]);
+      // and a teammate who left is no longer written up as one of yours
+      for (const n of Object.values(s.npcs)) {
+        const a = n.role === 'teammate' && n.athleteId ? s.athletes[n.athleteId] : undefined;
+        if (a && !a.persistent && n.active) expect(a.teamId, `seed ${seed}`).toBe(s.career.teamId);
+      }
+    }
+  }, 120_000);
 });
