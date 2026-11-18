@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { achievementStatus } from '../../engine/achievements';
 import { doneGoals, openGoals } from '../../engine/goals';
 import { planHeir } from '../../engine/legacy';
 import { TIER_LABELS, TIER_MIN } from '../../engine/legacyScore';
@@ -165,8 +166,10 @@ export function HallOfFame() {
   useEffect(() => {
     void refresh();
   }, []);
-  if (!rows || rows.length === 0) return null;
+  if (!rows) return null;
+  if (rows.length === 0) return <Achievements legends={[]} />;
   return (
+    <>
     <Panel title="Hall of Fame" right={<span className="text-xs text-ink-500">{rows.length} career{rows.length === 1 ? '' : 's'}</span>} className="mt-6">
       <ul className="space-y-2">
         {rows.map((l, i) => (
@@ -181,6 +184,30 @@ export function HallOfFame() {
               }
             }}
           />
+        ))}
+      </ul>
+    </Panel>
+    <Achievements legends={rows} />
+    </>
+  );
+}
+
+/** Account-wide achievements, worked out from every finished career. */
+export function Achievements({ legends }: { legends: Legend[] }) {
+  const list = achievementStatus(legends);
+  const got = list.filter((a) => a.done).length;
+  return (
+    <Panel title="Achievements" right={<span className="text-xs text-ink-500">{got} of {list.length}</span>} className="mt-6">
+      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {[...list].sort((a, b) => Number(b.done) - Number(a.done)).map((a) => (
+          <li key={a.id} className={cx('flex items-start gap-3 rounded-lg border px-3 py-2', a.done ? 'border-gold/50 bg-court-900/60' : 'border-court-700 bg-court-900/30 opacity-70')} title={a.blurb}>
+            <span className={cx('text-xl', !a.done && 'grayscale')} aria-hidden>{a.icon}</span>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-ink-100">{a.name} {a.done && <span className="text-win" aria-label="unlocked">✓</span>}</div>
+              <div className="text-xs text-ink-400">{a.blurb}</div>
+              {!a.done && a.need > 1 && <Meter className="mt-1.5" value={a.have} max={a.need} showValue={false} />}
+            </div>
+          </li>
         ))}
       </ul>
     </Panel>

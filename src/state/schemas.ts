@@ -729,6 +729,8 @@ export const LegendSchema = z.object({
   goalsTotal: z.number().default(0),
   /** Name of the parent or mentor this career grew out of, if any. */
   parent: z.string().default(''),
+  /** The challenge this career was a run of, if any (see engine/challenges.ts). */
+  challenge: z.string().default(''),
   /** The teams they played for as a pro. */
   teams: z.array(z.string()).default([]),
   summary: z.string().default(''),

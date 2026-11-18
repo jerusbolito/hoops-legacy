@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
+import { DIFFICULTIES, type Difficulty } from '../../engine/difficulty';
 import { HOMETOWNS } from '../../data/names';
 import { HAIR_COLORS, HAIR_STYLES, SKIN_TONES, setLookOverride } from '../../data/looks';
 import { HS_TEAMS } from '../../data/teams';
@@ -103,6 +104,7 @@ export function CreateScreen() {
   const [background, setBackground] = useState<Background>('working');
   const [motive, setMotive] = useState<Motive>('love');
   const [temperament, setTemperament] = useState<Temperament>('steady');
+  const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [skin, setSkin] = useState(3);
   const [hair, setHair] = useState(0);
   const [style, setStyle] = useState('short');
@@ -153,6 +155,7 @@ export function CreateScreen() {
       schoolIndex: school,
       traits,
       origin: { background, motive, temperament, look: { skin, hair, style, build, number } },
+      difficulty,
     });
   };
 
@@ -223,6 +226,17 @@ export function CreateScreen() {
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {TEMPERAMENTS.map((b) => (
                 <ChoiceCard key={b.id} c={b} on={b.id === temperament} pick={setTemperament} />
+              ))}
+            </div>
+          </Section>
+
+          <Section title="Difficulty" hint="How forgiving the game is: how fast training pays off, how often you get hurt and how far money goes. You can not change it later.">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {DIFFICULTIES.map((d) => (
+                <button key={d.id} onClick={() => setDifficulty(d.id)} aria-pressed={d.id === difficulty} className={cx('rounded-lg border p-3 text-left transition-colors', d.id === difficulty ? 'border-hoop-500 bg-hoop-500/10' : 'border-court-600 hover:border-court-500')}>
+                  <div className="font-display font-semibold">{d.label}</div>
+                  <div className="text-xs text-ink-400">{d.blurb}</div>
+                </button>
               ))}
             </div>
           </Section>

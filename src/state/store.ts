@@ -54,6 +54,7 @@ import { generateRecap, generateScene, generateSeasonSummary, narrateFlavor, nar
 import type { SceneSetup } from '../narrative/parse';
 import { pickScene, type ScenePlan } from '../narrative/scenes';
 import { setLookOverride } from '../data/looks';
+import { submitChallengeScore } from '../sync/leaderboard';
 import { loadGame, loadLLMConfig, saveGame, saveLegend, storeLLMConfig } from './persistence';
 import type { Reveal, RevealData } from './reveals';
 import { RATING_KEYS, RATING_LABELS, type GameState, type PlanId, type RatingKey, type Ratings, type ScheduledGame, type ServiceId } from './schemas';
@@ -224,7 +225,15 @@ export const useStore = create<Store>((set, get) => {
     for (const id of draft.player.badges.slice(badgesBefore)) get().toast(`Badge earned: ${BADGE_BY_ID[id]?.name ?? id}!`, 'award');
     for (const g of goalsDone) get().toast(`Goal reached: ${g.title}!`, 'award');
     // the moment a career ends it goes into the Hall of Fame
-    if (draft.career.phase === 'retired' && cur.career.phase !== 'retired') void saveLegend(legendOf(draft)).catch(() => undefined);
+    if (draft.career.phase === 'retired' && cur.career.phase !== 'retired') {
+      const legend = legendOf(draft);
+      void saveLegend(legend).catch(() => undefined);
+      if (legend.challenge) {
+        void submitChallengeScore(legend).then((r) => {
+          if (r === 'submitted') get().toast('Your challenge score is on the leaderboard.', 'award');
+        });
+      }
+    }
     return out;
   }
 

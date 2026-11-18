@@ -14,14 +14,14 @@
 import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { describe, it } from 'vitest';
-import type { Archetype, GameState } from '../state/schemas';
-import { createCareer, doSummerTraining, doTraining, userAthlete } from './career';
+import type { Archetype } from '../state/schemas';
+import { createCareer } from './career';
 import { buyService, servicesFor } from './finance';
 import { legacyScore, peakOf, scoreParts, tierOf, TIER_LABELS } from './legacyScore';
 import type { TrainingFocus } from './progression';
 import { RNG } from './rng';
 import { renderReport, type Row, type Run } from './playtestReport';
-import { tick } from './testkit';
+import { tick, type TickOptions } from './testkit';
 
 const N = Number(process.env.PLAYTEST_N ?? 30);
 const run = process.env.PLAYTEST ? describe : describe.skip;
@@ -41,32 +41,29 @@ interface Result {
   seasons: number;
 }
 
-function step(s: GameState, rng: RNG, strat: Strategy, n: number) {
-  const c = s.career;
-  const regular = !c.lifeEvent && c.step === 'training' && (c.phase === 'regular' || c.phase === 'preseason');
-  if (regular && strat !== 'random') {
-    let focus: TrainingFocus;
-    if (strat === 'shooting-only') focus = s.player.energy < 30 ? 'rest' : 'shooting';
-    else if (strat === 'rest-heavy') focus = s.player.energy < 70 ? 'rest' : ROTATION[n % 4];
-    else if (strat === 'study-first') focus = c.level !== 'pro' && s.player.academics < 3.4 ? 'study' : s.player.energy < 40 ? 'rest' : ROTATION[n % 4];
-    else focus = s.player.energy < 40 ? 'rest' : ROTATION[n % 4];
-    if (strat === 'spender') for (const svc of servicesFor(s)) buyService(s, svc.id);
-    doTraining(s, focus);
-    return;
-  }
-  if (!c.lifeEvent && c.step === 'training' && c.phase === 'offseason' && strat === 'shooting-only') {
-    doSummerTraining(s, ['shooting', 'shooting']);
-    return;
-  }
-  if (strat === 'spender' && regular) for (const svc of servicesFor(s)) buyService(s, svc.id);
-  tick(s, rng, { moves: true });
+/** Strategies only change training (and shopping). Everything else is the same autopilot, so the comparison is fair. */
+function options(strat: Strategy, counter: { n: number }): TickOptions {
+  const o: TickOptions = { moves: true };
+  if (strat === 'random') return o;
+  o.train = (s) => {
+    const c = s.career;
+    const i = counter.n++;
+    if (strat === 'shooting-only') return s.player.energy < 30 ? 'rest' : 'shooting';
+    if (strat === 'rest-heavy') return s.player.energy < 70 ? 'rest' : ROTATION[i % 4];
+    if (strat === 'study-first') return c.level !== 'pro' && s.player.academics < 3.4 ? 'study' : s.player.energy < 40 ? 'rest' : ROTATION[i % 4];
+    return s.player.energy < 40 ? 'rest' : ROTATION[i % 4];
+  };
+  if (strat === 'shooting-only') o.summer = () => ['shooting', 'shooting'];
+  if (strat === 'spender') o.shop = (s) => servicesFor(s).forEach((svc) => buyService(s, svc.id));
+  return o;
 }
 
 function career(seed: number, archetype: Archetype, strat: Strategy): Result {
   const s = createCareer({ firstName: 'Play', lastName: `T${seed}`, hometown: 'Akron, OH', archetype, position: archetype === 'big' ? 'C' : archetype === 'playmaker' ? 'PG' : 'SF', heightIn: archetype === 'big' ? 82 : 76, schoolIndex: 0, traits: [], seed });
   const rng = new RNG(seed * 7 + 1);
   let n = 0;
-  while (s.career.phase !== 'retired' && n < 20000) step(s, rng, strat, n++);
+  const opts = options(strat, { n: 0 });
+  while (s.career.phase !== 'retired' && n++ < 20000) tick(s, rng, opts);
   const score = legacyScore(s);
   return {
     score,
@@ -154,4 +151,3 @@ run('playtest report', () => {
   }, 3_600_000);
 });
 
-void userAthlete;

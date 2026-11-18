@@ -1,11 +1,12 @@
 import { expect } from 'vitest';
-import type { GameState, ServiceId } from '../state/schemas';
+import type { GameState, RatingKey, ServiceId } from '../state/schemas';
 import { fullContext } from '../narrative/context';
 import { pickScene } from '../narrative/scenes';
 import { advanceWeek, commitToCollege, completeScene, createUserGameSim, doSummerTraining, doTraining, finishUserGame, freeAgencyOffers, recruitingOffers, runDraft, setGamePlan, signFreeAgent, userAthlete, withRng } from './career';
 import { applyCombine, applyContestResult, availableEvents, playRound, runCombine, startContest } from './events';
 import { buyService, servicesFor } from './finance';
 import { PLANS } from './gameplan';
+import type { TrainingFocus } from './progression';
 import { recruitAct } from './recruiting';
 import { lifeEventView, resolveLifeEvent } from './lifeEvents';
 import { acceptOffer, answerPress } from './media';
@@ -31,7 +32,17 @@ export function tryMove(s: GameState, rng: RNG) {
 }
 
 /** Plays one step with deliberately varied choices so every system gets exercised. */
-export function tick(s: GameState, rng: RNG, o: { moves?: boolean } = {}) {
+export interface TickOptions {
+  moves?: boolean;
+  /** Picks this week's training focus. Return undefined to leave it to the autopilot's random choice. */
+  train?: (s: GameState) => TrainingFocus | undefined;
+  /** Picks the summer plan. */
+  summer?: (s: GameState) => RatingKey[] | undefined;
+  /** Extra shopping each training week. */
+  shop?: (s: GameState) => void;
+}
+
+export function tick(s: GameState, rng: RNG, o: TickOptions = {}) {
   const c = s.career;
   // a random moment waiting for a decision comes first
   if (c.lifeEvent) {
@@ -61,8 +72,13 @@ export function tick(s: GameState, rng: RNG, o: { moves?: boolean } = {}) {
       const svc = rng.pick(servicesFor(s)).id as ServiceId;
       buyService(s, svc);
     }
-    if (c.phase === 'offseason') doSummerTraining(s, ['shooting', 'defense']);
-    else doTraining(s, s.player.energy < 40 ? 'rest' : s.player.academics < 2.6 && c.level !== 'pro' ? 'study' : rng.pick(['shooting', 'finishing', 'defense', 'passing', 'study']));
+    o.shop?.(s);
+    if (c.phase === 'offseason') doSummerTraining(s, o.summer?.(s) ?? ['shooting', 'defense']);
+    else {
+      const own = o.train?.(s);
+      const random: TrainingFocus = s.player.energy < 40 ? 'rest' : s.player.academics < 2.6 && c.level !== 'pro' ? 'study' : rng.pick(['shooting', 'finishing', 'defense', 'passing', 'study']);
+      doTraining(s, own ?? random);
+    }
     return;
   }
   if (c.step === 'scene') {
@@ -102,7 +118,7 @@ export function tick(s: GameState, rng: RNG, o: { moves?: boolean } = {}) {
 }
 
 /** Plays forward until a condition holds (or the career ends). */
-export function playUntil(s: GameState, rng: RNG, done: (s: GameState) => boolean, o: { moves?: boolean } = {}, max = 20000) {
+export function playUntil(s: GameState, rng: RNG, done: (s: GameState) => boolean, o: TickOptions = {}, max = 20000) {
   let n = 0;
   while (!done(s) && s.career.phase !== 'retired' && n++ < max) tick(s, rng, o);
   return n;

@@ -1,4 +1,5 @@
 import { COLLEGE_TEAMS, LEVEL_CONFIG, PRO_TEAMS, TEAMS_BY_LEVEL, type TeamTemplate } from '../data/teams';
+import { setDifficulty, type Difficulty } from './difficulty';
 import type {
   Archetype,
   Athlete,
@@ -85,6 +86,10 @@ export interface NewCareerInput {
   seed?: number;
   /** Where the player comes from and why they play. Leave out for the classic start with no effects. */
   origin?: Partial<Origin>;
+  /** Defaults to standard. */
+  difficulty?: Difficulty;
+  /** Set when the career is a challenge run (see challenges.ts). */
+  challengeId?: string;
 }
 
 export const TRAITS: { id: string; label: string; desc: string }[] = [
@@ -271,6 +276,8 @@ export function createCareer(input: NewCareerInput): GameState {
   seedHighSchoolCast(state, rng, team, teams);
   applyOriginStart(state);
   state.rngState = rng.state;
+  if (input.difficulty) setDifficulty(state, input.difficulty);
+  if (input.challengeId) state.story.flags.challenge = input.challengeId;
   ensureGoals(state);
   addNews(state, `${user.firstName} ${user.lastName} joins ${team.name} as a freshman.`);
   return state;

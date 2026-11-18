@@ -162,6 +162,7 @@ export function legendOf(state: GameState): Legend {
     goalsDone: state.goals.filter((g) => g.doneSeason > 0).length,
     goalsTotal: state.goals.length,
     parent: state.legacy.parent,
+    challenge: gen === 1 && typeof state.story.flags.challenge === 'string' ? state.story.flags.challenge : '',
     teams: [state.teams[state.career.teamId]?.name ?? ''].filter(Boolean),
     summary: '',
     retiredAt: Date.now(),

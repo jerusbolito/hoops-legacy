@@ -1,4 +1,5 @@
 import type { Athlete, GameState, Player, RatingKey } from '../state/schemas';
+import { difficultyOf } from './difficulty';
 import { RATING_KEYS, RATING_LABELS } from '../state/schemas';
 import { hasService } from './finance';
 import { modsOf } from './origin';
@@ -114,7 +115,7 @@ export function train(state: GameState, rng: RNG, focus: TrainingFocus, intensit
   const energyF = clamp(p.energy / 70, 0.35, 1.15);
   const coach = 0.95 + (state.teams[state.career.teamId]?.prestige ?? 50) / 400;
   const trainer = hasService(state, 'trainer') ? 1.2 : 1;
-  const amount = 0.55 * gapFactor(ath, focus) * energyF * ageFactor(ath.age) * coach * intensity * trainer * rng.range(0.8, 1.2);
+  const amount = 0.55 * gapFactor(ath, focus) * energyF * ageFactor(ath.age) * coach * intensity * trainer * difficultyOf(state).training * rng.range(0.8, 1.2);
   const d = addProgress(p, ath, focus, amount);
   if (d) gains.push({ key: focus, delta: d });
   const spill = SPILLOVER[focus];
@@ -186,7 +187,7 @@ export function postGameWear(state: GameState, rng: RNG, secPlayed: number, tota
   // a body that has been through a lot breaks down more easily
   const proneF = p.injuryHistory >= 3 ? 1.4 : 1;
   const careF = hasService(state, 'recovery') ? 0.75 : 1;
-  const injuryP = (0.008 + share * 0.012 + (p.energy < 25 ? 0.05 : p.energy < 40 ? 0.02 : 0)) * proneF * careF;
+  const injuryP = (0.008 + share * 0.012 + (p.energy < 25 ? 0.05 : p.energy < 40 ? 0.02 : 0)) * proneF * careF * difficultyOf(state).injury;
   if (secPlayed > 0 && rng.chance(injuryP)) {
     const inj = rng.weighted(
       [

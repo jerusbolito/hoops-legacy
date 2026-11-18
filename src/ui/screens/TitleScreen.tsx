@@ -8,6 +8,7 @@ import { getDesktop } from '../../desktop/bridge';
 import { WhatsNew } from '../components/WhatsNew';
 import { AccountBar } from '../components/Account';
 import { useAccount } from '../../sync/account';
+import { Challenges } from '../components/Challenges';
 import { HallOfFame } from '../components/Legacy';
 
 // always the newest release (see electron-builder.config.cjs)
@@ -137,6 +138,7 @@ export function TitleScreen() {
           </ul>
         </Panel>
       )}
+      <Challenges />
       <HallOfFame />
     </div>
   );

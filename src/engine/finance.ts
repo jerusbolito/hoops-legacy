@@ -1,4 +1,5 @@
 import type { FinanceLine, GameState, Level, ServiceId } from '../state/schemas';
+import { difficultyOf } from './difficulty';
 import { modsOf } from './origin';
 
 /**
@@ -113,11 +114,11 @@ export function weeklyPay(state: GameState): WeeklyPay {
   const weeks = Math.max(1, state.league.regularWeeks);
   const salary = lvl === 'pro' && state.player.contract ? state.player.contract.salary / weeks : 0;
   // a family with money (or without) shows up in what you have to spend as an amateur
-  const allowance = WEEKLY_ALLOWANCE[lvl] * modsOf(state).allowance;
+  const allowance = WEEKLY_ALLOWANCE[lvl] * modsOf(state).allowance / difficultyOf(state).cost;
   const endorse = state.player.deals.reduce((a, d) => a + d.perSeason * (1 - d.commission), 0) / weeks;
   const taxable = lvl === 'pro' ? salary + endorse : 0;
   const taxes = taxable * PRO_TAX_RATE;
-  const living = lvl === 'pro' ? salary * PRO_LIVING_RATE : 0;
+  const living = lvl === 'pro' ? salary * PRO_LIVING_RATE * difficultyOf(state).cost : 0;
   const gross = salary + allowance + endorse;
   return { salary, allowance, endorse, gross, taxes, living, net: gross - taxes - living };
 }
