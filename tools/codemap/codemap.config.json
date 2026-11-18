@@ -1,0 +1,70 @@
+{
+  "title": "Come Up",
+  "include": ["src", "desktop", "scripts"],
+  "gitCommits": 120,
+  "testPatterns": ["testkit", "/simulate.ts"],
+  "docs": [
+    { "title": "Handoff", "file": "HANDOFF.md" },
+    { "title": "What's new", "file": "CHANGELOG.md" },
+    { "title": "README", "file": "README.md" }
+  ],
+  "groups": {
+    "src/engine": { "title": "Engine", "blurb": "Every rule of the game. Pure functions over the game state, seeded randomness, no React. If something is a fact (a rating, a score, a contract), it is decided here." },
+    "src/state": { "title": "State and saves", "blurb": "The shape of a save (schemas.ts), the store the screens read, and how saves are stored, migrated and exported." },
+    "src/narrative": { "title": "Story layer", "blurb": "Picks scenes, builds the context a model sees, and parses what comes back. The model tells the story; it never decides the outcome." },
+    "src/llm": { "title": "Model clients", "blurb": "One small client per provider (Anthropic, Gemini, OpenAI-compatible, local)." },
+    "src/sync": { "title": "Accounts and cloud", "blurb": "Sign-in, cloud sync with conflict handling, and the challenge leaderboard." },
+    "src/data": { "title": "Static data", "blurb": "Team templates, names and looks." },
+    "src/ui/screens": { "title": "Screens", "blurb": "Whole pages: title, setup, character creation and the in-game shell." },
+    "src/ui/views": { "title": "Tabs", "blurb": "The pages inside a career: hub, stats, league, money, people and so on." },
+    "src/ui/panels": { "title": "Hub panels", "blurb": "The step-by-step panels on the hub: training, scene, game, draft, coaching." },
+    "src/ui/components": { "title": "Components", "blurb": "Reusable pieces: cards, modals, meters, charts." },
+    "src/ui/share": { "title": "Sharing", "blurb": "Draws a career as an image." },
+    "src/ui": { "title": "UI root", "blurb": "The app shell and sound." },
+    "src/desktop": { "title": "Desktop bridge (web side)", "blurb": "How the page talks to the Electron shell." },
+    "desktop": { "title": "Desktop app", "blurb": "The Electron shell and the local model engine." },
+    "scripts": { "title": "Scripts", "blurb": "Build, packaging and playtest tooling." },
+    "src": { "title": "Entry", "blurb": "App entry and the changelog reader." }
+  },
+  "flows": [
+    { "title": "Start a career", "entry": "src/engine/career.ts#createCareer", "blurb": "Builds the world, the player and the first season." },
+    { "title": "A week passes", "entry": "src/engine/career.ts#advanceWeek", "blurb": "The heartbeat: pay, recovery, life events, games, the calendar." },
+    { "title": "Training", "entry": "src/engine/career.ts#doTraining", "blurb": "One training session: gains, energy, spillover." },
+    { "title": "Play a game", "entry": "src/engine/career.ts#createUserGameSim", "blurb": "Sets up the possession sim for your game." },
+    { "title": "After a game", "entry": "src/engine/career.ts#finishUserGame", "blurb": "Box score, stats, wear and injuries, press, news." },
+    { "title": "Random moments", "entry": "src/engine/lifeEvents.ts#rollLifeEvent", "blurb": "Weekly roll for a life event and which one comes up." },
+    { "title": "Pick a scene", "entry": "src/narrative/scenes.ts#pickScene", "blurb": "What the story is about this week." },
+    { "title": "Draft night", "entry": "src/engine/career.ts#runDraft", "blurb": "College to pro: the draft, your pick, the new league." },
+    { "title": "Contract talks", "entry": "src/engine/contracts.ts#negotiate", "blurb": "Extension asks and the front office's answer." },
+    { "title": "Next generation", "entry": "src/engine/legacy.ts#startNextGeneration", "blurb": "Files the career and begins the heir's." },
+    { "title": "Coach: play a season", "entry": "src/engine/coaching.ts#playSeason", "blurb": "Whole-league season with your team and reputation." },
+    { "title": "Coach: offseason", "entry": "src/engine/coaching.ts#nextSeason", "blurb": "Aging, development, moves and the new season." },
+    { "title": "Coach: a trade", "entry": "src/engine/coachingTrades.ts#proposeTrade", "blurb": "Cap rules and the other side's answer." },
+    { "title": "Cloud sync", "entry": "src/sync/engine.ts#syncAll", "blurb": "Upload, download and conflicts." },
+    { "title": "Weekly newspaper", "entry": "src/engine/paper.ts#publishIssue", "blurb": "Writes the issue from the week's events." }
+  ],
+  "layerChain": {
+    "dir": "src/engine",
+    "order": ["news", "finance", "storyAthletes", "recruiting", "moves", "transactions", "lifeEvents", "career"],
+    "why": "These modules may import each other only in this direction. career.ts imports them; none of them import career.ts. If you need something from career.ts in one of them, move it down instead."
+  },
+  "forbid": [
+    { "from": "src/engine", "to": "src/ui", "reason": "The engine is pure rules. It must work with no screens." },
+    { "from": "src/engine", "package": "react", "reason": "The engine must not depend on React." },
+    { "from": "src/engine", "to": "src/sync", "reason": "Rules do not know about accounts or the cloud." }
+  ],
+  "gotchas": [
+    { "title": "The engine owns the facts", "text": "The model only tells the story and may propose small effects that the engine clamps. Every feature has to work with no model at all.", "where": ["src/engine/effects.ts", "src/narrative/narrator.ts"] },
+    { "title": "New random numbers shift every seeded test", "text": "Anything that consumes the RNG changes every seeded result after it. When a test that used to pass starts failing, suspect this first and make the test robust (more seeds, or pin the thing it depends on). Do not weaken the feature.", "where": ["src/engine/rng.ts", "src/engine/career.ts"] },
+    { "title": "A new field on GameState needs three things", "text": "A .default(...) in the schema so old saves load, a value in createCareer (the type has no optional fields), and a line in the 'older saves' test. A rename or reshape needs a migration instead.", "where": ["src/state/schemas.ts", "src/state/migrate.ts", "src/engine/smoke.test.ts"] },
+    { "title": "Flags only hold simple values", "text": "story.flags takes strings, numbers and booleans. Difficulty, challenge tags and the documentary storyline all live there. Absent means the old behaviour, so older saves are unchanged.", "where": ["src/engine/difficulty.ts", "src/engine/challenges.ts"] },
+    { "title": "Standard difficulty must change nothing", "text": "Normal multiplies by 1 and consumes no randomness, so a save plays exactly as it always did.", "where": "src/engine/difficulty.ts" },
+    { "title": "UI changes go through mutate()", "text": "The store clones the save, applies a change and autosaves. Engine functions mutate a draft in place; the screens never edit state directly.", "where": "src/state/store.ts" },
+    { "title": "Coaching reuses the pro league", "text": "Coach seasons run through simOtherGames and set career.teamId to the coached team. Do not call advanceWeek in coaching: it is built around the player.", "where": ["src/engine/coaching.ts", "src/engine/league.ts"] },
+    { "title": "Statistical guards need many seeds", "text": "A single seeded sample can land well either side of the average. The scoring-concentration and balance guards measure several seeds for that reason.", "where": ["src/engine/paper.test.ts", "src/engine/balance.test.ts"] },
+    { "title": "UI tests mock the store hook", "text": "Server rendering reads a store's initial snapshot, so screen tests replace the hook with one that reads live state. Copy the pattern from screens.test.ts.", "where": ["src/ui/screens.test.ts", "src/ui/newFeatures.test.ts"] },
+    { "title": "Internal names still say hoops-legacy", "text": "The package, desktop appId and the IndexedDB database name were not renamed with the product. Changing them would orphan saves and break auto-update.", "where": ["package.json", "electron-builder.config.cjs", "src/state/persistence.ts"] },
+    { "title": "Windows quirks", "text": "Source files use CRLF line endings, so hand-rolled scripts must normalize before matching. Shell heredocs containing $ or template strings can be blocked by a safety check; write the script with an editor tool and run it with node.", "where": [] },
+    { "title": "Athletes can vanish at level changes", "text": "enterLevel deletes every non-persistent athlete that is not carried up. Anyone the story is built on has to be carried or retired on purpose, or they disappear from the league.", "where": "src/engine/career.ts" }
+  ]
+}

@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "playtest": "node scripts/playtest.mjs",
+    "codemap": "node tools/codemap/src/cli.mjs",
     "typecheck": "tsc -b --noEmit && tsc -p desktop/tsconfig.json --noEmit",
     "desktop:build": "vite build && node scripts/build-desktop.mjs",
     "desktop": "npm run desktop:build && node scripts/run-electron.mjs",
