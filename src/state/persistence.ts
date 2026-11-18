@@ -5,7 +5,8 @@ import { ensureGoals } from '../engine/goals';
 import { scoredPlayers } from '../engine/awards';
 import { backfillHonors } from '../engine/honors';
 import { backfillRecords } from '../engine/records';
-import { GameStateSchema, LegendSchema, type GameState, type Legend } from './schemas';
+import { LegendSchema, type GameState, type Legend } from './schemas';
+import { parseSave } from './migrate';
 import { LEVEL_CONFIG, yearLabel } from '../data/teams';
 
 export interface SaveRow {
@@ -97,7 +98,7 @@ export async function listSaves(): Promise<Omit<SaveRow, 'state'>[]> {
 export async function loadGame(id: string): Promise<GameState | null> {
   const row = await db().saves.get(id);
   if (!row) return null;
-  const state = GameStateSchema.parse(row.state);
+  const state = parseSave(row.state);
   upgradeSave(state);
   ensureGoals(state); // saves from before goals existed get theirs here
   backfillRecords(state);
@@ -217,7 +218,7 @@ export function exportSave(state: GameState): string {
 }
 
 export function importSave(json: string): GameState {
-  const parsed = GameStateSchema.parse(JSON.parse(json));
+  const parsed = parseSave(JSON.parse(json));
   upgradeSave(parsed);
   ensureGoals(parsed);
   backfillRecords(parsed);

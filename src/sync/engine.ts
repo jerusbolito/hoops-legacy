@@ -1,4 +1,5 @@
-import { GameStateSchema, LegendSchema, SAVE_VERSION, type Legend } from '../state/schemas';
+import { LegendSchema, SAVE_VERSION, type Legend } from '../state/schemas';
+import { safeParseSave } from '../state/migrate';
 import { syncStore, type SyncMeta } from '../state/persistence';
 
 /**
@@ -86,7 +87,7 @@ async function download(kind: Kind, api: CloudApi, id: string, res: SyncResult):
     return;
   }
   if (kind === 'save') {
-    const parsed = GameStateSchema.safeParse(row.data);
+    const parsed = safeParseSave(row.data);
     if (!parsed.success) {
       res.unreadable++;
       return;

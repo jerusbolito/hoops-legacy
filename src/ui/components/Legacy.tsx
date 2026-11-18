@@ -6,6 +6,7 @@ import { overall } from '../../engine/ratings';
 import { deleteLegend, listLegends } from '../../state/persistence';
 import type { GameState, Legend } from '../../state/schemas';
 import { useStore } from '../../state/store';
+import { shareCard } from '../share/careerCard';
 import { Button, Meter, Panel, Pill, cx } from '../components/ui';
 
 export const TIER_COLORS = ['#94a3b8', '#7dd3fc', '#4ade80', '#fbbf24', '#fb923c', '#f472b6'];
@@ -63,6 +64,11 @@ export function GoalsCard() {
 /** One career in the Hall of Fame or on the family tree. */
 export function LegendCard({ l, rank, onRemove, open: startOpen = false }: { l: Legend; rank?: number; onRemove?: () => void; open?: boolean }) {
   const [open, setOpen] = useState(startOpen);
+  const toast = useStore((s) => s.toast);
+  const share = () =>
+    shareCard(l)
+      .then((r) => r === 'downloaded' && toast('Card saved as an image.', 'good'))
+      .catch(() => toast('Could not make the card image in this browser.', 'bad'));
   return (
     <li className="rounded-lg border border-court-700 bg-court-900/50">
       <button className="flex w-full items-center gap-3 px-3 py-2.5 text-left" onClick={() => setOpen(!open)} aria-expanded={open}>
@@ -123,6 +129,9 @@ export function LegendCard({ l, rank, onRemove, open: startOpen = false }: { l: 
             </div>
           </dl>
           {l.parent && <p className="text-xs text-ink-500">Carried on the legacy of {l.parent}.</p>}
+          <button className="rounded-md border border-court-600 px-2.5 py-1 text-xs font-semibold text-ink-100 hover:border-hoop-500" onClick={share}>
+            Share this career
+          </button>
           {onRemove && (
             <button className="text-xs text-ink-500 underline hover:text-loss" onClick={onRemove}>
               Remove from the Hall of Fame
