@@ -26,6 +26,7 @@ describe('character profiles', () => {
     expect(profilesFor('rival').length).toBeGreaterThanOrEqual(6);
     expect(profilesFor('teammate').length).toBeGreaterThanOrEqual(6);
     expect(profilesFor('friend').length).toBeGreaterThanOrEqual(4);
+    for (const role of ['family', 'love_interest', 'agent', 'media', 'scout'] as const) expect(profilesFor(role).length, role).toBeGreaterThanOrEqual(3);
   });
 
   it('a run of careers gives a real mix, not one type with a few exceptions', () => {
@@ -65,11 +66,17 @@ describe('character profiles', () => {
   });
 
   it('leave alone anyone the narrator invented, and anyone who asked for none', () => {
-    const made = makeNpc(new RNG(1), { name: 'A B', role: 'coach', title: 't', season: 1, personality: ['odd', 'kind'] });
+    // the narrator says so explicitly, and its personality is kept as it wrote it
+    const made = makeNpc(new RNG(1), { name: 'A B', role: 'coach', title: 't', season: 1, personality: ['odd', 'kind'], profile: null });
     expect(made.profile).toBe('');
     expect(made.personality).toEqual(['odd', 'kind']);
+    // a caller that passes its own traits still gets a profile, and keeps those traits
+    const both = makeNpc(new RNG(1), { name: 'A B', role: 'coach', title: 't', season: 1, personality: ['odd', 'kind'] });
+    expect(both.profile).not.toBe('');
+    expect(both.personality).toEqual(['odd', 'kind']);
     expect(makeNpc(new RNG(1), { name: 'A B', role: 'coach', title: 't', season: 1, profile: null }).profile).toBe('');
-    expect(makeNpc(new RNG(1), { name: 'A B', role: 'media', title: 't', season: 1 }).profile).toBe('');
+    expect(makeNpc(new RNG(1), { name: 'A B', role: 'other', title: 't', season: 1 }).profile).toBe('');
+    expect(makeNpc(new RNG(1), { name: 'A B', role: 'media', title: 't', season: 1 }).profile).not.toBe('');
     expect(makeNpc(new RNG(1), { name: 'A B', role: 'coach', title: 't', season: 1 }).profile).not.toBe('');
   });
 
@@ -140,13 +147,13 @@ describe('the moments that fit each person', () => {
   });
 
   it('every new moment belongs to one kind of person and is not open to anyone else', () => {
-    const ids = ['coach_late', 'coach_dodge', 'coach_filmroom', 'coach_story', 'coach_job', 'coach_alone', 'coach_booster', 'coach_family', 'rival_respect', 'rival_old_friend', 'rival_media', 'rival_chip', 'mate_glue', 'mate_holding_back', 'mate_clown', 'mate_hungry', 'mate_leader', 'friend_drift', 'friend_bet', 'friend_worry'];
+    const ids = ['family_calls_coach', 'family_missed_game', 'family_braggart', 'family_backup_plan', 'family_film', 'family_quiet_support', 'love_two_things', 'love_honest', 'love_opens_up', 'love_far_away', 'love_day_off', 'agent_big_deal', 'agent_says_wait', 'agent_in_over_head', 'agent_two_stories', 'media_long_read', 'media_twisted_quote', 'media_big_fan', 'media_old_question', 'scout_straight_talk', 'scout_flattery', 'coach_late', 'coach_dodge', 'coach_filmroom', 'coach_story', 'coach_job', 'coach_alone', 'coach_booster', 'coach_family', 'rival_respect', 'rival_old_friend', 'rival_media', 'rival_chip', 'mate_glue', 'mate_holding_back', 'mate_clown', 'mate_hungry', 'mate_leader', 'friend_drift', 'friend_bet', 'friend_worry'];
     const defs = lifeEventDefs();
     for (const id of ids) {
       const d = defs.find((x) => x.id === id);
       expect(d, id).toBeDefined();
       expect(d!.when, id).toBeDefined();
-      expect(d!.need?.length, id).toBe(1);
+      expect(d!.need?.length, id).toBeGreaterThanOrEqual(1);
     }
   });
 });

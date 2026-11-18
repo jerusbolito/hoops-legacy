@@ -1,4 +1,5 @@
 import type { Background, Build, GameState, Motive, Origin, RatingKey, Temperament } from '../state/schemas';
+import { familyProfileFor, profileById } from './characters';
 import { clamp } from './rng';
 
 /**
@@ -165,6 +166,12 @@ export function applyOriginStart(state: GameState, o2: { ratings?: boolean } = {
     parent.title = fam.title;
     if (fam.personality) parent.personality = fam.personality;
     for (const [k, v] of Object.entries(fam.rel) as [keyof typeof parent.relationship, number][]) parent.relationship[k] = clamp(v, k === 'affinity' ? -100 : 0, 100);
+    // what kind of parent they are depends on the family they came from (not on the game's dice)
+    const kind = profileById(familyProfileFor(o.background, parent.id));
+    if (kind) {
+      parent.profile = kind.id;
+      for (const [k, v] of Object.entries(kind.rel) as [keyof typeof parent.relationship, number][]) parent.relationship[k] = clamp(parent.relationship[k] + v, k === 'affinity' ? -100 : 0, 100);
+    }
   }
 }
 

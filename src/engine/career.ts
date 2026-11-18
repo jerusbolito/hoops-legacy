@@ -28,6 +28,7 @@ import { draftStock, projectedPick, simulateDraft, type DraftPick } from './draf
 import { archiveSeasonStats } from './leaders';
 import { publishIssue } from './paper';
 import { evolveCharacters } from './characters';
+import { npcPulse } from './characterLife';
 import { chemistryAfterGame, chemistryNewSeason, weeklyChemistry } from './chemistry';
 import { capSpace, MIN_SALARY, weeklyHoldout } from './contracts';
 import { adoptCoach } from './moves';
@@ -635,6 +636,7 @@ function advanceWeekCore(state: GameState): WeekAdvance {
   // every week of the regular season pays: salary or stipend, endorsements, minus taxes and living costs
   if (c.phase === 'regular') payWeek(state);
   weeklyRecovery(state);
+  npcPulse(state); // someone close to you may reach out, with no dice involved
   weeklyChemistry(state);
   weeklyRomance(state);
   weeklyHoldout(state);
@@ -783,6 +785,9 @@ function retireNpcForAthlete(state: GameState, a: Athlete, level: Level) {
  */
 export function retireStaleNpcs(state: GameState) {
   for (const n of Object.values(state.npcs)) {
+    // someone who has left the story keeps the link to their player while that player is still in the league (so the name
+    // stays theirs), and lets go of it once the player is gone
+    if (!n.active && n.athleteId && !state.athletes[n.athleteId]) n.athleteId = undefined;
     if (!n.active || !n.athleteId) continue;
     if (n.role !== 'teammate' && n.role !== 'friend') continue;
     const a = state.athletes[n.athleteId];
@@ -1060,6 +1065,7 @@ function enterLevel(state: GameState, rng: RNG, level: Level, tpl: TeamTemplate,
     }
   }
 
+  retireStaleNpcs(state); // players who did not make the move up take no one's link with them
   state.career.level = level;
   state.career.year = 1;
   romanceNewLevel(state);

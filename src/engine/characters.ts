@@ -68,11 +68,72 @@ export const PROFILES: Profile[] = [
   P({ id: 'friendly_rival', role: 'friend', label: 'The competitive friend', blurb: 'Your best friend and a fierce competitor. Everything is a bet, and they hate losing to you most of all.', want: 'To be as good as you, and for you to know it.', flaw: 'Cannot celebrate your wins without measuring theirs.', soft: 'You being honest about your own doubts.', voice: 'Teasing, quick, always keeping score.', traits: ['competitive', 'funny'], rel: { rivalry: 8, affinity: 4 }, weight: 1 }),
   P({ id: 'worrier', role: 'friend', label: 'The worrier', blurb: 'Cares so much it comes out as nagging. Checks that you ate, slept and did the homework.', want: 'For you to be okay.', flaw: 'Smothers, and takes it personally when you push back.', soft: 'A thank-you that is not a joke.', voice: 'Anxious, affectionate, practical.', traits: ['caring', 'anxious'], rel: { affinity: 10, trust: 10 }, weight: 0.9 }),
   P({ id: 'hype_man', role: 'friend', label: 'The hype man', blurb: 'Your biggest fan and loudest voice. Cheers every small win as loudly as a big one, and sometimes you need it quiet.', want: 'To be part of something big.', flaw: 'Hypes the moment instead of the work.', soft: 'Being included, not just cheered.', voice: 'Loud, generous, all caps.', traits: ['flashy', 'loyal'], rel: { affinity: 12 }, weight: 1 }),
+
+  /* ── family (a parent or guardian) ── */
+  P({ id: 'steady_supporter', role: 'family', label: 'The steady supporter', blurb: 'Quietly there for everything. Never pushes, never misses a game, and never says how much it means to them.', want: 'For you to be happy, whatever you pick.', flaw: 'Says "whatever you think" when you actually need advice.', soft: 'A thank-you that is said out loud.', voice: 'Calm, brief, practical. Shows love by doing things.', traits: ['supportive', 'quiet'], rel: { affinity: 6, trust: 8 }, weight: 1.3 }),
+  P({ id: 'stage_parent', role: 'family', label: 'The stage parent', blurb: 'Lives through your games. Talks to coaches, scouts and anyone else who will listen, and means well.', want: 'To see you make it.', flaw: 'Cannot tell the difference between your dream and theirs.', soft: 'Being asked what you actually want.', voice: 'Intense, full of plans, quick to call someone.', traits: ['pushy', 'devoted'], rel: { respect: -4, affinity: 4, trust: -2 }, weight: 0.9 }),
+  P({ id: 'worried_parent', role: 'family', label: 'The worrier', blurb: 'Proud of you and scared for you. Thinks about injuries, grades and what happens if it does not work out.', want: 'For you to be safe and to have a backup plan.', flaw: 'Brings up the backup plan at the worst times.', soft: 'Proof that you are looking after yourself.', voice: 'Warm, anxious, asks if you ate.', traits: ['caring', 'anxious'], rel: { affinity: 10, trust: 4 }, weight: 1 }),
+  P({ id: 'proud_talker', role: 'family', label: 'The proud talker', blurb: 'Tells everyone about you: the barber, the neighbors, a stranger in line. It is loving and a little embarrassing.', want: 'For people to know how great you are.', flaw: 'Exaggerates, and says things you wish they had not.', soft: 'You letting them be proud out loud.', voice: 'Big, warm, a little too loud.', traits: ['proud', 'talkative'], rel: { affinity: 8, respect: -2 }, weight: 0.9 }),
+  P({ id: 'overworked', role: 'family', label: 'The one who works too much', blurb: 'Loves you and is hardly ever there. Works doubles and still tries to make the big games.', want: 'To give you a better life than they had.', flaw: 'Misses things and feels guilty, and the guilt comes out as snapping.', soft: 'Time, even five minutes of it.', voice: 'Tired, affectionate, short on time.', traits: ['tired', 'devoted'], rel: { affinity: 10, trust: 6, respect: 4 }, weight: 1 }),
+  P({ id: 'former_player', role: 'family', label: 'The former player', blurb: 'Played at a high level once and knows exactly what it takes. Watches your games like film.', want: 'For you to get what they did not.', flaw: 'Compares you to how they played.', soft: 'You asking for their advice.', voice: 'Knowledgeable, blunt, full of "when I played".', traits: ['demanding', 'knowledgeable'], rel: { respect: 8, affinity: -2 }, weight: 0.9 }),
+  P({ id: 'practical', role: 'family', label: 'The practical one', blurb: 'Supports the dream and keeps an eye on grades, money and what you will do after basketball.', want: 'For you to be set up for life, not just a season.', flaw: 'Treats every setback as a plan that needs fixing.', soft: 'Seeing you make a smart choice without being told.', voice: 'Even, organized, asks good questions.', traits: ['practical', 'warm'], rel: { respect: 6, trust: 4 }, weight: 1 }),
+
+  /* ── someone you are seeing ── */
+  P({ id: 'in_your_corner', role: 'love_interest', label: 'The one in your corner', blurb: 'Warm, loyal and easy to be around. Shows up to games, remembers the small stuff, and asks about your day.', want: 'To be a real part of your life.', flaw: 'Puts their own plans aside and resents it later without saying so.', soft: 'Being asked about their own life.', voice: 'Kind, curious, a little teasing.', traits: ['warm', 'loyal'], rel: { affinity: 8, trust: 8 }, weight: 1.2 }),
+  P({ id: 'independent', role: 'love_interest', label: 'Has their own plans', blurb: 'Busy with their own life and good at it. Likes you a lot and will not rearrange everything for you.', want: 'A relationship that fits into a life they are building.', flaw: 'Hides when they need help, and calls it being independent.', soft: 'You showing up to something that matters to them.', voice: 'Direct, quick, never clingy.', traits: ['independent', 'driven'], rel: { respect: 8, trust: -2 }, weight: 1 }),
+  P({ id: 'keeps_you_honest', role: 'love_interest', label: 'Keeps you honest', blurb: 'Funny, grounded and not impressed by your highlights. The one person who says when you are being a jerk.', want: 'For you to stay the person they met.', flaw: 'Teases when they should be serious.', soft: 'When you admit you were wrong.', voice: 'Dry, quick and affectionate.', traits: ['witty', 'grounded'], rel: { respect: 10, affinity: 2 }, weight: 1 }),
+  P({ id: 'slow_to_open', role: 'love_interest', label: 'Slow to open up', blurb: 'Shy and careful. It takes a long time for them to say what they feel, and when they do, they mean it.', want: 'To feel safe before they say anything.', flaw: 'Goes quiet when something is wrong instead of saying so.', soft: 'Patience, and not being rushed.', voice: 'Quiet and thoughtful, with long gaps.', traits: ['shy', 'thoughtful'], rel: { trust: -6, affinity: 4 }, weight: 0.9 }),
+  P({ id: 'going_somewhere', role: 'love_interest', label: 'Going somewhere too', blurb: 'Has a big goal of their own, maybe in another city. Excited about yours, and clear about theirs.', want: 'For both of you to get what you are chasing.', flaw: 'Makes plans for the future that assume things you have not agreed to.', soft: 'You taking their goal as seriously as your own.', voice: 'Energetic, organized, full of plans.', traits: ['ambitious', 'confident'], rel: { respect: 8, affinity: 2 }, weight: 0.9 }),
+
+  /* ── agents ── */
+  P({ id: 'shark', role: 'agent', label: 'The shark', blurb: 'Aggressive and good at deals. Will get you more money and will not always check that it is what you wanted.', want: 'The biggest deal on the table.', flaw: 'Sees every decision as a number.', soft: 'Clients who stay loyal to him.', voice: 'Fast, confident, calls you "champ".', traits: ['aggressive', 'driven'], rel: { respect: 4, trust: -8 }, weight: 1.1 }),
+  P({ id: 'protector', role: 'agent', label: 'The protector', blurb: 'Cautious and long-term. Will say no to a quick payday if it hurts your career in three years.', want: 'A long, healthy career for you.', flaw: 'So careful that money and chances pass by.', soft: 'Clients who listen to the reasons.', voice: 'Measured, calm, explains everything.', traits: ['careful', 'honest'], rel: { trust: 10, respect: 4 }, weight: 1 }),
+  P({ id: 'green_agent', role: 'agent', label: 'The rookie agent', blurb: 'New and nervous, with a small list of clients and something to prove. Works harder than anyone.', want: 'To land a client who makes them.', flaw: 'Says yes to everything and is out of their depth.', soft: 'Someone who believes in them.', voice: 'Eager, a little formal, over-explains.', traits: ['eager', 'nervous'], rel: { affinity: 6, trust: 2, respect: -6 }, weight: 0.8 }),
+  P({ id: 'smooth_agent', role: 'agent', label: 'The smooth talker', blurb: 'Charming and well-connected. Everyone loves them, which makes it hard to tell whose side they are on.', want: 'To be in every room that matters.', flaw: 'Tells each person what they want to hear.', soft: 'A client who asks them straight.', voice: 'Warm, polished, never gives a straight no.', traits: ['charming', 'slippery'], rel: { affinity: 8, trust: -10 }, weight: 1 }),
+  P({ id: 'old_hand', role: 'agent', label: 'The old hand', blurb: 'Has seen every kind of career and every kind of mistake. Gruff, fair, and tired of the new way of doing things.', want: 'To see one more client do it the right way.', flaw: 'Dismisses anything that did not exist ten years ago.', soft: 'Respect for the way he does it.', voice: 'Dry, plain, tells stories about other players.', traits: ['gruff', 'fair'], rel: { respect: 8, affinity: -2, trust: 4 }, weight: 0.9 }),
+
+  /* ── reporters ── */
+  P({ id: 'fair_reporter', role: 'media', label: 'The fair reporter', blurb: 'Does the work. Calls before they print, quotes what you actually said, and writes it straight.', want: 'To get the story right.', flaw: 'Hard to charm, and will print the bad news too.', soft: 'Honest answers.', voice: 'Polite, direct, takes notes.', traits: ['fair', 'thorough'], rel: { respect: 8, trust: 6 }, weight: 1 }),
+  P({ id: 'sensationalist', role: 'media', label: 'The headline chaser', blurb: 'Always looking for the angle that gets clicks. A quote from you can turn into something you did not mean.', want: 'The story people share.', flaw: 'Cares more about the headline than whether it is fair.', soft: 'Someone who gives them a real story so they do not have to invent one.', voice: 'Friendly, fast, always asking for one more quote.', traits: ['pushy', 'charming'], rel: { trust: -10, affinity: 4 }, weight: 1 }),
+  P({ id: 'fan_writer', role: 'media', label: 'The fan with a press pass', blurb: 'Loves the game and loves your team. Writes with real heart, and sometimes forgets to be critical.', want: 'To be close to the game.', flaw: 'Too attached to be fair about it.', soft: 'Being treated like a real reporter.', voice: 'Enthusiastic, full of stats and trivia.', traits: ['enthusiastic', 'loyal'], rel: { affinity: 10, respect: -4 }, weight: 0.9 }),
+  P({ id: 'digger', role: 'media', label: 'The digger', blurb: 'Looks into things. Not out to get you, but asks the question you hoped nobody would.', want: 'The real story, whoever it embarrasses.', flaw: 'Treats every closed door as a challenge.', soft: 'People who trust them with the truth.', voice: 'Calm, patient, silence as a tool.', traits: ['persistent', 'sharp'], rel: { respect: 6, trust: -6 }, weight: 0.8, levels: ['college', 'pro'] }),
+
+  /* ── scouts ── */
+  P({ id: 'blunt_scout', role: 'scout', label: 'The blunt scout', blurb: 'Tells you exactly what is wrong with your game, and has been right every time.', want: 'To find the real thing.', flaw: 'Does not care how it lands.', soft: 'Someone who takes the criticism and comes back better.', voice: 'Short, specific, no cushioning.', traits: ['blunt', 'honest'], rel: { respect: 10, affinity: -4 }, weight: 1 }),
+  P({ id: 'flatterer', role: 'scout', label: 'The flatterer', blurb: 'Praises everyone, so it is hard to know what they really think of you. Always at your games, smiling.', want: 'Access to the next big name.', flaw: 'Says the same nice thing to fifty players.', soft: 'Someone who calls the flattery out and gets a real answer.', voice: 'Smooth, enthusiastic, vague.', traits: ['smooth', 'friendly'], rel: { affinity: 8, trust: -8, respect: -2 }, weight: 1 }),
+  P({ id: 'numbers_scout', role: 'scout', label: 'The numbers scout', blurb: 'Cares about measurements, tape and stats. Barely talks to players, and knows your numbers better than you do.', want: 'A prospect the data supports.', flaw: 'Misses what the numbers cannot show.', soft: 'A player who proves the numbers wrong.', voice: 'Quiet, exact, quotes figures.', traits: ['analytical', 'reserved'], rel: { respect: 6, affinity: -4 }, weight: 0.9 }),
 ];
 
 const BY_ID = new Map(PROFILES.map((p) => [p.id, p]));
 export const profileById = (id: string): Profile | undefined => BY_ID.get(id);
-export const PROFILED_ROLES: NpcRole[] = ['coach', 'rival', 'teammate', 'friend'];
+export const PROFILED_ROLES: NpcRole[] = ['coach', 'rival', 'teammate', 'friend', 'family', 'love_interest', 'agent', 'media', 'scout'];
+
+/** How likely each kind of parent is for each family background, so a struggling family is not given a stage parent by chance. */
+const FAMILY_BY_BACKGROUND: Record<string, Record<string, number>> = {
+  struggling: { overworked: 4, steady_supporter: 2, worried_parent: 2, practical: 1 },
+  working: { steady_supporter: 3, overworked: 2, practical: 2, worried_parent: 1.5, proud_talker: 1 },
+  comfortable: { practical: 3, worried_parent: 2, steady_supporter: 2, stage_parent: 1, proud_talker: 1 },
+  athletic: { former_player: 4, stage_parent: 2, steady_supporter: 1.5, proud_talker: 1 },
+  wealthy: { stage_parent: 2.5, proud_talker: 2, practical: 1.5, steady_supporter: 1 },
+};
+
+/**
+ * A parent's profile from their family background. Chosen from a seed string rather than the game's random numbers, so
+ * applying someone's chosen background does not shift anything that happens after it.
+ */
+export function familyProfileFor(background: string, seed: string): string {
+  const table = FAMILY_BY_BACKGROUND[background] ?? Object.fromEntries(profilesFor('family').map((p) => [p.id, p.weight]));
+  const entries = Object.entries(table);
+  const total = entries.reduce((n, [, w]) => n + w, 0);
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
+  let r = ((h >>> 0) / 4294967296) * total;
+  for (const [id, w] of entries) {
+    r -= w;
+    if (r < 0) return id;
+  }
+  return entries[0][0];
+}
 export const profilesFor = (role: NpcRole): Profile[] => PROFILES.filter((p) => p.role === role);
 
 /** Picks a profile for a new character. Weighted, and some suit some levels better. */
@@ -145,6 +206,15 @@ const TURNS: Record<string, Turn[]> = {
   ],
   insecure_vet: [{ when: (_s, n) => n.relationship.trust >= 45, rel: { affinity: 10, rivalry: -8, trust: 6 }, memory: 'They finally showed you the move they had been keeping to themself. It was a gift.' }],
   hungry_bench: [{ when: (_s, n) => n.relationship.trust >= 45, rel: { affinity: 8, rivalry: -4 }, memory: 'They stopped treating you as the obstacle. They treat you as the standard instead.' }],
+  overworked: [{ when: (_s, n) => n.relationship.trust >= 65, rel: { affinity: 8, respect: 4 }, memory: 'They took a day off to see you play, and told you afterward it was the best day of their year.' }],
+  stage_parent: [{ when: (s, n) => n.relationship.respect >= 55 && s.player.reputation >= 25, rel: { respect: 6, trust: 6 }, memory: 'They stopped calling coaches and started asking what you needed. It took them a long time.' }],
+  worried_parent: [{ when: (s) => s.player.injury === null && s.player.morale >= 70, rel: { affinity: 4, trust: 8 }, memory: 'Seeing you healthy and happy for a whole season, they finally stopped bringing up the backup plan.' }],
+  former_player: [{ when: (_s, n) => n.relationship.respect >= 60 && n.relationship.trust >= 50, rel: { affinity: 10 }, memory: 'The first time they told you that you did something better than they ever did, they could barely say it.' }],
+  slow_to_open: [{ when: (_s, n) => n.relationship.trust >= 60, rel: { affinity: 10, romance: 6 }, memory: 'They told you something they had never told anyone. You could tell it took everything they had.' }],
+  going_somewhere: [{ when: (_s, n) => n.relationship.respect >= 60, rel: { affinity: 6, trust: 6 }, memory: 'You both stopped pretending the distance was not going to be a problem, and started planning for it.' }],
+  shark: [{ when: (_s, n) => n.relationship.trust >= 60, rel: { affinity: 8, respect: 4 }, memory: 'He turned down a bigger commission to keep a deal you cared about. It surprised you both.' }],
+  smooth_agent: [{ when: (_s, n) => n.relationship.trust <= 15, rel: { affinity: -6, trust: -4 }, memory: 'You started to notice that he tells everyone the same thing. You check things yourself now.' }],
+  sensationalist: [{ when: (_s, n) => n.relationship.trust >= 45, rel: { respect: 8, trust: 6 }, memory: 'After you gave them a real story, they stopped chasing the headline and started writing fairly about you.' }],
   ride_or_die: [{ when: (_s, n) => n.relationship.affinity <= 10, rel: { affinity: -4 }, memory: 'You have not been there for them the way they were for you.' }],
   drifting: [
     { when: (_s, n) => n.relationship.affinity >= 45, rel: { affinity: 10, trust: 8 }, memory: 'You made time, and it turns out that was all it needed.' },
@@ -239,6 +309,18 @@ export const PROFILE_SCENES: Record<string, Partial<Record<string, { opener: str
     rival_encounter: { opener: 'There is a crowd at open gym, phones out, because the group chat said you would both be here.', dilemma: 'They look as awkward as you feel. The crowd wants a show. You can give one, or not.' },
     rivalry_week: { opener: 'Rivalry week. A made-up quote is going around with both of your names on it. Neither of you said it.', dilemma: 'You could clear it up with them directly, or let the feud run its course.' },
   },
+  steady_supporter: { family: { opener: 'Dinner is quiet. Nobody asks about the game, and your plate is already full.', dilemma: 'They say whatever you decide is fine with them. You could use more than that tonight.' } },
+  stage_parent: { family: { opener: 'Dinner is half over before they put the phone down. They have been talking to someone about you again.', dilemma: 'They have a plan for your next year. You are not sure it is the one you want.' } },
+  worried_parent: { family: { opener: 'Dinner starts with a question about whether you are sleeping enough. It is the third time this week.', dilemma: 'They want to talk about a backup plan. You can listen, push back, or change the subject.' } },
+  proud_talker: { family: { opener: 'Dinner is loud. They have a new story about you for the neighbors, and it gets a little bigger every time.', dilemma: 'They told someone something that is not quite true. You can correct it, or let them have it.' } },
+  overworked: { family: { opener: 'They come in late, still in their work clothes, and sit down at the table anyway.', dilemma: 'They missed your last game. They are sorry, and you are not sure how you feel about it.' } },
+  former_player: { family: { opener: 'Dinner turns into a breakdown of your last game, possession by possession.', dilemma: 'They are right about most of it, and it still stings. You can listen or tell them you need a night off.' } },
+  practical: { family: { opener: 'Dinner starts with your grades, then your schedule, then a calm question about what comes after basketball.', dilemma: 'They are not against your dream. They want to know that you have thought about what comes next.' } },
+  in_your_corner: { date: { opener: 'They already have plans for the evening and have kept it simple. They ask about your day first.', dilemma: 'They notice you are distracted. You can tell them what is on your mind or keep it to yourself.' } },
+  independent: { date: { opener: 'They are on a tight schedule, and they have carved out two hours for you without making a thing of it.', dilemma: 'They mention something important coming up for them. You can offer to be there or leave it alone.' } },
+  keeps_you_honest: { date: { opener: 'They tease you about your last highlight clip before you have sat down.', dilemma: 'They say something true about how you have been acting lately. You can get defensive or admit it.' } },
+  slow_to_open: { date: { opener: 'The two of you are quiet at first. They look like they want to say something and have not decided to yet.', dilemma: 'You can fill the silence with talk or give them time. Either one tells them something about you.' } },
+  going_somewhere: { date: { opener: 'They arrive with a notebook full of plans and are visibly excited to tell you about them.', dilemma: 'Their plans include a city that is not yours. You can be glad for them or be honest about how that feels.' } },
   demanding_star: { locker_room: { opener: 'They are talking about the offense again, loudly, with a lot of hand gestures.', dilemma: 'Somebody has to say something about touches. A couple of guys are watching to see if it is you.' } },
   glue_guy: { locker_room: { opener: 'The locker room is organized in a way that nobody remembers doing. Somebody always does it.', dilemma: 'Nobody ever thanks them. You could be the first, or you could let it stay invisible.' } },
   insecure_vet: { locker_room: { opener: 'They are friendly, helpful-sounding, and a few seconds slow to answer when you ask about the play.', dilemma: 'You have a feeling they are holding something back. You can call it out or wait it out.' } },

@@ -115,7 +115,7 @@ export function makeNpc(
   },
 ): Npc {
   // someone the narrator invented arrives with its own personality, and is left as it made them
-  const prof = p.profile === null ? undefined : p.profile ? profileById(p.profile) : PROFILED_ROLES.includes(p.role) && !p.personality ? pickProfile(rng, p.role, p.level) : undefined;
+  const prof = p.profile === null ? undefined : p.profile ? profileById(p.profile) : PROFILED_ROLES.includes(p.role) ? pickProfile(rng, p.role, p.level) : undefined;
   const personality = p.personality ?? prof?.traits ?? rng.shuffle([...PERSONALITIES]).slice(0, 2);
   const rel = baseRelationship(p.rel);
   // a profile shifts however the relationship would have started

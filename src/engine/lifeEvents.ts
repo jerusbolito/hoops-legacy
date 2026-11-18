@@ -170,7 +170,7 @@ export class Fx {
 
 /* ───────────────────────── Definitions ───────────────────────── */
 
-type Role = 'coach' | 'friend' | 'rival' | 'teammate' | 'family' | 'love';
+type Role = 'coach' | 'friend' | 'rival' | 'teammate' | 'family' | 'love' | 'agent' | 'media' | 'scout';
 
 interface Ctx {
   s: GameState;
@@ -183,6 +183,9 @@ interface Ctx {
   teammate?: Npc;
   family?: Npc;
   love?: Npc;
+  agent?: Npc;
+  media?: Npc;
+  scout?: Npc;
   /** An amount in high school, college or pro dollars. */
   $: (hs: number, college: number, pro: number) => number;
   /** Cheap flavor choice from the event's own seed. */
@@ -3167,6 +3170,676 @@ const DEFS: Def[] = [
       }),
     ],
   },
+
+  /* ── family, partners, agents, reporters and scouts, each with their own way of showing up ── */
+
+  // family
+  {
+    id: 'family_calls_coach',
+    icon: '☎️',
+    title: 'Your parent called Coach',
+    tone: 'bad',
+    levels: AMATEUR,
+    weight: 1,
+    need: ['family', 'coach'],
+    when: (c) => isProfile(c.family, 'stage_parent') && inSeason(c),
+    text: (c) => `Coach ${first(c.coach)} pulls you aside. Your parent called him last night about your minutes, and he is not happy about it. Your parent did not tell you they were going to call.`,
+    options: (c) => [
+      opt('sorry', 'Apologize to Coach', (f) => {
+        f.coach(3, 2);
+        f.rel(c.family, 'affinity', -3);
+        return 'You tell him you did not know and it will not happen again. He says he believes you. Your parent is upset that you apologized for them.';
+      }),
+      opt('talk', 'Ask your parent to stop', (f) => {
+        if (f.rng.chance(0.6)) {
+          f.rel(c.family, 'respect', 6);
+          f.rel(c.family, 'trust', 4);
+          f.coach(2);
+          return 'It is a hard conversation. Your parent says they only wanted to help, then agrees to let you handle it yourself. They look a little relieved.';
+        }
+        f.rel(c.family, 'affinity', -6);
+        f.morale(-2);
+        return 'Your parent hears it as you saying they are a problem. The conversation ends with a slammed door and nothing settled.';
+      }, { hint: 'It could go either way' }),
+      opt('wait', 'Say nothing to either of them', (f) => {
+        f.coach(-4);
+        f.morale(-1);
+        return 'You hope it blows over. Coach is cooler toward you for a few weeks, and your parent does not know why.';
+      }),
+    ],
+  },
+  {
+    id: 'family_missed_game',
+    icon: '🪑',
+    title: 'The empty seat',
+    tone: 'bad',
+    levels: ALL,
+    weight: 1,
+    need: ['family'],
+    when: (c) => isProfile(c.family, 'overworked') && inSeason(c),
+    text: (c) => `${first(c.family)} missed your game again. Work ran late. You saw the empty seat from the court, and the text apologizing arrived before you got to the locker room.`,
+    options: (c) => [
+      opt('fine', 'Tell them it is okay', (f) => {
+        f.rel(c.family, 'affinity', 4);
+        f.morale(-1);
+        return 'You say you understand, and you do. They are relieved and say they will make the next one. You are not sure they can.';
+      }),
+      opt('hurt', 'Tell them it hurt', (f) => {
+        if (f.rng.chance(0.65)) {
+          f.rel(c.family, 'trust', 8);
+          f.rel(c.family, 'affinity', 5);
+          f.morale(2);
+          return 'They are quiet for a moment, then say they know and are sorry. The next week they ask their boss for a schedule change.';
+        }
+        f.rel(c.family, 'affinity', -5);
+        f.morale(-3);
+        return 'They are already tired, and they snap that they are doing this for you. You both end up saying things you do not mean.';
+      }, { hint: 'Honest, and it could go wrong' }),
+      opt('record', 'Record the next game for them', (f) => {
+        f.rel(c.family, 'affinity', 7);
+        f.morale(1);
+        return 'You ask a teammate to film it. They watch it twice at the kitchen table that night and text you the best play, with a lot of exclamation points.';
+      }),
+    ],
+  },
+  {
+    id: 'family_braggart',
+    icon: '📣',
+    title: 'They told everyone',
+    tone: 'odd',
+    levels: ALL,
+    weight: 1,
+    need: ['family'],
+    when: (c) => isProfile(c.family, 'proud_talker') && c.s.player.reputation >= 5,
+    text: (c) => `${first(c.family)} has been telling people you are sure to go pro, and that a team has already called. Neither is true. Someone at school has asked you about the team that called.`,
+    options: (c) => [
+      opt('correct', 'Gently correct the story', (f) => {
+        f.rep(1);
+        f.rel(c.family, 'respect', 4);
+        f.rel(c.family, 'affinity', -2);
+        return 'You tell your parent you love that they are proud, and ask them to stick to what is true. They are embarrassed, then nod.';
+      }),
+      opt('let', 'Let them have it', (f) => {
+        f.morale(2);
+        f.followers(0.03);
+        f.rel(c.family, 'affinity', 4);
+        f.rep(-1);
+        return 'It makes them happy, and a few people start to expect things from you that you have not done yet.';
+      }),
+      opt('stop', 'Ask them to stop talking about you', (f) => {
+        f.rel(c.family, 'affinity', -6);
+        f.morale(-2);
+        return 'It comes out harsher than you meant. They go quiet, and the next time you see them they ask a lot fewer questions.';
+      }),
+    ],
+  },
+  {
+    id: 'family_backup_plan',
+    icon: '📋',
+    title: 'The backup plan',
+    tone: 'odd',
+    levels: ALL,
+    weight: 1,
+    need: ['family'],
+    when: (c) => isProfile(c.family, 'worried_parent'),
+    text: (c) => `After a bad game, ${first(c.family)} brings up what you would do if basketball does not work out. They have clearly been thinking about it for a while, and the timing makes it hard to hear.`,
+    options: (c) => [
+      opt('listen', 'Hear them out', (f) => {
+        f.gpa(0.05);
+        f.rel(c.family, 'trust', 6);
+        f.morale(-1);
+        return 'You listen to the whole thing. Some of it is useful. You do not feel better after, but you feel less alone with it.';
+      }),
+      opt('push', 'Tell them you are not giving up', (f) => {
+        f.rel(c.family, 'affinity', -3);
+        f.morale(2);
+        return 'You say you are committed. They look worried but say they believe you. The conversation is over, and the worry is not.';
+      }),
+      opt('plan', 'Show them you already have one', (f) => {
+        f.rel(c.family, 'respect', 6);
+        f.rel(c.family, 'trust', 6);
+        f.gpa(0.05);
+        return 'You walk them through your grades and what you would study. They did not expect you to have thought about it. They stop worrying so much.';
+      }),
+    ],
+  },
+  {
+    id: 'family_film',
+    icon: '🎞️',
+    title: 'They watched the tape',
+    tone: 'odd',
+    levels: ALL,
+    weight: 1,
+    need: ['family'],
+    when: (c) => isProfile(c.family, 'former_player') && inSeason(c),
+    text: (c) => `${first(c.family)} watched your whole game on their phone and has a list. Some of it is exactly right. Some of it is how they played, not how you play.`,
+    options: (c) => [
+      opt('notes', 'Take the notes', (f) => {
+        f.progress('iq', 0.9);
+        f.rel(c.family, 'respect', 4);
+        f.morale(-1);
+        return 'Two of the five points are things you had missed. You say so, and they look proud and a little surprised.';
+      }),
+      opt('night', 'Ask them to just be a parent tonight', (f) => {
+        f.rel(c.family, 'affinity', 6);
+        f.morale(2);
+        return 'They stop, start over, and ask how you feel about it. It is the first time all week anyone has asked.';
+      }),
+      opt('argue', 'Argue about what you saw', (f) => {
+        f.rel(c.family, 'affinity', -4);
+        f.rel(c.family, 'respect', 2);
+        f.morale(-1);
+        return 'You each think you are right. It gets loud, and you both say the other one does not listen.';
+      }),
+    ],
+  },
+  {
+    id: 'family_quiet_support',
+    icon: '🧢',
+    title: 'Same seat, every game',
+    tone: 'good',
+    levels: ALL,
+    weight: 1,
+    need: ['family'],
+    when: (c) => isProfile(c.family, 'steady_supporter') && inSeason(c),
+    text: (c) => `${first(c.family)} has been in the same seat for every home game this year. They do not yell or wave. They have never said what it means to them, and you realize you have never said what it means to you.`,
+    options: (c) => [
+      opt('thank', 'Thank them, out loud', (f) => {
+        f.rel(c.family, 'affinity', 8);
+        f.morale(3);
+        return 'They say it is nothing, then look away for a second. At the next game they sit a little straighter.';
+      }),
+      opt('ask', 'Ask what they see in your game', (f) => {
+        f.rel(c.family, 'trust', 6);
+        f.progress('iq', 0.4);
+        return 'They think about it for a long time, then say something simple and true about your shot that nobody has said before.';
+      }),
+      opt('skip', 'Leave it as it is', (f) => {
+        f.morale(1);
+        return 'It is a good arrangement. You keep not saying it, and they keep showing up.';
+      }),
+    ],
+  },
+
+  // someone you are seeing
+  {
+    id: 'love_two_things',
+    icon: '🗓️',
+    title: 'Their night or yours',
+    tone: 'odd',
+    levels: ALL,
+    weight: 1,
+    need: ['love'],
+    when: (c) => isProfile(c.love, 'independent') && inSeason(c),
+    text: (c) => `${first(c.love)} has something important to them on the same night as your game. They have not asked you to come. They have also not said it does not matter.`,
+    options: (c) => [
+      opt('go', 'Go to theirs', (f) => {
+        f.rel(c.love, 'romance', 6);
+        f.rel(c.love, 'trust', 6);
+        f.energy(-3);
+        f.coach(-1);
+        return 'You tell Coach you will be late to film. You are in the second row when they finish, and their face tells you it was the right call.';
+      }),
+      opt('game', 'Play, and tell them why', (f) => {
+        f.rel(c.love, 'respect', 4);
+        f.rel(c.love, 'romance', -2);
+        return 'They say they understand, and they do. You both know it is a trade, and you are not sure you will always choose the same way.';
+      }),
+      opt('ask', 'Ask them what they need', (f) => {
+        f.rel(c.love, 'trust', 6);
+        f.rel(c.love, 'respect', 4);
+        return 'They are surprised you asked. They say they only want to know you care, and a text before the game will do.';
+      }),
+    ],
+  },
+  {
+    id: 'love_honest',
+    icon: '🪞',
+    title: '“Are you listening to yourself?”',
+    tone: 'odd',
+    levels: ALL,
+    weight: 1,
+    need: ['love'],
+    when: (c) => isProfile(c.love, 'keeps_you_honest') && c.s.player.reputation >= 10,
+    text: (c) => `${first(c.love)} tells you that lately every story you tell starts with you. They say it lightly, and they mean it.`,
+    options: (c) => [
+      opt('admit', 'Admit it', (f) => {
+        f.rel(c.love, 'respect', 8);
+        f.rel(c.love, 'romance', 4);
+        f.morale(-1);
+        return 'It stings, and you say they are right. They hug you and say that is why they like you. You pay more attention to how you talk for a while.';
+      }),
+      opt('defend', 'Defend yourself', (f) => {
+        f.rel(c.love, 'romance', -4);
+        f.rel(c.love, 'respect', -2);
+        f.morale(-1);
+        return 'You list reasons. They listen, nod, and say nothing. You can tell it did not change what they think.';
+      }),
+      opt('joke', 'Turn it into a joke', (f) => {
+        if (f.rng.chance(0.5)) {
+          f.rel(c.love, 'romance', 4);
+          f.morale(1);
+          return 'You tell a story where you are the punchline. They laugh and say that is better.';
+        }
+        f.rel(c.love, 'trust', -3);
+        return 'They can tell you are dodging. They let it go, but they bring it up again later.';
+      }, { hint: 'It could look like dodging' }),
+    ],
+  },
+  {
+    id: 'love_opens_up',
+    icon: '🔑',
+    title: 'They start to say it',
+    tone: 'good',
+    levels: ALL,
+    weight: 1,
+    need: ['love'],
+    when: (c) => isProfile(c.love, 'slow_to_open') && c.love!.relationship.romance >= 15,
+    text: (c) => `${first(c.love)} has been quiet all evening. Then they say they want to tell you something, and stop. You can tell it is not easy for them.`,
+    options: (c) => [
+      opt('listen', 'Just listen', (f) => {
+        f.rel(c.love, 'trust', 10);
+        f.rel(c.love, 'romance', 6);
+        f.morale(2);
+        return 'You do not try to fix it or say it will be fine. When they finish, they say that is exactly what they needed.';
+      }),
+      opt('ask', 'Ask a lot of questions', (f) => {
+        if (f.rng.chance(0.4)) {
+          f.rel(c.love, 'trust', 5);
+          return 'Your questions help them put it into words. It takes longer than they wanted, but they get there.';
+        }
+        f.rel(c.love, 'trust', -3);
+        return 'They feel interviewed, and they close up. They say it is nothing, and you know it is not.';
+      }, { hint: 'It could feel like pressure' }),
+      opt('change', 'Change the subject to ease it', (f) => {
+        f.rel(c.love, 'trust', -4);
+        f.rel(c.love, 'romance', -2);
+        return 'You meant to make it easier. They take it as you not wanting to hear it, and they do not try again for a while.';
+      }),
+    ],
+  },
+  {
+    id: 'love_far_away',
+    icon: '🧳',
+    title: 'An offer in another city',
+    tone: 'odd',
+    levels: ALL,
+    weight: 1,
+    need: ['love'],
+    when: (c) => isProfile(c.love, 'going_somewhere') && c.love!.relationship.romance >= 20,
+    text: (c) => `${first(c.love)} got an offer for something they have wanted for years, in a city six hours from you. They told you before they told anyone else. They are happy, and nervous about what you will say.`,
+    options: (c) => [
+      opt('glad', 'Be glad, and start planning', (f) => {
+        f.rel(c.love, 'romance', 6);
+        f.rel(c.love, 'trust', 8);
+        f.morale(-1);
+        f.flag('love_distance_plan', true);
+        return 'You tell them it is great and mean it. You also say you are scared. You spend the evening working out when you can visit.';
+      }),
+      opt('stay', 'Say you want them to stay', (f) => {
+        f.rel(c.love, 'romance', -6);
+        f.rel(c.love, 'trust', -6);
+        f.morale(-2);
+        return 'It slips out before you think. They are quiet, and then say they did not expect you to ask them not to go.';
+      }),
+      opt('ask', 'Ask what they want', (f) => {
+        f.rel(c.love, 'respect', 6);
+        f.rel(c.love, 'trust', 6);
+        return 'They say they want both: the offer and you. Neither of you has a plan for how, but you leave the conversation on the same side.';
+      }),
+    ],
+  },
+  {
+    id: 'love_day_off',
+    icon: '🌤️',
+    title: 'They noticed you are worn out',
+    tone: 'good',
+    levels: ALL,
+    weight: 1,
+    need: ['love'],
+    when: (c) => isProfile(c.love, 'in_your_corner') && c.s.player.energy < 55,
+    text: (c) => `${first(c.love)} can tell you are worn down before you say anything. They have cleared their afternoon and picked a place with no phones and no basketball.`,
+    options: (c) => [
+      opt('take', 'Take the afternoon', (f) => {
+        f.energy(10);
+        f.morale(4);
+        f.rel(c.love, 'romance', 6);
+        return 'You do nothing for three hours. You come back to practice rested, and they do not mention it again.';
+      }),
+      opt('cant', 'Say you cannot', (f) => {
+        f.morale(-2);
+        f.rel(c.love, 'romance', -3);
+        return 'You say you have too much to do. They are not angry, but they stop making offers like that for a while.';
+      }),
+      opt('half', 'Bring them to the gym instead', (f) => {
+        f.energy(2);
+        f.rel(c.love, 'romance', 3);
+        f.progress('shooting', 0.4);
+        return 'It is not what they planned, and they are a good sport. You shoot while they rebound and tell you what looks different.';
+      }),
+    ],
+  },
+
+  // agents
+  {
+    id: 'agent_big_deal',
+    icon: '💼',
+    title: 'A bigger deal, fast',
+    tone: 'odd',
+    levels: PRO,
+    weight: 1,
+    need: ['agent'],
+    when: (c) => isProfile(c.agent, 'shark'),
+    text: (c) => `${first(c.agent)} calls with a bigger endorsement offer and a deadline of tomorrow. It pays well. It is also a brand you have never used, and he is not offering much detail.`,
+    options: (c) => [
+      opt('sign', 'Sign it', (f) => {
+        f.money(c.$(0, 0, 180000));
+        f.rep(-1);
+        f.followers(-0.01);
+        return 'The money arrives, and so do questions from fans about why you picked that brand. Your agent says he told you it was a great deal.';
+      }),
+      opt('no', 'Turn it down', (f) => {
+        f.rel(c.agent, 'trust', -3);
+        f.rel(c.agent, 'respect', 4);
+        f.morale(1);
+        return 'He sighs and says you are leaving money on the table. He also says he respects that you decided yourself.';
+      }),
+      opt('details', 'Ask for every detail first', (f) => {
+        if (f.rng.chance(0.55)) {
+          f.rel(c.agent, 'trust', 6);
+          f.money(c.$(0, 0, 60000));
+          return 'He goes through the fine print and admits two terms are bad. He fixes them and you sign a better deal than the one he first described.';
+        }
+        f.rel(c.agent, 'trust', 2);
+        return 'He sends the contract and says the deadline is firm. You read it and it is the same as he said. You decide on your own.';
+      }),
+    ],
+  },
+  {
+    id: 'agent_says_wait',
+    icon: '✋',
+    title: 'He says wait',
+    tone: 'odd',
+    levels: PRO,
+    weight: 1,
+    need: ['agent'],
+    when: (c) => isProfile(c.agent, 'protector'),
+    text: (c) => `${first(c.agent)} tells you to turn down a short deal that pays well now. He says it would lock you into a role you will outgrow in two years. You do not want to wait, because the money is real.`,
+    options: (c) => [
+      opt('listen', 'Listen to him', (f) => {
+        f.rel(c.agent, 'trust', 8);
+        f.rep(1);
+        f.morale(-1);
+        return 'It is hard to say no. He is patient and explains each reason. You come away believing he is looking out for your whole career.';
+      }),
+      opt('take', 'Take the money anyway', (f) => {
+        f.money(c.$(0, 0, 120000));
+        f.rel(c.agent, 'trust', -4);
+        return 'He tells you it is your decision and handles the paperwork well. His voice is quieter than usual afterward.';
+      }),
+      opt('better', 'Ask him to find a better one', (f) => {
+        if (f.rng.chance(0.5)) {
+          f.money(c.$(0, 0, 200000));
+          f.rel(c.agent, 'respect', 6);
+          return 'It takes six weeks, and he comes back with a longer and better deal. He says this is why you wait.';
+        }
+        f.rel(c.agent, 'trust', 2);
+        return 'He tries, and nothing better comes. You end up with no deal and a good reason for it.';
+      }, { hint: 'It could take a while' }),
+    ],
+  },
+  {
+    id: 'agent_in_over_head',
+    icon: '😬',
+    title: 'The rookie agent made a mistake',
+    tone: 'bad',
+    levels: PRO,
+    weight: 1,
+    need: ['agent'],
+    when: (c) => isProfile(c.agent, 'green_agent'),
+    text: (c) => `${first(c.agent)} double-booked you for a sponsor appearance and a team workout. They call you in a panic, apologizing so much you have trouble following what happened.`,
+    options: (c) => [
+      opt('forgive', 'Tell them it is fine', (f) => {
+        f.rel(c.agent, 'affinity', 8);
+        f.rel(c.agent, 'trust', 4);
+        f.energy(-3);
+        return 'You handle both, with a lot of driving. They are so grateful that they work twice as hard on your next deal.';
+      }),
+      opt('help', 'Help them fix it, and teach them', (f) => {
+        f.rel(c.agent, 'respect', 8);
+        f.rel(c.agent, 'trust', 8);
+        f.energy(-4);
+        return 'You go through the calendar together and set up a system. They write down everything you say. They do not make that mistake again.';
+      }),
+      opt('angry', 'Tell them this cannot happen again', (f) => {
+        f.rel(c.agent, 'affinity', -6);
+        f.rel(c.agent, 'respect', 4);
+        f.morale(-1);
+        return 'You are right, and they know it. They apologize again and look scared, which does not make you feel better.';
+      }),
+    ],
+  },
+  {
+    id: 'agent_two_stories',
+    icon: '🎭',
+    title: 'Two different stories',
+    tone: 'bad',
+    levels: PRO,
+    weight: 1,
+    need: ['agent'],
+    when: (c) => isProfile(c.agent, 'smooth_agent'),
+    text: (c) => `You find out that ${first(c.agent)} told the team you would be happy to take a smaller deal. He told you the team was pushing for more. Both of those cannot be true.`,
+    options: (c) => [
+      opt('confront', 'Ask him about it directly', (f) => {
+        if (f.rng.chance(0.5)) {
+          f.rel(c.agent, 'respect', 6);
+          f.rel(c.agent, 'trust', 4);
+          return 'He admits it, with a lot of charm, and promises to tell you everything from now on. You decide to keep a closer eye on him.';
+        }
+        f.rel(c.agent, 'trust', -8);
+        return 'He talks for ten minutes and never answers. You know he is lying, and you are not sure he knows you know.';
+      }, { hint: 'He is good at not answering' }),
+      opt('check', 'Quietly talk to the team yourself', (f) => {
+        f.rel(c.agent, 'trust', -4);
+        f.rep(1);
+        return 'You learn the real number and what he said. You do not tell him you know, and you start asking more questions.';
+      }),
+      opt('let', 'Let it go', (f) => {
+        f.rel(c.agent, 'trust', -2);
+        f.money(-c.$(0, 0, 30000));
+        return 'You take the smaller deal. You tell yourself it was not worth the fight, and wonder how often it happens.';
+      }),
+    ],
+  },
+
+  // reporters
+  {
+    id: 'media_long_read',
+    icon: '📝',
+    title: 'A long piece about you',
+    tone: 'good',
+    levels: UP,
+    weight: 1,
+    need: ['media'],
+    when: (c) => isProfile(c.media, 'fair_reporter') && c.s.player.reputation >= 10,
+    text: (c) => `${first(c.media)} asks for a few hours of your time for a long profile. They have always printed what you said accurately, including the bad parts. They say they will read you the quotes before it runs.`,
+    options: (c) => [
+      opt('yes', 'Say yes', (f) => {
+        f.followers(0.08);
+        f.rep(2);
+        f.rel(c.media, 'trust', 6);
+        f.energy(-3);
+        return 'The piece is honest and fair. It mentions a rough season you would rather forget, and fans respect that you let them print it.';
+      }),
+      opt('terms', 'Agree, with a few limits', (f) => {
+        f.followers(0.04);
+        f.rel(c.media, 'respect', 4);
+        return 'They accept most of your limits and push back on one, politely. The piece is good, and a little shorter than it could have been.';
+      }),
+      opt('no', 'Say not now', (f) => {
+        f.rel(c.media, 'affinity', -3);
+        return 'They say that is fine and will check back. A younger player gets the story instead.';
+      }),
+    ],
+  },
+  {
+    id: 'media_twisted_quote',
+    icon: '✂️',
+    title: 'That is not what you said',
+    tone: 'bad',
+    levels: UP,
+    weight: 1,
+    need: ['media'],
+    when: (c) => isProfile(c.media, 'sensationalist') && c.s.player.followers >= 100,
+    text: (c) => `A headline by ${first(c.media)} quotes you saying something you said only half of. The other half made it a joke. Now it reads like an attack on a teammate, and people are sharing it.`,
+    options: (c) => [
+      opt('call', 'Call the reporter', (f) => {
+        if (f.rng.chance(0.5)) {
+          f.rep(1);
+          f.rel(c.media, 'respect', 4);
+          return 'They agree to add the full quote and fix the headline. It is smaller than the first version, and fewer people see it.';
+        }
+        f.rel(c.media, 'trust', -4);
+        return 'They say the quote is accurate and offer you a chance to say more. It only gives them another quote.';
+      }, { hint: 'It could make it worse' }),
+      opt('post', 'Post the full quote yourself', (f) => {
+        f.followers(0.04);
+        f.rep(1);
+        f.chem(1);
+        return 'You post the full quote, with the joke. Your teammate replies with a laughing emoji. The story dies in a day.';
+      }),
+      opt('ignore', 'Ignore it', (f) => {
+        f.rep(-1);
+        f.chem(-2);
+        return 'It takes longer than a day to blow over. Your teammate says it is fine, and then asks you about it in the locker room.';
+      }),
+    ],
+  },
+  {
+    id: 'media_big_fan',
+    icon: '🖋️',
+    title: 'The reporter who loves your team',
+    tone: 'good',
+    levels: UP,
+    weight: 1,
+    need: ['media'],
+    when: (c) => isProfile(c.media, 'fan_writer'),
+    text: (c) => `${first(c.media)} wrote a glowing article about your season. It is kind and heartfelt, and it also has a wrong stat and a wrong year in it. Fans are already quoting the mistakes.`,
+    options: (c) => [
+      opt('thank', 'Thank them and let it go', (f) => {
+        f.rel(c.media, 'affinity', 8);
+        f.followers(0.03);
+        return 'They are thrilled that you read it. They fix the error on their own two days later and thank you again.';
+      }),
+      opt('correct', 'Kindly correct the mistakes', (f) => {
+        f.rel(c.media, 'respect', 6);
+        f.rep(1);
+        return 'You send a short, friendly note. They write back within a minute, fix the article, and thank you for taking it seriously.';
+      }),
+      opt('ignore', 'Ignore it', (f) => {
+        f.rel(c.media, 'affinity', -1);
+        return 'People repeat the wrong year for a week. Nobody holds it against you.';
+      }),
+    ],
+  },
+  {
+    id: 'media_old_question',
+    icon: '🔎',
+    title: 'The question you hoped nobody would ask',
+    tone: 'bad',
+    levels: UP,
+    weight: 1,
+    need: ['media'],
+    when: (c) => isProfile(c.media, 'digger') && c.s.player.reputation >= 15,
+    text: (c) => `${first(c.media)} has been asking around about why you left your old team. They call you, politely, and say they want your side before they write anything.`,
+    options: (c) => [
+      opt('open', 'Tell them the whole story', (f) => {
+        f.rep(1);
+        f.rel(c.media, 'trust', 8);
+        f.rel(c.media, 'respect', 6);
+        f.morale(-1);
+        return 'It is not flattering in places. The piece is fair, and fans respect that you did not hide.';
+      }),
+      opt('nocomment', 'Say no comment', (f) => {
+        f.rep(-1);
+        f.rel(c.media, 'trust', -4);
+        return 'They write the story with what they have. You are quoted as declining to comment, which reads worse than it should.';
+      }),
+      opt('time', 'Ask for a day to think', (f) => {
+        if (f.rng.chance(0.6)) {
+          f.rep(1);
+          f.rel(c.media, 'respect', 4);
+          return 'They agree. You use the time to talk to your agent and your old coach. The piece is more accurate for it.';
+        }
+        f.rel(c.media, 'trust', -2);
+        return 'They give you until morning and then run it anyway. At least you had time to prepare.';
+      }),
+    ],
+  },
+
+  // scouts
+  {
+    id: 'scout_straight_talk',
+    icon: '🗒️',
+    title: 'What the scout wrote down',
+    tone: 'odd',
+    levels: UP,
+    weight: 1,
+    need: ['scout'],
+    when: (c) => isProfile(c.scout, 'blunt_scout'),
+    text: (c) => `${first(c.scout)} finds you after the game. "You are not good enough going left. If you cannot fix that, the other team knows it." They walk away before you can answer.`,
+    options: (c) => [
+      opt('fix', 'Ask how to fix it', (f) => {
+        f.rel(c.scout, 'respect', 8);
+        f.progress('handles', 1.1);
+        f.energy(-3);
+        return 'They give you three drills and tell you when to start. It is the most useful two minutes you have had all season.';
+      }),
+      opt('thanks', 'Thank them for being honest', (f) => {
+        f.rel(c.scout, 'respect', 6);
+        f.rel(c.scout, 'affinity', 4);
+        f.progress('handles', 0.5);
+        return 'They nod once. Next time, they stop and say hello.';
+      }),
+      opt('argue', 'Tell them they are wrong', (f) => {
+        f.rel(c.scout, 'respect', -4);
+        f.morale(-1);
+        return 'They shrug and say they have been wrong before. The next game, the defense forces you left twice, and you lose the ball both times.';
+      }),
+    ],
+  },
+  {
+    id: 'scout_flattery',
+    icon: '🧁',
+    title: 'Everyone says you are great',
+    tone: 'odd',
+    levels: UP,
+    weight: 1,
+    need: ['scout'],
+    when: (c) => isProfile(c.scout, 'flatterer') && c.s.player.morale < 60,
+    text: (c) => `${first(c.scout)} tells you that you are the best player they have seen all year. It is a hard stretch for you, and it is the nicest thing anyone has said in weeks. You have also heard them say it to someone else.`,
+    options: (c) => [
+      opt('enjoy', 'Enjoy it', (f) => {
+        f.morale(4);
+        f.rel(c.scout, 'affinity', 3);
+        return 'It feels good. Later you realize it told you nothing about what you should work on, and you are in the same spot as before.';
+      }),
+      opt('honest', 'Ask what they honestly think', (f) => {
+        if (f.rng.chance(0.5)) {
+          f.rel(c.scout, 'trust', 8);
+          f.progress('iq', 0.6);
+          return 'They hesitate, then give you one real thing. It is small and good, and the first useful thing they have ever said to you.';
+        }
+        f.rel(c.scout, 'trust', -2);
+        return 'They repeat that you are great, with more detail. You thank them and stop asking.';
+      }, { hint: 'They might not have an answer' }),
+      opt('check', 'Ask another scout what they think', (f) => {
+        f.progress('iq', 0.5);
+        f.rel(c.scout, 'trust', -3);
+        return 'The second scout gives you a more careful and less flattering answer. You learn what to work on.';
+      }),
+    ],
+  },
 ];
 
 const BY_ID = Object.fromEntries(DEFS.map((d) => [d.id, d])) as Record<string, Def>;
@@ -3194,6 +3867,9 @@ function buildCtx(state: GameState, refs: Record<string, string>, seed: number):
     teammate: npc('teammate'),
     family: npc('family'),
     love: npc('love'),
+    agent: npc('agent'),
+    media: npc('media'),
+    scout: npc('scout'),
     $: (hs, college, pro) => [hs, college, pro][SCALE[level]],
     pick: (xs) => xs[Math.floor(rng.next() * xs.length)],
   };
@@ -3215,6 +3891,12 @@ function gatherRefs(state: GameState): Record<string, string> {
   if (fam) refs.family = fam.id;
   const love = find('love_interest');
   if (love) refs.love = love.id;
+  const agent = find('agent');
+  if (agent) refs.agent = agent.id;
+  const media = find('media');
+  if (media) refs.media = media.id;
+  const scout = find('scout');
+  if (scout) refs.scout = scout.id;
   return refs;
 }
 
@@ -3268,7 +3950,7 @@ export function rollLifeEvent(state: GameState, rng: RNG): boolean {
   if (!pool.length) return false;
   const def = rng.weighted(pool, (d) => d.weight * originWeight(state, d.id) * (c.recentLife.includes(d.id) ? 0.05 : 1));
   const used: Record<string, string> = {};
-  for (const r of ['coach', 'friend', 'rival', 'teammate', 'family', 'love'] as Role[]) if (refs[r]) used[r] = refs[r];
+  for (const r of ['coach', 'friend', 'rival', 'teammate', 'family', 'love', 'agent', 'media', 'scout'] as Role[]) if (refs[r]) used[r] = refs[r];
   c.lifeEvent = { id: def.id, seed: rng.int(1, 2 ** 30), refs: used };
   c.recentLife = [...c.recentLife, def.id].slice(-10);
   c.weeksSinceLife = 0;

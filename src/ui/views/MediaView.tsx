@@ -5,6 +5,7 @@ import { Avatar, Button, Pill, Panel, Stat, cx } from '../components/ui';
 const money = (n: number) => (Math.abs(n) >= 1_000_000 ? `$${(n / 1_000_000).toFixed(2)}M` : `$${Math.round(n).toLocaleString()}`);
 
 const KIND_LABEL: Record<string, { label: string; color?: string }> = {
+  dm: { label: 'Message', color: '#a78bfa' },
   media: { label: 'Media', color: '#38bdf8' },
   fans: { label: 'Fans' },
   haters: { label: 'Critic', color: '#ef4444' },
@@ -44,7 +45,7 @@ export function MediaView() {
                       </span>
                     </div>
                     <p className="mt-0.5 text-[15px] leading-snug text-ink-100">{post.text}</p>
-                    <div className="mt-1 text-xs text-ink-500">♥ {post.likes.toLocaleString()}</div>
+                    {post.kind !== 'dm' && <div className="mt-1 text-xs text-ink-500">♥ {post.likes.toLocaleString()}</div>}
                   </div>
                 </li>
               );

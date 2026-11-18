@@ -144,19 +144,21 @@ describe('media: feed', () => {
     const s = toWeek(5, 3);
     const opp = s.league.teamIds.find((t) => t !== s.career.teamId)!;
     const rng = new RNG(9);
+    // private messages from people in the story share the feed; this is about the posts
+    const posts = () => s.feed.filter((p) => p.kind !== 'dm');
     postGamePosts(s, rng, facts({ oppId: opp }));
-    expect(s.feed.length).toBeGreaterThan(0);
-    const text = s.feed.map((p) => p.text).join(' ');
+    expect(posts().length).toBeGreaterThan(0);
+    const text = posts().map((p) => p.text).join(' ');
     expect(text).toMatch(/31/);
     expect(text).toMatch(/71-64|71/);
-    for (const p of s.feed) {
+    for (const p of posts()) {
       expect(p.likes).toBeGreaterThanOrEqual(0);
       expect(p.handle.startsWith('@')).toBe(true);
     }
     // a quiet game gets quiet posts, and never invents a stat line
     const before = s.feed.length;
     postGamePosts(s, new RNG(2), facts({ oppId: opp, line: null, gameScore: 0 }));
-    const added = s.feed.slice(before).map((p) => p.text).join(' ');
+    const added = s.feed.slice(before).filter((p) => p.kind !== 'dm').map((p) => p.text).join(' ');
     expect(added).not.toMatch(/\d+ points/);
   });
 

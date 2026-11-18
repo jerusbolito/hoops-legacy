@@ -41,7 +41,10 @@
     { "title": "Coach: offseason", "entry": "src/engine/coaching.ts#nextSeason", "blurb": "Aging, development, moves and the new season." },
     { "title": "Coach: a trade", "entry": "src/engine/coachingTrades.ts#proposeTrade", "blurb": "Cap rules and the other side's answer." },
     { "title": "Cloud sync", "entry": "src/sync/engine.ts#syncAll", "blurb": "Upload, download and conflicts." },
-    { "title": "Weekly newspaper", "entry": "src/engine/paper.ts#publishIssue", "blurb": "Writes the issue from the week's events." }
+    { "title": "Weekly newspaper", "entry": "src/engine/paper.ts#publishIssue", "blurb": "Writes the issue from the week's events." },
+    { "title": "People reach out", "entry": "src/engine/characterLife.ts#npcPulse", "blurb": "Who messages you this week, and what they say." },
+    { "title": "People change", "entry": "src/engine/characters.ts#evolveCharacters", "blurb": "Characters at a turning point with you, once a season." },
+    { "title": "Plain-language check", "entry": "src/narrative/plain.ts#plainProblem", "blurb": "Sends figurative narration back for a rewrite." }
   ],
   "layerChain": {
     "dir": "src/engine",
@@ -65,6 +68,8 @@
     { "title": "UI tests mock the store hook", "text": "Server rendering reads a store's initial snapshot, so screen tests replace the hook with one that reads live state. Copy the pattern from screens.test.ts.", "where": ["src/ui/screens.test.ts", "src/ui/newFeatures.test.ts"] },
     { "title": "Internal names still say hoops-legacy", "text": "The package, desktop appId and the IndexedDB database name were not renamed with the product. Changing them would orphan saves and break auto-update.", "where": ["package.json", "electron-builder.config.cjs", "src/state/persistence.ts"] },
     { "title": "Windows quirks", "text": "Source files use CRLF line endings, so hand-rolled scripts must normalize before matching. Shell heredocs containing $ or template strings can be blocked by a safety check; write the script with an editor tool and run it with node.", "where": [] },
+    { "title": "Everything the game writes must be plain", "text": "A test (plainAudit) fails if any life event, choice result, profile or message reads as metaphor or mood-setting. Write what happened and what it means. Run it with AUDIT=1 to see the lines.", "where": ["src/narrative/plain.ts", "src/narrative/plainAudit.test.ts"] },
+    { "title": "Character text and behaviour is gated by profile", "text": "Events use isProfile / isProfileOrLegacy. A person with an empty profile is from before profiles existed and keeps the old behaviour, so do not gate by profile alone without thinking about them.", "where": ["src/engine/characters.ts", "src/engine/lifeEvents.ts"] },
     { "title": "Athletes can vanish at level changes", "text": "enterLevel deletes every non-persistent athlete that is not carried up. Anyone the story is built on has to be carried or retired on purpose, or they disappear from the league.", "where": "src/engine/career.ts" }
   ]
 }

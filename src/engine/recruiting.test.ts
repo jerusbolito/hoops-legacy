@@ -60,7 +60,10 @@ describe('players you want on your team', () => {
     s.player.energy = 90;
     s.player.followers = 5000;
     s.player.money = 10_000;
-    const t = s.recruiting.targets[0];
+    // the autopilot that got us here may already have called the first target, so use one nobody has contacted
+    const t = s.recruiting.targets.find((x) => x.contacts === 0 && !x.arcId) ?? s.recruiting.targets[0];
+    t.contacts = 0;
+    t.arcId = undefined;
     const arcs = s.story.arcs.length;
     const r1 = recruitAct(s, rng, t.athleteId, 'call');
     expect(r1.ok).toBe(true);
@@ -78,8 +81,8 @@ describe('players you want on your team', () => {
     // the more sold someone already is, the less each push adds
     const lo = structuredClone(s);
     const hi = structuredClone(s);
-    lo.recruiting.targets[0].pull = 10;
-    hi.recruiting.targets[0].pull = 90;
+    lo.recruiting.targets.find((x) => x.athleteId === t.athleteId)!.pull = 10;
+    hi.recruiting.targets.find((x) => x.athleteId === t.athleteId)!.pull = 90;
     lo.recruiting.points = hi.recruiting.points = 4;
     const gLo = recruitAct(lo, new RNG(5), t.athleteId, 'call').gain;
     const gHi = recruitAct(hi, new RNG(5), t.athleteId, 'call').gain;

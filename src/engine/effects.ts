@@ -217,6 +217,8 @@ export function applyEffects(state: GameState, effects: Effect[], source: string
           season: state.career.season,
           personality: e.personality.slice(0, 3),
           rel: { respect: 20, trust: 20 },
+          // the narrator decided who this person is, so the game does not overwrite it
+          profile: null,
         });
         state.npcs[npc.id] = npc;
         applied.push(`Met ${npc.name}`);
