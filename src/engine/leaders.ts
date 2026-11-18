@@ -81,9 +81,9 @@ export function gamesSoFar(state: GameState): number {
 /** Enough games, and for a percentage enough attempts, to count. */
 export function qualifies(state: GameState, s: LeagueStatLine, key: StatKey, so = gamesSoFar(state)): boolean {
   if (s.gp < Math.max(1, Math.floor(so * 0.5))) return false;
-  if (key === 'fgPct') return s.fga >= 3.5 * so;
-  if (key === 'tpPct') return s.tpa >= 1.5 * so;
-  if (key === 'ftPct') return s.fta >= 1.5 * so;
+  if (key === 'fgPct') return s.fga >= 5 * so;
+  if (key === 'tpPct') return s.tpa >= 2.5 * so;
+  if (key === 'ftPct') return s.fta >= 2.5 * so;
   return true;
 }
 

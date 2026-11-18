@@ -9,6 +9,9 @@ import { RATING_KEYS } from '../state/schemas';
 export type Side = 'home' | 'away';
 type ShotType = 'rim' | 'mid' | 'three';
 
+/** Odds above these are worth 60% as much (see `shotOdds`). */
+const SHOT_KNEE: Record<ShotType, number> = { rim: 0.62, mid: 0.43, three: 0.36 };
+
 export interface SimTeamInput {
   teamId: string;
   abbrev: string;
@@ -416,6 +419,10 @@ export class GameSim {
     } else {
       p = 0.345 + (this.r(shooter, 'shooting') - m) * 0.0055 - dDef * 0.0018;
     }
+    // diminishing returns: past the knee each extra point of skill is worth 60% as much, so elite
+    // shooters stay elite without posting 65% from three
+    const knee = SHOT_KNEE[type];
+    if (p > knee) p = knee + (p - knee) * 0.6;
     // game plan, film study and badges only ever tilt the user's own shots
     const mods = this.opts.userMods;
     if (mods && this.isUser(shooter)) p += mods.shot[type] + mods.all;
@@ -423,7 +430,8 @@ export class GameSim {
   }
 
   private ftPct(a: Athlete): number {
-    return clamp(0.48 + this.r(a, 'shooting') * 0.0045, 0.4, 0.93);
+    const p = 0.48 + this.r(a, 'shooting') * 0.0045;
+    return clamp(p > 0.8 ? 0.8 + (p - 0.8) * 0.5 : p, 0.4, 0.93);
   }
 
   private shotCoords(type: ShotType): { x: number; y: number } {
