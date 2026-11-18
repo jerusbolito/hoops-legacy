@@ -10,6 +10,9 @@ export type Side = 'home' | 'away';
 type ShotType = 'rim' | 'mid' | 'three';
 
 /** Odds above these are worth 60% as much (see `shotOdds`). */
+/** The most one player's share of possessions can be, as a multiple of the average player on the floor. */
+const USAGE_CAP = 1.8;
+
 const SHOT_KNEE: Record<ShotType, number> = { rim: 0.62, mid: 0.43, three: 0.36 };
 
 export interface SimTeamInput {
@@ -390,7 +393,7 @@ export class GameSim {
 
   private usage(a: Athlete): number {
     const scoring = this.r(a, 'shooting') * 0.45 + this.r(a, 'finishing') * 0.4 + this.r(a, 'handles') * 0.15;
-    return Math.exp((scoring - this.opts.levelMean) / 16);
+    return Math.exp((scoring - this.opts.levelMean) / 20);
   }
 
   private pickShot(a: Athlete): ShotType {
@@ -448,7 +451,9 @@ export class GameSim {
     const len = this.rng.range(11, 22) * (this.opts.pace ?? 1);
     this.tick(len * 0.85);
 
-    const actor = this.rng.weighted(offFive, (a) => this.usage(a));
+    // a star shoots more than the rest, but never more than USAGE_CAP times what an average teammate does
+    const meanUse = offFive.reduce((s, a) => s + this.usage(a), 0) / offFive.length;
+    const actor = this.rng.weighted(offFive, (a) => Math.min(this.usage(a), USAGE_CAP * meanUse));
     const defAvg = defFive.reduce((s, d) => s + this.r(d, 'defense'), 0) / 5;
 
     // Turnover

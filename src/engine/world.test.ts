@@ -222,7 +222,8 @@ describe('awards races and the All-Star game', () => {
     expect(s.transactions.some((t) => /All-Star rosters are out/.test(t.text))).toBe(true);
     // a second pass the same week changes nothing
     midseasonHeadlines(s);
-    expect(s.player.awards.filter((a) => a.name === 'All-Star')).toHaveLength(1);
+    // (an earlier season's All-Star, say from high school, does not count against this one)
+    expect(s.player.awards.filter((a) => a.name === 'All-Star' && a.season === s.career.season)).toHaveLength(1);
   });
 
   it('writes the race up every few weeks', () => {

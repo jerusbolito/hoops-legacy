@@ -68,7 +68,7 @@ describe('league leaders', () => {
   });
 
   it('look like a real league: no one takes half the team shots, and the best scorer is a believable number', () => {
-    // one seed can land well either side (measured 36% to 51%, mean about 42%), so look at six: the worst must stay clear of half the team
+    // one seed can land well either side (measured 29% to 51% before the usage cap, now mean about 36-39% and worst about 42%), so look at six: the worst must stay clear of half the team
     // points and the typical star well under that
     for (const [level, cap] of [['hs', 32], ['college', 34]] as const) {
       const shares: number[] = [];
@@ -83,8 +83,8 @@ describe('league leaders', () => {
         // and the fifth-best scorer is a real contributor too, not a rounding error
         expect(leaders(s, 'ppg', 5)[4].value, `${level} ${seed}`).toBeGreaterThan(12);
       }
-      expect(Math.max(...shares), level).toBeLessThan(0.55);
-      expect(shares.reduce((x, y) => x + y, 0) / shares.length, level).toBeLessThan(0.46);
+      expect(Math.max(...shares), level).toBeLessThan(0.5);
+      expect(shares.reduce((x, y) => x + y, 0) / shares.length, level).toBeLessThan(0.42);
     }
   }, 60_000);
 

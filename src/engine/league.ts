@@ -78,8 +78,9 @@ export function simOptions(state: GameState, keyMoments: boolean): SimOptions {
   const cfg = LEVEL_CONFIG[state.league.level];
   const p = state.player;
   // energy & morale shade the user's effective ratings; playing on an injury costs a lot
-  // being fresh helps a little more than being tired hurts, so a casual player is not punished for training hard
-  const energyMod = p.energy >= 70 ? (p.energy - 70) / 10 : (p.energy - 70) / 14;
+  // being tired costs rating points (a little less than it used to, so training hard is not punished much), but being
+  // fresher than normal adds nothing: resting more than you need must not be a free edge
+  const energyMod = Math.min(0, (p.energy - 70) / 14);
   const mod = Math.round(energyMod + (p.morale - 50) / 15) - (isPlayingHurt(state) ? HURT_PENALTY : 0);
   const rivalIds = Object.values(state.npcs)
     .filter((n) => n.athleteId && n.relationship.rivalry >= 40)
